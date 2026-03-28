@@ -18,7 +18,6 @@ export interface FixedToolbarProps {
 
 export interface BlockHandleProps {
   editor: Editor;
-  onPlusClick: (top: number) => void;
 }
 
 export interface SlashCommandMenuProps {

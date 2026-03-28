@@ -8,6 +8,7 @@ import {
   Heading3,
   List,
   ListOrdered,
+  CheckSquare,
   Quote,
   Minus,
   Code2,
@@ -53,6 +54,12 @@ export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     keywords: "ordered number list 번호 리스트",
     icon: <ListOrdered size={SI} />,
     command: (editor) => editor.chain().focus().toggleOrderedList().run(),
+  },
+  {
+    label: "체크리스트",
+    keywords: "checklist task todo 체크 할일",
+    icon: <CheckSquare size={SI} />,
+    command: (editor) => editor.chain().focus().toggleTaskList().run(),
   },
   {
     label: "인용문",

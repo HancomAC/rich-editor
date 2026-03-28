@@ -14,11 +14,33 @@ import TextAlign from "@tiptap/extension-text-align";
 import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+import Typography from "@tiptap/extension-typography";
+import CharacterCount from "@tiptap/extension-character-count";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
 import "highlight.js/styles/atom-one-dark.css";
+
+const CustomTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.style.backgroundColor || null,
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes.backgroundColor) return {};
+          return { style: `background-color: ${attributes.backgroundColor}` };
+        },
+      },
+    };
+  },
+});
 
 import { useEffect, useCallback, useState, useRef } from "react";
 import { PdfBlock } from "../extensions/PdfBlock";
@@ -82,10 +104,16 @@ export function TipTapEditor({
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
-      Table.configure({ resizable: true }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Subscript,
+      Superscript,
+      Typography,
+      CharacterCount,
+      Table.configure({ resizable: true, allowTableNodeSelection: true }),
       TableRow,
       TableHeader,
-      TableCell,
+      CustomTableCell,
       PdfBlock,
     ],
     content,
@@ -94,7 +122,7 @@ export function TipTapEditor({
     },
     editorProps: {
       attributes: {
-        class: "tiptap outline-none min-h-[400px] pl-12 pr-4 py-6",
+        class: "tiptap outline-none min-h-[400px] py-6 pr-4",
       },
       handlePaste: (view, event) => {
         if (!onUploadFile) return false;
@@ -132,6 +160,7 @@ export function TipTapEditor({
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content, { emitUpdate: false });
+      editor.commands.fixTables();
     }
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -252,13 +281,8 @@ export function TipTapEditor({
     <div className="hce-editor-wrapper relative border border-border rounded-xl bg-background">
       <FixedToolbar editor={editor} onPdfClick={() => pdfInputRef.current?.click()} />
 
-      <div className="relative">
-        <BlockHandle
-          editor={editor}
-          onPlusClick={() => {}}
-        />
-        <EditorContent editor={editor} />
-      </div>
+      <BlockHandle editor={editor} />
+      <EditorContent editor={editor} />
 
       {uploading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl">
@@ -281,6 +305,10 @@ export function TipTapEditor({
           />
         </div>
       )}
+
+      <div className="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border">
+        {editor.storage.characterCount.characters()} 자 · {editor.storage.characterCount.words()} 단어
+      </div>
 
       <input
         ref={pdfInputRef}

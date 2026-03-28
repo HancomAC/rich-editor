@@ -32,9 +32,14 @@ import {
   Combine,
   PanelTop,
   PanelLeft,
+  Paintbrush,
+  CheckSquare,
+  Superscript,
+  Subscript,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../utils/cn";
+import { InputModal } from "./InputModal";
 
 function Btn({
   onClick,
@@ -114,6 +119,9 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
 
   const [codeMenuOpen, setCodeMenuOpen] = useState(false);
   const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const [modalState, setModalState] = useState<{
+    type: "link" | "image" | "cellBg";
+  } | null>(null);
   const codeMenuRef = useRef<HTMLDivElement>(null);
   const tableMenuRef = useRef<HTMLDivElement>(null);
 
@@ -131,25 +139,12 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
   }, [codeMenuOpen, tableMenuOpen]);
 
   const addLink = useCallback(() => {
-    const previousUrl = editor.getAttributes("link").href || "";
-    const url = window.prompt("링크 URL을 입력하세요", previousUrl);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-    } else {
-      editor
-        .chain()
-        .focus()
-        .extendMarkRange("link")
-        .setLink({ href: url })
-        .run();
-    }
-  }, [editor]);
+    setModalState({ type: "link" });
+  }, []);
 
   const addImage = useCallback(() => {
-    const url = window.prompt("이미지 URL을 입력하세요");
-    if (url) editor.chain().focus().setImage({ src: url }).run();
-  }, [editor]);
+    setModalState({ type: "image" });
+  }, []);
 
   const isInTable = editor.isActive("table");
 
@@ -198,6 +193,20 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
         title="하이라이트"
       >
         <Highlighter size={iconSize} />
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        active={editor.isActive("superscript")}
+        title="위첨자"
+      >
+        <Superscript size={iconSize} />
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleSubscript().run()}
+        active={editor.isActive("subscript")}
+        title="아래첨자"
+      >
+        <Subscript size={iconSize} />
       </Btn>
 
       <Sep />
@@ -266,6 +275,13 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
         title="번호 목록"
       >
         <ListOrdered size={iconSize} />
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleTaskList().run()}
+        active={editor.isActive("taskList")}
+        title="체크리스트"
+      >
+        <CheckSquare size={iconSize} />
       </Btn>
       <Btn
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -414,6 +430,14 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
                     runTableCommand(() => editor.chain().focus().splitCell().run())
                   }
                 />
+                <TableMenuButton
+                  icon={<Paintbrush size={14} />}
+                  label="셀 배경색"
+                  onClick={() => {
+                    setTableMenuOpen(false);
+                    setModalState({ type: "cellBg" });
+                  }}
+                />
                 <div className="h-px bg-border my-1" />
                 <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   삭제
@@ -509,16 +533,58 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
       {/* Undo / Redo */}
       <Btn
         onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
         title="실행 취소"
       >
         <Undo size={iconSize} />
       </Btn>
       <Btn
         onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
         title="다시 실행"
       >
         <Redo size={iconSize} />
       </Btn>
+
+      {modalState?.type === "link" && (
+        <InputModal
+          title="링크 URL 입력"
+          placeholder="https://example.com"
+          defaultValue={editor.getAttributes("link").href || ""}
+          onConfirm={(url) => {
+            editor
+              .chain()
+              .focus()
+              .extendMarkRange("link")
+              .setLink({ href: url })
+              .run();
+            setModalState(null);
+          }}
+          onCancel={() => setModalState(null)}
+        />
+      )}
+      {modalState?.type === "image" && (
+        <InputModal
+          title="이미지 URL 입력"
+          placeholder="https://example.com/image.png"
+          onConfirm={(url) => {
+            editor.chain().focus().setImage({ src: url }).run();
+            setModalState(null);
+          }}
+          onCancel={() => setModalState(null)}
+        />
+      )}
+      {modalState?.type === "cellBg" && (
+        <InputModal
+          title="셀 배경색 입력"
+          placeholder="#f3f4f6"
+          onConfirm={(color) => {
+            editor.chain().focus().setCellAttribute("backgroundColor", color).run();
+            setModalState(null);
+          }}
+          onCancel={() => setModalState(null)}
+        />
+      )}
     </div>
   );
 }

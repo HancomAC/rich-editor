@@ -4,6 +4,7 @@ export { FixedToolbar } from "./components/FixedToolbar";
 export { BubbleToolbar } from "./components/BubbleToolbar";
 export { BlockHandle } from "./components/BlockHandle";
 export { SlashCommandMenu, SLASH_MENU_ITEMS } from "./components/SlashCommandMenu";
+export { InputModal } from "./components/InputModal";
 export { PdfViewer } from "./components/PdfViewer";
 
 // 익스텐션
