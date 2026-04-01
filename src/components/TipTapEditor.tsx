@@ -24,7 +24,8 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
-// Details 확장은 v3/v2 호환 문제로 비활성화
+import { DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+import { FixedDetails } from "../extensions/FixedDetails";
 import Youtube from "@tiptap/extension-youtube";
 import FileHandler from "@tiptap/extension-file-handler";
 import "highlight.js/styles/atom-one-dark.css";
@@ -87,6 +88,7 @@ const CodeBlockTopEscape = Extension.create({
 });
 // FloatingMenu는 레이아웃 이슈로 현재 비활성화 — 슬래시(/) 명령으로 대체
 import { PdfBlock } from "../extensions/PdfBlock";
+import { Indent } from "../extensions/Indent";
 import { FixedToolbar } from "./FixedToolbar";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { TableBubbleMenu } from "./TableBubbleMenu";
@@ -159,6 +161,10 @@ export function TipTapEditor({
       CustomTableCell,
       PdfBlock,
       CodeBlockTopEscape,
+      Indent,
+      FixedDetails,
+      DetailsContent,
+      DetailsSummary,
       Youtube.configure({ inline: false, allowFullscreen: true }),
       ...(onUploadFile
         ? [
@@ -200,7 +206,9 @@ export function TipTapEditor({
     ],
     content,
     onUpdate: ({ editor: e }) => {
-      const html = e.getHTML().replace(/(<p><br\s*\/?><\/p>\s*)+$/, "");
+      const html = e.getHTML()
+        .replace(/(<p><br\s*\/?><\/p>\s*)+$/, "")
+        .replace(/<p><\/p>/g, "<p><br></p>");
       onChange(html);
     },
     editorProps: {
@@ -219,26 +227,6 @@ export function TipTapEditor({
     }
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 커서 이동 시 화면 따라가기
-  useEffect(() => {
-    if (!editor) return;
-    const handleSelectionUpdate = () => {
-      const { from } = editor.state.selection;
-      try {
-        const coords = editor.view.coordsAtPos(from);
-        const margin = 120;
-        if (coords.top < margin) {
-          window.scrollBy({ top: coords.top - margin, behavior: "smooth" });
-        } else if (coords.bottom > window.innerHeight - margin) {
-          window.scrollBy({ top: coords.bottom - window.innerHeight + margin, behavior: "smooth" });
-        }
-      } catch {
-        // coordsAtPos가 실패할 수 있음
-      }
-    };
-    editor.on("selectionUpdate", handleSelectionUpdate);
-    return () => { editor.off("selectionUpdate", handleSelectionUpdate); };
-  }, [editor]);
 
   // 테이블이 에디터를 넘으면 마지막 열을 줄여서 맞춤
   useEffect(() => {

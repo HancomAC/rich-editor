@@ -74,10 +74,91 @@ var import_extension_table = require("@tiptap/extension-table");
 var import_extension_table_row = require("@tiptap/extension-table-row");
 var import_extension_table_header = require("@tiptap/extension-table-header");
 var import_extension_table_cell = require("@tiptap/extension-table-cell");
+var import_extension_details2 = require("@tiptap/extension-details");
+
+// src/extensions/FixedDetails.ts
+var import_extension_details = require("@tiptap/extension-details");
+var import_core = require("@tiptap/core");
+var FixedDetails = import_extension_details.Details.extend({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      persist: false,
+      openClassName: "is-open"
+    };
+  },
+  addNodeView() {
+    return ({ editor, getPos, node, HTMLAttributes }) => {
+      const dom = document.createElement("div");
+      const attributes = (0, import_core.mergeAttributes)(this.options.HTMLAttributes, HTMLAttributes, {
+        "data-type": this.name
+      });
+      Object.entries(attributes).forEach(
+        ([key, value]) => dom.setAttribute(key, value)
+      );
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.setAttribute("aria-label", "Expand details content");
+      dom.append(toggle);
+      const content = document.createElement("div");
+      dom.append(content);
+      let isOpen = Boolean(node.attrs.open);
+      const applyState = () => {
+        if (isOpen) {
+          dom.classList.add(this.options.openClassName);
+          toggle.setAttribute("aria-label", "Collapse details content");
+        } else {
+          dom.classList.remove(this.options.openClassName);
+          toggle.setAttribute("aria-label", "Expand details content");
+        }
+        const detailsContent = content.querySelector(
+          ':scope > div[data-type="detailsContent"]'
+        );
+        if (detailsContent) {
+          if (isOpen) {
+            detailsContent.removeAttribute("hidden");
+          } else {
+            detailsContent.setAttribute("hidden", "hidden");
+          }
+        }
+      };
+      if (isOpen) {
+        setTimeout(() => applyState());
+      }
+      toggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        isOpen = !isOpen;
+        applyState();
+      });
+      return {
+        dom,
+        contentDOM: content,
+        ignoreMutation(mutation) {
+          if (mutation.type === "selection") return false;
+          if (!dom.contains(mutation.target)) return true;
+          if (dom === mutation.target) return true;
+          if (toggle.contains(mutation.target) || toggle === mutation.target) return true;
+          if (mutation.type === "attributes" && mutation.attributeName === "hidden") return true;
+          return false;
+        },
+        update: (updatedNode) => {
+          if (updatedNode.type !== this.type) return false;
+          if (updatedNode.attrs.open !== void 0) {
+            isOpen = Boolean(updatedNode.attrs.open);
+            applyState();
+          }
+          return true;
+        }
+      };
+    };
+  }
+});
+
+// src/components/TipTapEditor.tsx
 var import_extension_youtube = __toESM(require("@tiptap/extension-youtube"), 1);
 var import_extension_file_handler = __toESM(require("@tiptap/extension-file-handler"), 1);
 var import_atom_one_dark = require("highlight.js/styles/atom-one-dark.css");
-var import_core2 = require("@tiptap/core");
+var import_core4 = require("@tiptap/core");
 
 // node_modules/prosemirror-model/dist/index.js
 function findDiffStart(a, b, pos) {
@@ -3092,7 +3173,7 @@ var baseFields = [
 var import_react9 = require("react");
 
 // src/extensions/PdfBlock.ts
-var import_core = require("@tiptap/core");
+var import_core2 = require("@tiptap/core");
 var import_react3 = require("@tiptap/react");
 
 // src/extensions/PdfBlockView.tsx
@@ -3291,7 +3372,7 @@ function PdfBlockView({ node, deleteNode, selected }) {
 }
 
 // src/extensions/PdfBlock.ts
-var PdfBlock = import_core.Node.create({
+var PdfBlock = import_core2.Node.create({
   name: "pdfBlock",
   group: "block",
   atom: true,
@@ -3317,7 +3398,7 @@ var PdfBlock = import_core.Node.create({
     const name = HTMLAttributes.name || "PDF";
     return [
       "div",
-      (0, import_core.mergeAttributes)({ "data-pdf-src": src, "data-pdf-name": name }),
+      (0, import_core2.mergeAttributes)({ "data-pdf-src": src, "data-pdf-name": name }),
       [
         "p",
         {},
@@ -3331,6 +3412,83 @@ var PdfBlock = import_core.Node.create({
   },
   addNodeView() {
     return (0, import_react3.ReactNodeViewRenderer)(PdfBlockView);
+  }
+});
+
+// src/extensions/Indent.ts
+var import_core3 = require("@tiptap/core");
+var INDENT_STEP = 2;
+var MAX_INDENT = 8;
+var Indent = import_core3.Extension.create({
+  name: "indent",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (element) => {
+              const ml = element.style.marginLeft;
+              if (!ml) return 0;
+              return Math.round(parseFloat(ml) / INDENT_STEP) || 0;
+            },
+            renderHTML: (attributes) => {
+              if (!attributes.indent || attributes.indent <= 0) return {};
+              return { style: `margin-left: ${attributes.indent * INDENT_STEP}em` };
+            }
+          }
+        }
+      }
+    ];
+  },
+  addCommands() {
+    return {
+      indent: () => ({ tr, state, dispatch }) => {
+        const { $from } = state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "listItem") return false;
+        }
+        const node = $from.parent;
+        if (node.type.name !== "paragraph" && node.type.name !== "heading") return false;
+        const pos = $from.before($from.depth);
+        const currentIndent = node.attrs.indent || 0;
+        if (currentIndent >= MAX_INDENT) return false;
+        if (dispatch) {
+          tr.setNodeMarkup(pos, void 0, {
+            ...node.attrs,
+            indent: currentIndent + 1
+          });
+          dispatch(tr);
+        }
+        return true;
+      },
+      outdent: () => ({ tr, state, dispatch }) => {
+        const { $from } = state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "listItem") return false;
+        }
+        const node = $from.parent;
+        if (node.type.name !== "paragraph" && node.type.name !== "heading") return false;
+        const pos = $from.before($from.depth);
+        const currentIndent = node.attrs.indent || 0;
+        if (currentIndent <= 0) return false;
+        if (dispatch) {
+          tr.setNodeMarkup(pos, void 0, {
+            ...node.attrs,
+            indent: currentIndent - 1
+          });
+          dispatch(tr);
+        }
+        return true;
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => this.editor.commands.indent(),
+      "Shift-Tab": () => this.editor.commands.outdent()
+    };
   }
 });
 
@@ -3674,6 +3832,15 @@ function FixedToolbar({ editor, onPdfClick }) {
         onClick: () => editor.chain().focus().setHorizontalRule().run(),
         title: "\uAD6C\uBD84\uC120",
         children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_lucide_react3.Minus, { size: iconSize })
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      Btn,
+      {
+        onClick: () => editor.chain().focus().setDetails().run(),
+        active: editor.isActive("details"),
+        title: "\uD1A0\uAE00 (\uC811\uAE30/\uD3BC\uCE58\uAE30)",
+        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_lucide_react3.ChevronRight, { size: iconSize })
       }
     ),
     /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Sep, {}),
@@ -4050,6 +4217,12 @@ var SLASH_MENU_ITEMS = [
     keywords: "code python \uD30C\uC774\uC36C \uCF54\uB4DC \uBE14\uB85D",
     icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(import_lucide_react4.Code2, { size: SI }),
     command: (editor) => editor.chain().focus().setCodeBlock({ language: "python" }).run()
+  },
+  {
+    label: "\uD1A0\uAE00",
+    keywords: "toggle details \uC811\uAE30 \uD3BC\uCE58\uAE30 \uD1A0\uAE00",
+    icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(import_lucide_react4.ChevronRight, { size: SI }),
+    command: (editor) => editor.chain().focus().setDetails().run()
   },
   {
     label: "\uD45C",
@@ -4533,7 +4706,7 @@ var CustomTableHeader = import_extension_table_header.TableHeader.extend({
     return { ...this.parent?.(), ...cellAttrs };
   }
 });
-var CodeBlockTopEscape = import_core2.Extension.create({
+var CodeBlockTopEscape = import_core4.Extension.create({
   name: "codeBlockTopEscape",
   addKeyboardShortcuts() {
     return {
@@ -4610,6 +4783,10 @@ function TipTapEditor({
       CustomTableCell,
       PdfBlock,
       CodeBlockTopEscape,
+      Indent,
+      FixedDetails,
+      import_extension_details2.DetailsContent,
+      import_extension_details2.DetailsSummary,
       import_extension_youtube.default.configure({ inline: false, allowFullscreen: true }),
       ...onUploadFile ? [
         import_extension_file_handler.default.configure({
@@ -4639,7 +4816,7 @@ function TipTapEditor({
     ],
     content,
     onUpdate: ({ editor: e }) => {
-      const html = e.getHTML().replace(/(<p><br\s*\/?><\/p>\s*)+$/, "");
+      const html = e.getHTML().replace(/(<p><br\s*\/?><\/p>\s*)+$/, "").replace(/<p><\/p>/g, "<p><br></p>");
       onChange(html);
     },
     editorProps: {
@@ -4656,26 +4833,6 @@ function TipTapEditor({
       editor.commands.fixTables();
     }
   }, [content]);
-  (0, import_react9.useEffect)(() => {
-    if (!editor) return;
-    const handleSelectionUpdate = () => {
-      const { from } = editor.state.selection;
-      try {
-        const coords = editor.view.coordsAtPos(from);
-        const margin = 120;
-        if (coords.top < margin) {
-          window.scrollBy({ top: coords.top - margin, behavior: "smooth" });
-        } else if (coords.bottom > window.innerHeight - margin) {
-          window.scrollBy({ top: coords.bottom - window.innerHeight + margin, behavior: "smooth" });
-        }
-      } catch {
-      }
-    };
-    editor.on("selectionUpdate", handleSelectionUpdate);
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate);
-    };
-  }, [editor]);
   (0, import_react9.useEffect)(() => {
     if (!editor) return;
     const editorDom = editor.view.dom;

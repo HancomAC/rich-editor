@@ -57,7 +57,7 @@
 - 게시물: `hljs.highlightElement()`로 클라이언트 하이라이팅 + CSS에 `.hljs-*` 색상 정의
 
 ### 비활성화된 기능
-- **Details(접기/펼치기)** — @tiptap/extension-details v3/v2 호환 문제로 비활성화
+- **Details(접기/펼치기)** — @tiptap/extension-details v3.21.0 + details-content/summary 3.0.0-beta.11 사용 중. 슬래시 명령 "토글"로 삽입 가능
 - **Floating Menu(+ 버튼)** — 에디터 레이아웃 충돌로 비활성화, 슬래시(/) 명령으로 대체
 - **Drag Handle** — @tiptap/extension-collaboration 의존성 체인 문제로 비활성화
 - **Focus(블록 강조)** — 사용자 요청으로 제거
@@ -71,6 +71,12 @@
 - 이미지 붙여넣기, 드래그앤드롭, PDF 업로드 모두 이 prop에 의존
 - 호스트 앱에서 `async (file: File) => string(url)` 형태로 전달
 - 미전달 시 업로드 기능 비활성화
+
+### 들여쓰기 (Indent)
+- 커스텀 `Indent` 확장 (`src/extensions/Indent.ts`)
+- Tab/Shift+Tab으로 문단·제목 들여쓰기/내어쓰기 (리스트 내부에서는 기존 동작 유지)
+- `margin-left` 인라인 스타일로 렌더링 (2em 단위, 최대 8레벨)
+- 호스트 앱 sanitizer에서 `p`, `h1`~`h3`의 `style` 속성 허용 필요
 
 ### 플레이스홀더
 - 기본값: `"'/'를 눌러 명령어를 입력하세요..."`

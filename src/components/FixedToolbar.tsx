@@ -37,6 +37,7 @@ import {
   Superscript,
   Subscript,
   Youtube,
+  ChevronRight,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../utils/cn";
@@ -296,6 +297,13 @@ export function FixedToolbar({ editor, onPdfClick }: FixedToolbarProps) {
         title="구분선"
       >
         <Minus size={iconSize} />
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().setDetails().run()}
+        active={editor.isActive("details")}
+        title="토글 (접기/펼치기)"
+      >
+        <ChevronRight size={iconSize} />
       </Btn>
 
       <Sep />

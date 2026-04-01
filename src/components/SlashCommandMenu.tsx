@@ -17,6 +17,7 @@ import {
   Table as TableIcon,
   FileText,
   Youtube,
+  ChevronRight,
 } from "lucide-react";
 import type { SlashMenuItem } from "../types";
 
@@ -87,6 +88,12 @@ export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     icon: <Code2 size={SI} />,
     command: (editor) =>
       editor.chain().focus().setCodeBlock({ language: "python" }).run(),
+  },
+  {
+    label: "토글",
+    keywords: "toggle details 접기 펼치기 토글",
+    icon: <ChevronRight size={SI} />,
+    command: (editor) => editor.chain().focus().setDetails().run(),
   },
   {
     label: "표",

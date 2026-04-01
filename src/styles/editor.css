@@ -22,6 +22,7 @@
 .tiptap > div[data-type="pdfBlock"],
 .tiptap > [data-youtube-video],
 .tiptap > details,
+.tiptap > [data-type="details"],
 .tiptap > pre {
   margin-left: 1rem;
   margin-right: 1rem;
@@ -30,6 +31,19 @@
 /* ── 텍스트 블록 ── */
 .tiptap p {
   margin: 0.25em 0;
+}
+
+/* 빈 행 높이 보존 */
+.tiptap p:empty,
+.tiptap p:has(> br:only-child) {
+  min-height: 1.8em;
+}
+
+/* 선행 공백 보존 */
+.tiptap p,
+.tiptap li,
+.tiptap h1, .tiptap h2, .tiptap h3 {
+  white-space: pre-wrap;
 }
 
 .tiptap h1 {
@@ -65,6 +79,12 @@
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
+
+/* 중첩 리스트 레벨별 불릿 (Notion 스타일) */
+.tiptap ul ul { list-style: circle; }
+.tiptap ul ul ul { list-style: square; }
+.tiptap ol ol { list-style: lower-alpha; }
+.tiptap ol ol ol { list-style: lower-roman; }
 
 .tiptap li {
   margin: 0.25em 0;
@@ -208,6 +228,76 @@
 }
 
 /* ── 접기/펼치기 (Details) ── */
+/* 에디터 내부: TipTap node view (div[data-type="details"]) */
+.tiptap [data-type="details"] {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  margin: 0.75em 0;
+  background: var(--background);
+}
+
+.tiptap [data-type="details"] > button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 1.4em;
+  height: 1.4em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  border-radius: 4px;
+  transition: transform 0.15s, background 0.15s;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.tiptap [data-type="details"] > button::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  margin-left: 2px;
+}
+
+.tiptap [data-type="details"] > button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.tiptap [data-type="details"].is-open > button {
+  transform: rotate(90deg);
+}
+
+.tiptap [data-type="details"] > div {
+  display: inline-block;
+  vertical-align: middle;
+  width: calc(100% - 2em);
+}
+
+.tiptap [data-type="details"] summary {
+  font-weight: 600;
+  cursor: text;
+  padding: 0.25em 0;
+  display: block;
+}
+
+.tiptap [data-type="detailsContent"] {
+  margin-top: 0.5em;
+  padding-left: 0.5em;
+  border-left: 2px solid var(--border);
+}
+
+.tiptap [data-type="detailsContent"][hidden] {
+  display: none;
+}
+
+/* 게시물 렌더링: 네이티브 <details> */
 .tiptap details {
   border: 1px solid var(--border);
   border-radius: 8px;
