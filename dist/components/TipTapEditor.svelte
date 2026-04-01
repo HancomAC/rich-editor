@@ -30,8 +30,6 @@
   import FileHandler from "@tiptap/extension-file-handler";
   import { Extension } from "@tiptap/core";
   import { TextSelection } from "@tiptap/pm/state";
-  import "highlight.js/styles/atom-one-dark.css";
-
   import { PdfBlock } from "../extensions/PdfBlock";
   import { Indent } from "../extensions/Indent";
   import FixedToolbar from "./FixedToolbar.svelte";
@@ -118,6 +116,7 @@
   let editor: Editor | undefined = $state();
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
+  let lastEmittedHtml = content;  // onChange로 내보낸 마지막 HTML (외부→내부 변경만 감지용)
 
   // Slash command state
   let slashMenuOpen = $state(false);
@@ -318,6 +317,7 @@
           .getHTML()
           .replace(/(<p><br\s*\/?><\/p>\s*)+$/, "")
           .replace(/<p><\/p>/g, "<p><br></p>");
+        lastEmittedHtml = html;
         onChange(html);
       },
       editorProps: {
@@ -338,8 +338,8 @@
       if (!editor) return;
       const { state } = editor;
       const { from } = state.selection;
-      const pos = state.doc.resolve(from);
-      const lineStart = pos.start();
+      const $pos = state.doc.resolve(from);
+      const lineStart = $pos.start();
       const lineText = state.doc.textBetween(lineStart, from, "\n");
 
       if (lineText.startsWith("/")) {
@@ -362,8 +362,8 @@
       if (!editor || !slashMenuOpen) return;
       const { state } = editor;
       const { from } = state.selection;
-      const pos = state.doc.resolve(from);
-      const lineStart = pos.start();
+      const $pos = state.doc.resolve(from);
+      const lineStart = $pos.start();
       const lineText = state.doc.textBetween(lineStart, from, "\n");
       if (!lineText.startsWith("/")) {
         slashMenuOpen = false;
@@ -415,12 +415,14 @@
     return () => window.removeEventListener("scroll", onScroll, true);
   });
 
-  // Sync content from parent
+  // Sync content from parent (외부에서 content prop이 변경된 경우만)
   $effect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, { emitUpdate: false });
-      editor.commands.fixTables();
-    }
+    if (!editor) return;
+    // 에디터 자체 onChange에서 나온 값이면 무시 (무한 루프 방지)
+    if (content === lastEmittedHtml) return;
+    editor.commands.setContent(content, { emitUpdate: false });
+    lastEmittedHtml = content;
+    editor.commands.fixTables();
   });
 
   onDestroy(() => {

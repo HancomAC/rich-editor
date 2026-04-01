@@ -171,19 +171,62 @@
   font-size: inherit;
 }
 
-.tiptap pre code .hljs-keyword { color: #c678dd; }
-.tiptap pre code .hljs-string { color: #98c379; }
-.tiptap pre code .hljs-number { color: #d19a66; }
-.tiptap pre code .hljs-function { color: #61afef; }
-.tiptap pre code .hljs-title { color: #61afef; }
-.tiptap pre code .hljs-params { color: #abb2bf; }
-.tiptap pre code .hljs-comment { color: #5c6370; font-style: italic; }
-.tiptap pre code .hljs-built_in { color: #e6c07b; }
-.tiptap pre code .hljs-type { color: #e6c07b; }
-.tiptap pre code .hljs-meta { color: #61afef; }
-.tiptap pre code .hljs-attr { color: #d19a66; }
-.tiptap pre code .hljs-variable { color: #e06c75; }
-.tiptap pre code .hljs-literal { color: #d19a66; }
+/* Atom One Dark 공식 토큰 색상 (highlight.js/styles/atom-one-dark.css 의존 제거) */
+.tiptap pre code .hljs-keyword,
+.tiptap pre code .hljs-operator { color: #c678dd; }
+
+.tiptap pre code .hljs-string,
+.tiptap pre code .hljs-doctag,
+.tiptap pre code .hljs-addition,
+.tiptap pre code .hljs-regexp { color: #98c379; }
+
+.tiptap pre code .hljs-number,
+.tiptap pre code .hljs-attr,
+.tiptap pre code .hljs-type,
+.tiptap pre code .hljs-template-variable,
+.tiptap pre code .hljs-variable,
+.tiptap pre code .hljs-selector-class { color: #d19a66; }
+
+.tiptap pre code .hljs-title,
+.tiptap pre code .hljs-title.class_,
+.tiptap pre code .hljs-function,
+.tiptap pre code .hljs-section { color: #61aeee; }
+
+.tiptap pre code .hljs-params,
+.tiptap pre code .hljs-punctuation { color: #abb2bf; }
+
+.tiptap pre code .hljs-comment,
+.tiptap pre code .hljs-quote { color: #5c6370; font-style: italic; }
+
+.tiptap pre code .hljs-built_in,
+.tiptap pre code .hljs-formula { color: #e6c07b; }
+
+.tiptap pre code .hljs-meta,
+.tiptap pre code .hljs-meta .hljs-keyword { color: #61aeee; }
+
+.tiptap pre code .hljs-meta .hljs-string { color: #98c379; }
+
+.tiptap pre code .hljs-deletion,
+.tiptap pre code .hljs-name,
+.tiptap pre code .hljs-tag,
+.tiptap pre code .hljs-property,
+.tiptap pre code .hljs-selector-tag,
+.tiptap pre code .hljs-subst,
+.tiptap pre code .hljs-attribute { color: #e06c75; }
+
+.tiptap pre code .hljs-literal { color: #56b6c2; }
+
+.tiptap pre code .hljs-selector-id,
+.tiptap pre code .hljs-selector-attr,
+.tiptap pre code .hljs-selector-pseudo { color: #61aeee; }
+
+.tiptap pre code .hljs-link { color: #61aeee; text-decoration: underline; }
+
+.tiptap pre code .hljs-symbol,
+.tiptap pre code .hljs-bullet { color: #61aeee; }
+
+.tiptap pre code .hljs-emphasis { font-style: italic; }
+.tiptap pre code .hljs-strong { font-weight: bold; }
 
 /* ── 이미지 ── */
 .tiptap img {
