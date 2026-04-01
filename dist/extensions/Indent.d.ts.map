@@ -1,0 +1,1 @@
+{"version":3,"file":"Indent.d.ts","sourceRoot":"","sources":["../../src/extensions/Indent.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,SAAS,EAAE,MAAM,cAAc,CAAC;AAEzC,OAAO,QAAQ,cAAc,CAAC;IAC5B,UAAU,QAAQ,CAAC,UAAU;QAC3B,MAAM,EAAE;YACN,MAAM,EAAE,MAAM,UAAU,CAAC;YACzB,OAAO,EAAE,MAAM,UAAU,CAAC;SAC3B,CAAC;KACH;CACF;AAKD,eAAO,MAAM,MAAM,qBA+EjB,CAAC"}

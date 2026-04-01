@@ -1,5 +1,3 @@
-"use client";
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cached: any = null;
 let loading: Promise<unknown> | null = null;

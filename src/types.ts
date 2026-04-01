@@ -1,6 +1,7 @@
-import type { Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import type { Component } from "svelte";
 
-/** 파일 업로드 핸들러 — 호스트 앱에서 구현 */
+/** 파일 업로드 핸들러 -- 호스트 앱에서 구현 */
 export type UploadHandler = (file: File) => Promise<string>;
 
 export interface TipTapEditorProps {
@@ -35,6 +36,6 @@ export interface PdfViewerProps {
 export interface SlashMenuItem {
   label: string;
   keywords: string;
-  icon: React.ReactNode;
+  icon: Component<{ size?: number }>;
   command: (editor: Editor) => void;
 }

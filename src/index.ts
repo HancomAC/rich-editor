@@ -1,12 +1,11 @@
 // 컴포넌트
-export { TipTapEditor } from "./components/TipTapEditor";
-export { FixedToolbar } from "./components/FixedToolbar";
-export { BubbleToolbar } from "./components/BubbleToolbar";
-export { BlockHandle } from "./components/BlockHandle";
-export { SlashCommandMenu, SLASH_MENU_ITEMS } from "./components/SlashCommandMenu";
-export { InputModal } from "./components/InputModal";
-export { PdfViewer } from "./components/PdfViewer";
-export { TableBubbleMenu } from "./components/TableBubbleMenu";
+export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
+export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
+export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
+export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
+export { default as InputModal } from "./components/InputModal.svelte";
+export { default as PdfViewer } from "./components/PdfViewer.svelte";
+export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
 
 // 익스텐션
 export { PdfBlock } from "./extensions/PdfBlock";
