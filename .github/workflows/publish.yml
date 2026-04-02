@@ -60,6 +60,14 @@ jobs:
           git add dist/
           git diff --cached --quiet || (git commit -m "chore: dist v${VERSION}" && git push)
 
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --generate-notes
+
       - name: Trigger hancomac update
         run: |
           curl -X POST \
