@@ -25,6 +25,18 @@
     }
   });
 
+  // Window-level Escape key handler
+  $effect(() => {
+    function onKeydown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    }
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
+
   function handleSubmit() {
     const trimmed = value.trim();
     if (trimmed) onConfirm(trimmed);
@@ -37,7 +49,6 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter") handleSubmit();
-    if (e.key === "Escape") onCancel();
   }
 </script>
 

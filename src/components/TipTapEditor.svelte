@@ -117,13 +117,14 @@
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
   let lastEmittedHtml = content;  // onChange로 내보낸 마지막 HTML (외부→내부 변경만 감지용)
+  let tableObserver: MutationObserver | undefined;
 
   // Slash command state
   let slashMenuOpen = $state(false);
   let slashMenuPos = $state({ top: 0, left: 0 });
   let slashQuery = $state("");
   let slashStartPos: number | null = null;
-  const MENU_HEIGHT = 210;
+  const MENU_HEIGHT = 200;
 
   function updateSlashMenuPosition() {
     if (!editor || slashStartPos === null) return;
@@ -200,6 +201,45 @@
       .finally(() => {
         uploading = false;
       });
+  }
+
+  // Slash command handlers (component-level for cleanup access)
+  function handleUpdate() {
+    if (!editor) return;
+    const { state } = editor;
+    const { from } = state.selection;
+    const resolvedPos = state.doc.resolve(from);
+    const lineStart = resolvedPos.start();
+    const lineText = state.doc.textBetween(lineStart, from, "\n");
+
+    if (lineText.startsWith("/")) {
+      if (slashStartPos === null) {
+        slashStartPos = lineStart;
+      }
+      slashQuery = lineText.slice(1);
+      slashMenuOpen = true;
+      updateSlashMenuPosition();
+    } else {
+      if (slashMenuOpen) {
+        slashMenuOpen = false;
+        slashStartPos = null;
+        slashQuery = "";
+      }
+    }
+  }
+
+  function handleSelectionUpdate() {
+    if (!editor || !slashMenuOpen) return;
+    const { state } = editor;
+    const { from } = state.selection;
+    const resolvedPos = state.doc.resolve(from);
+    const lineStart = resolvedPos.start();
+    const lineText = state.doc.textBetween(lineStart, from, "\n");
+    if (!lineText.startsWith("/")) {
+      slashMenuOpen = false;
+      slashStartPos = null;
+      slashQuery = "";
+    }
   }
 
   onMount(() => {
@@ -285,6 +325,23 @@
                           alert("이미지 업로드에 실패했습니다."),
                         )
                         .finally(() => (uploading = false));
+                    } else if (file.type === "application/pdf") {
+                      uploading = true;
+                      onUploadFile!(file)
+                        .then((url) => {
+                          _currentEditor
+                            .chain()
+                            .focus()
+                            .insertContentAt(pos, {
+                              type: "pdfBlock",
+                              attrs: { src: url, name: file.name },
+                            })
+                            .run();
+                        })
+                        .catch(() =>
+                          alert("PDF 업로드에 실패했습니다."),
+                        )
+                        .finally(() => (uploading = false));
                     }
                   }
                 },
@@ -333,51 +390,12 @@
       },
     });
 
-    // Slash command handler
-    const handleUpdate = () => {
-      if (!editor) return;
-      const { state } = editor;
-      const { from } = state.selection;
-      const $pos = state.doc.resolve(from);
-      const lineStart = $pos.start();
-      const lineText = state.doc.textBetween(lineStart, from, "\n");
-
-      if (lineText.startsWith("/")) {
-        if (slashStartPos === null) {
-          slashStartPos = lineStart;
-        }
-        slashQuery = lineText.slice(1);
-        slashMenuOpen = true;
-        updateSlashMenuPosition();
-      } else {
-        if (slashMenuOpen) {
-          slashMenuOpen = false;
-          slashStartPos = null;
-          slashQuery = "";
-        }
-      }
-    };
-
-    const handleSelectionUpdate = () => {
-      if (!editor || !slashMenuOpen) return;
-      const { state } = editor;
-      const { from } = state.selection;
-      const $pos = state.doc.resolve(from);
-      const lineStart = $pos.start();
-      const lineText = state.doc.textBetween(lineStart, from, "\n");
-      if (!lineText.startsWith("/")) {
-        slashMenuOpen = false;
-        slashStartPos = null;
-        slashQuery = "";
-      }
-    };
-
     editor.on("update", handleUpdate);
     editor.on("selectionUpdate", handleSelectionUpdate);
 
     // Table overflow fix
     const editorDom = editor.view.dom;
-    const tableObserver = new MutationObserver(() => {
+    tableObserver = new MutationObserver(() => {
       const wrapper = editorDom.closest(".hce-editor-wrapper");
       if (!wrapper) return;
       const maxW = wrapper.clientWidth - 32;
@@ -401,10 +419,6 @@
       attributes: true,
       attributeFilter: ["style"],
     });
-
-    return () => {
-      tableObserver.disconnect();
-    };
   });
 
   // Scroll handler for slash menu position
@@ -426,7 +440,12 @@
   });
 
   onDestroy(() => {
-    editor?.destroy();
+    tableObserver?.disconnect();
+    if (editor) {
+      editor.off("update", handleUpdate);
+      editor.off("selectionUpdate", handleSelectionUpdate);
+      editor.destroy();
+    }
   });
 </script>
 

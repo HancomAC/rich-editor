@@ -20,7 +20,8 @@ export const FixedDetails = Details.extend({
   },
 
   addNodeView() {
-    return ({ editor, getPos, node, HTMLAttributes }) => {
+    return ({ editor, getPos, node: initialNode, HTMLAttributes }) => {
+      let currentNode = initialNode;
       const dom = document.createElement("div");
       const attributes = mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
         "data-type": this.name,
@@ -39,7 +40,7 @@ export const FixedDetails = Details.extend({
       const content = document.createElement("div");
       dom.append(content);
 
-      let isOpen = Boolean(node.attrs.open);
+      let isOpen = Boolean(initialNode.attrs.open);
 
       const applyState = () => {
         if (isOpen) {
@@ -93,7 +94,10 @@ export const FixedDetails = Details.extend({
         },
         update: (updatedNode) => {
           if (updatedNode.type !== this.type) return false;
-          if (updatedNode.attrs.open !== undefined) {
+          const attrsChanged =
+            updatedNode.attrs.open !== currentNode.attrs.open;
+          currentNode = updatedNode;
+          if (attrsChanged) {
             isOpen = Boolean(updatedNode.attrs.open);
             applyState();
           }

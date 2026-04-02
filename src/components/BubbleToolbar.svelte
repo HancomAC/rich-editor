@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { Editor } from "@tiptap/core";
   import { BubbleMenuPlugin } from "@tiptap/extension-bubble-menu";
+  import { PluginKey } from "@tiptap/pm/state";
   import { onMount } from "svelte";
+
+  const bubbleToolbarKey = new PluginKey("bubbleToolbar");
   import {
     Bold,
     Italic,
@@ -52,7 +55,7 @@
     if (!menuEl) return;
 
     const plugin = BubbleMenuPlugin({
-      pluginKey: "bubbleToolbar",
+      pluginKey: bubbleToolbarKey,
       editor,
       element: menuEl,
       shouldShow: ({ editor: e, state }) => {
@@ -70,7 +73,7 @@
     editor.registerPlugin(plugin);
 
     return () => {
-      editor.unregisterPlugin("bubbleToolbar");
+      editor.unregisterPlugin(bubbleToolbarKey);
     };
   });
 </script>
@@ -140,6 +143,7 @@
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
       title="굵게"
+      aria-label="굵게"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("bold")
@@ -153,6 +157,7 @@
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
       title="기울임"
+      aria-label="기울임"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("italic")
@@ -166,6 +171,7 @@
       type="button"
       onclick={() => editor.chain().focus().toggleUnderline().run()}
       title="밑줄"
+      aria-label="밑줄"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("underline")
@@ -179,6 +185,7 @@
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
       title="취소선"
+      aria-label="취소선"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("strike")
@@ -192,6 +199,7 @@
       type="button"
       onclick={() => editor.chain().focus().toggleHighlight().run()}
       title="하이라이트"
+      aria-label="하이라이트"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("highlight")
@@ -208,6 +216,7 @@
       type="button"
       onclick={addLink}
       title="링크"
+      aria-label="링크"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive("link")
@@ -225,6 +234,7 @@
       type="button"
       onclick={() => editor.chain().focus().setTextAlign("left").run()}
       title="왼쪽 정렬"
+      aria-label="왼쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive({ textAlign: "left" })
@@ -238,6 +248,7 @@
       type="button"
       onclick={() => editor.chain().focus().setTextAlign("center").run()}
       title="가운데 정렬"
+      aria-label="가운데 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive({ textAlign: "center" })
@@ -251,6 +262,7 @@
       type="button"
       onclick={() => editor.chain().focus().setTextAlign("right").run()}
       title="오른쪽 정렬"
+      aria-label="오른쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
         editor.isActive({ textAlign: "right" })

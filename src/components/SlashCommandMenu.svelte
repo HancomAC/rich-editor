@@ -159,6 +159,7 @@
 
   let selectedIndex = $state(0);
   let menuEl: HTMLDivElement | undefined = $state();
+  let mouseMovedSinceKeyboard = $state(true);
 
   const allItems = $derived(
     onPdfUpload
@@ -203,9 +204,13 @@
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        if (filtered.length === 0) return;
+        mouseMovedSinceKeyboard = false;
         selectedIndex = (selectedIndex + 1) % filtered.length;
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        if (filtered.length === 0) return;
+        mouseMovedSinceKeyboard = false;
         selectedIndex =
           selectedIndex <= 0 ? filtered.length - 1 : selectedIndex - 1;
       } else if (e.key === "Enter") {
@@ -251,7 +256,13 @@
         selectedIndex
           ? 'bg-accent text-accent-foreground'
           : 'hover:bg-muted text-foreground'}"
-        onmouseenter={() => (selectedIndex = i)}
+        onmousemove={() => {
+          if (!mouseMovedSinceKeyboard) {
+            mouseMovedSinceKeyboard = true;
+            return;
+          }
+          selectedIndex = i;
+        }}
         onclick={() => {
           onClose();
           item.command(editor);

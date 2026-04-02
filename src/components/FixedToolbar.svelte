@@ -60,8 +60,18 @@
       if (tableMenuEl && !tableMenuEl.contains(e.target as Node))
         tableMenuOpen = false;
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        codeMenuOpen = false;
+        tableMenuOpen = false;
+      }
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   });
 
   function addLink() {
@@ -101,6 +111,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleBold().run()}
     title="굵게"
+    aria-label="굵게"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("bold")
@@ -114,6 +125,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleItalic().run()}
     title="기울임"
+    aria-label="기울임"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("italic")
@@ -127,6 +139,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleUnderline().run()}
     title="밑줄"
+    aria-label="밑줄"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("underline")
@@ -140,6 +153,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleStrike().run()}
     title="취소선"
+    aria-label="취소선"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("strike")
@@ -153,6 +167,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleHighlight().run()}
     title="하이라이트"
+    aria-label="하이라이트"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("highlight")
@@ -166,6 +181,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleSuperscript().run()}
     title="위첨자"
+    aria-label="위첨자"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("superscript")
@@ -179,6 +195,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleSubscript().run()}
     title="아래첨자"
+    aria-label="아래첨자"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("subscript")
@@ -196,6 +213,7 @@
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("left").run()}
     title="왼쪽 정렬"
+    aria-label="왼쪽 정렬"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive({ textAlign: "left" })
@@ -209,6 +227,7 @@
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("center").run()}
     title="가운데 정렬"
+    aria-label="가운데 정렬"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive({ textAlign: "center" })
@@ -222,6 +241,7 @@
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("right").run()}
     title="오른쪽 정렬"
+    aria-label="오른쪽 정렬"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive({ textAlign: "right" })
@@ -239,6 +259,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
     title="제목 1"
+    aria-label="제목 1"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("heading", { level: 1 })
@@ -252,6 +273,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
     title="제목 2"
+    aria-label="제목 2"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("heading", { level: 2 })
@@ -265,6 +287,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
     title="제목 3"
+    aria-label="제목 3"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("heading", { level: 3 })
@@ -282,6 +305,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleBulletList().run()}
     title="글머리 목록"
+    aria-label="글머리 목록"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("bulletList")
@@ -295,6 +319,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleOrderedList().run()}
     title="번호 목록"
+    aria-label="번호 목록"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("orderedList")
@@ -308,6 +333,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleTaskList().run()}
     title="체크리스트"
+    aria-label="체크리스트"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("taskList")
@@ -321,6 +347,7 @@
     type="button"
     onclick={() => editor.chain().focus().toggleBlockquote().run()}
     title="인용문"
+    aria-label="인용문"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("blockquote")
@@ -334,6 +361,7 @@
     type="button"
     onclick={() => editor.chain().focus().setHorizontalRule().run()}
     title="구분선"
+    aria-label="구분선"
     class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
   >
     <Minus size={iconSize} />
@@ -342,6 +370,7 @@
     type="button"
     onclick={() => editor.chain().focus().setDetails().run()}
     title="토글 (접기/펼치기)"
+    aria-label="토글 (접기/펼치기)"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("details")
@@ -359,6 +388,7 @@
     type="button"
     onclick={addLink}
     title="링크"
+    aria-label="링크"
     class={cn(
       "p-1.5 rounded-md transition-colors",
       editor.isActive("link")
@@ -372,6 +402,7 @@
     type="button"
     onclick={addImage}
     title="이미지"
+    aria-label="이미지"
     class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
   >
     <ImageIcon size={iconSize} />
@@ -380,6 +411,7 @@
     type="button"
     onclick={onPdfClick}
     title="PDF 삽입"
+    aria-label="PDF 삽입"
     class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
   >
     <FileText size={iconSize} />
@@ -391,6 +423,7 @@
       if (url) editor.chain().focus().setYoutubeVideo({ src: url }).run();
     }}
     title="YouTube 영상"
+    aria-label="YouTube 영상"
     class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
   >
     <Youtube size={iconSize} />
@@ -402,6 +435,7 @@
       type="button"
       onclick={() => (tableMenuOpen = !tableMenuOpen)}
       title="표"
+      aria-label="표"
       class={cn(
         "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
         isInTable
@@ -645,6 +679,7 @@
       type="button"
       onclick={() => (codeMenuOpen = !codeMenuOpen)}
       title="코드 블록"
+      aria-label="코드 블록"
       class={cn(
         "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
         editor.isActive("codeBlock")
@@ -703,6 +738,7 @@
     onclick={() => editor.chain().focus().undo().run()}
     disabled={!editor.can().undo()}
     title="실행 취소"
+    aria-label="실행 취소"
     class={cn(
       "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
       !editor.can().undo() && "opacity-30 pointer-events-none",
@@ -715,6 +751,7 @@
     onclick={() => editor.chain().focus().redo().run()}
     disabled={!editor.can().redo()}
     title="다시 실행"
+    aria-label="다시 실행"
     class={cn(
       "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
       !editor.can().redo() && "opacity-30 pointer-events-none",
@@ -728,7 +765,7 @@
     <InputModal
       title="링크 URL 입력"
       placeholder="https://example.com"
-      defaultValue={editor.getAttributes("link").href || ""}
+      defaultValue={editor.isActive("link") ? editor.getAttributes("link").href || "" : ""}
       onConfirm={(url) => {
         editor
           .chain()

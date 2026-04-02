@@ -45,6 +45,10 @@ export const PdfBlock = TiptapNode.create({
 
   addNodeView() {
     return ({ node, getPos, editor }) => {
+      let destroyed = false;
+      let resizeObserver: ResizeObserver | null = null;
+      let resizeTimeout: ReturnType<typeof setTimeout>;
+
       const dom = document.createElement("div");
       dom.classList.add("my-4");
       dom.contentEditable = "false";
@@ -130,10 +134,11 @@ export const PdfBlock = TiptapNode.create({
       let rendering = false;
 
       async function renderPage() {
-        if (!pdfDoc || rendering) return;
+        if (!pdfDoc || rendering || destroyed) return;
         rendering = true;
         try {
           const pageObj = await pdfDoc.getPage(currentPage);
+          if (destroyed) return;
           const unscaledViewport = pageObj.getViewport({ scale: 1 });
           const availableWidth = contentArea.clientWidth - 32;
           if (availableWidth <= 0) {
@@ -156,6 +161,7 @@ export const PdfBlock = TiptapNode.create({
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.scale(dpr, dpr);
           await pageObj.render({ canvasContext: ctx, viewport }).promise;
+          if (destroyed) return;
         } finally {
           rendering = false;
         }
@@ -171,8 +177,10 @@ export const PdfBlock = TiptapNode.create({
       (async () => {
         try {
           const pdfjsLib = await getPdfJs();
+          if (destroyed) return;
           const loadingTask = pdfjsLib.getDocument(node.attrs.src);
           pdfDoc = await loadingTask.promise;
+          if (destroyed) return;
           totalPages = pdfDoc.numPages;
 
           loadingDiv.style.display = "none";
@@ -226,12 +234,11 @@ export const PdfBlock = TiptapNode.create({
           renderPage();
 
           // ResizeObserver
-          let timeout: ReturnType<typeof setTimeout>;
-          const observer = new ResizeObserver(() => {
-            clearTimeout(timeout);
-            timeout = setTimeout(renderPage, 100);
+          resizeObserver = new ResizeObserver(() => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(renderPage, 100);
           });
-          observer.observe(contentArea);
+          resizeObserver.observe(contentArea);
         } catch (e) {
           console.error("[PdfBlockView] PDF \uB85C\uB4DC \uC2E4\uD328:", node.attrs.src, e);
           loadingDiv.innerHTML =
@@ -253,6 +260,11 @@ export const PdfBlock = TiptapNode.create({
         deselectNode: () => {
           wrapper.style.borderColor = "var(--border)";
           wrapper.style.boxShadow = "none";
+        },
+        destroy: () => {
+          destroyed = true;
+          clearTimeout(resizeTimeout);
+          resizeObserver?.disconnect();
         },
       };
     };
