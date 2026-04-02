@@ -53,10 +53,8 @@ export const FixedDetails = Details.extend({
                     }
                 }
             };
-            // 초기 상태 적용
-            if (isOpen) {
-                setTimeout(() => applyState());
-            }
+            // 초기 상태 즉시 적용 (클래스는 바로 설정, detailsContent는 아직 없을 수 있으므로 update에서도 처리)
+            applyState();
             toggle.addEventListener("click", (e) => {
                 e.preventDefault();
                 isOpen = !isOpen;
@@ -91,8 +89,9 @@ export const FixedDetails = Details.extend({
                     currentNode = updatedNode;
                     if (attrsChanged) {
                         isOpen = Boolean(updatedNode.attrs.open);
-                        applyState();
                     }
+                    // 항상 applyState 호출 — detailsContent가 나중에 렌더링될 수 있으므로
+                    applyState();
                     return true;
                 },
             };

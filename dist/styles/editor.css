@@ -101,6 +101,8 @@
   align-items: baseline;
   gap: 0.5rem;
   margin: 0.25em 0;
+  list-style: none;
+  list-style-type: none;
 }
 
 .tiptap ul[data-type="taskList"] li > label {
@@ -167,7 +169,7 @@
   background: none;
   padding: 0;
   border-radius: 0;
-  color: inherit;
+  color: #abb2bf;
   font-size: inherit;
 }
 
@@ -278,6 +280,9 @@
   padding: 0.5em 1em;
   margin: 0.75em 0;
   background: var(--background);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25em;
 }
 
 .tiptap [data-type="details"] > button {
@@ -294,7 +299,7 @@
   border-radius: 4px;
   transition: transform 0.15s, background 0.15s;
   flex-shrink: 0;
-  vertical-align: middle;
+  margin-top: 0.25em;
 }
 
 .tiptap [data-type="details"] > button::after {
@@ -318,9 +323,8 @@
 }
 
 .tiptap [data-type="details"] > div {
-  display: inline-block;
-  vertical-align: middle;
-  width: calc(100% - 2em);
+  flex: 1;
+  min-width: 0;
 }
 
 .tiptap [data-type="details"] summary {
@@ -381,6 +385,7 @@
 .tiptap table {
   border-collapse: collapse;
   margin: 1em 0;
+  width: 100%;
   table-layout: fixed;
   border: 2px solid var(--border);
   max-width: 100% !important; /* TipTap 인라인 width를 넘지 않도록 */
@@ -388,7 +393,7 @@
 }
 
 .tiptap .tableWrapper {
-  overflow: hidden;
+  overflow-x: auto;
   max-width: 100%;
 }
 
@@ -402,7 +407,7 @@
   box-sizing: border-box;
   overflow: hidden;
   word-break: break-word;
-  line-height: 1.0;
+  line-height: 1.5;
 }
 
 .tiptap th {
