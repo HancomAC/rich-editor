@@ -5,6 +5,8 @@ type $$ComponentProps = {
     query: string;
     onClose: () => void;
     onPdfUpload?: () => void;
+    onFileUpload?: () => void;
+    onVideoUpload?: () => void;
 };
 declare const SlashCommandMenu: Component<$$ComponentProps, {}, "">;
 type SlashCommandMenu = ReturnType<typeof SlashCommandMenu>;

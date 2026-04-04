@@ -37,12 +37,23 @@
     Subscript,
     Video,
     ChevronRight,
+    Paperclip,
+    Film,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
 
-  let { editor, onPdfClick }: { editor: Editor; onPdfClick: () => void } =
-    $props();
+  let {
+    editor,
+    onPdfClick,
+    onFileClick,
+    onVideoClick,
+  }: {
+    editor: Editor;
+    onPdfClick: () => void;
+    onFileClick?: () => void;
+    onVideoClick?: () => void;
+  } = $props();
 
   const iconSize = 16;
 
@@ -428,6 +439,28 @@
   >
     <Video size={iconSize} />
   </button>
+  {#if onVideoClick}
+    <button
+      type="button"
+      onclick={onVideoClick}
+      data-tooltip="영상 파일"
+      aria-label="영상 파일"
+      class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <Film size={iconSize} />
+    </button>
+  {/if}
+  {#if onFileClick}
+    <button
+      type="button"
+      onclick={onFileClick}
+      data-tooltip="파일 첨부"
+      aria-label="파일 첨부"
+      class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <Paperclip size={iconSize} />
+    </button>
+  {/if}
 
   <!-- Table menu -->
   <div bind:this={tableMenuEl} class="relative">

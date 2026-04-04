@@ -28,10 +28,12 @@
   import { FixedDetails } from "../extensions/FixedDetails";
   import Youtube from "@tiptap/extension-youtube";
   import FileHandler from "@tiptap/extension-file-handler";
-  import { Extension } from "@tiptap/core";
+  import { Extension, type AnyExtension } from "@tiptap/core";
   import { TextSelection } from "@tiptap/pm/state";
   import { PdfBlock } from "../extensions/PdfBlock";
   import { Indent } from "../extensions/Indent";
+  import { FileAttachment } from "../extensions/FileAttachment";
+  import { VideoBlock } from "../extensions/VideoBlock";
   import FixedToolbar from "./FixedToolbar.svelte";
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
@@ -105,17 +107,23 @@
     onChange,
     placeholder = "'/'를 눌러 명령어를 입력하세요...",
     onUploadFile,
+    extensions: extraExtensions = [],
+    editable = true,
   }: {
     content: string;
     onChange: (html: string) => void;
     placeholder?: string;
     onUploadFile?: UploadHandler;
+    extensions?: AnyExtension[];
+    editable?: boolean;
   } = $props();
 
   let editorElement: HTMLDivElement | undefined = $state();
   let editor: Editor | undefined = $state();
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
+  let fileInputEl: HTMLInputElement | undefined = $state();
+  let videoInputEl: HTMLInputElement | undefined = $state();
   let lastEmittedHtml = content;  // onChange로 내보낸 마지막 HTML (외부→내부 변경만 감지용)
   let tableObserver: MutationObserver | undefined;
 
@@ -197,6 +205,51 @@
       })
       .catch(() => {
         alert("PDF 업로드에 실패했습니다.");
+      })
+      .finally(() => {
+        uploading = false;
+      });
+  }
+
+  function uploadFile(file: File) {
+    if (!editor || !onUploadFile) return;
+    uploading = true;
+    const size = file.size;
+    onUploadFile(file)
+      .then((url) => {
+        editor!
+          .chain()
+          .focus()
+          .insertContent({
+            type: "fileAttachment",
+            attrs: { src: url, name: file.name, size },
+          })
+          .run();
+      })
+      .catch(() => {
+        alert("파일 업로드에 실패했습니다.");
+      })
+      .finally(() => {
+        uploading = false;
+      });
+  }
+
+  function uploadVideo(file: File) {
+    if (!editor || !onUploadFile) return;
+    uploading = true;
+    onUploadFile(file)
+      .then((url) => {
+        editor!
+          .chain()
+          .focus()
+          .insertContent({
+            type: "videoBlock",
+            attrs: { src: url, name: file.name },
+          })
+          .run();
+      })
+      .catch(() => {
+        alert("영상 업로드에 실패했습니다.");
       })
       .finally(() => {
         uploading = false;
@@ -290,12 +343,15 @@
         CustomTableHeader,
         CustomTableCell,
         PdfBlock,
+        FileAttachment,
+        VideoBlock,
         CodeBlockTopEscape,
         Indent,
         FixedDetails,
         DetailsContent,
         DetailsSummary,
         Youtube.configure({ inline: false, allowFullscreen: true }),
+        ...extraExtensions,
         ...(onUploadFile
           ? [
               FileHandler.configure({
@@ -305,6 +361,9 @@
                   "image/gif",
                   "image/webp",
                   "application/pdf",
+                  "video/mp4",
+                  "video/webm",
+                  "video/quicktime",
                 ],
                 onDrop: (_currentEditor, files, pos) => {
                   for (const file of files) {
@@ -342,6 +401,23 @@
                           alert("PDF 업로드에 실패했습니다."),
                         )
                         .finally(() => (uploading = false));
+                    } else if (file.type.startsWith("video/")) {
+                      uploading = true;
+                      onUploadFile!(file)
+                        .then((url) => {
+                          _currentEditor
+                            .chain()
+                            .focus()
+                            .insertContentAt(pos, {
+                              type: "videoBlock",
+                              attrs: { src: url, name: file.name },
+                            })
+                            .run();
+                        })
+                        .catch(() =>
+                          alert("영상 업로드에 실패했습니다."),
+                        )
+                        .finally(() => (uploading = false));
                     }
                   }
                 },
@@ -369,6 +445,7 @@
           : []),
       ],
       content,
+      editable,
       onUpdate: ({ editor: e }) => {
         const html = e
           .getHTML()
@@ -455,7 +532,12 @@
   ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
 >
   {#if editor}
-    <FixedToolbar {editor} onPdfClick={() => pdfInputEl?.click()} />
+    <FixedToolbar
+      {editor}
+      onPdfClick={() => pdfInputEl?.click()}
+      onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
+      onVideoClick={onUploadFile ? () => videoInputEl?.click() : undefined}
+    />
   {/if}
 
   <div bind:this={editorElement}></div>
@@ -485,6 +567,12 @@
           onPdfUpload={onUploadFile
             ? () => pdfInputEl?.click()
             : undefined}
+          onFileUpload={onUploadFile
+            ? () => fileInputEl?.click()
+            : undefined}
+          onVideoUpload={onUploadFile
+            ? () => videoInputEl?.click()
+            : undefined}
         />
       </div>
     {/if}
@@ -505,6 +593,29 @@
         const target = e.target as HTMLInputElement;
         const file = target.files?.[0];
         if (file) uploadPdf(file);
+        target.value = "";
+      }}
+    />
+    <input
+      bind:this={fileInputEl}
+      type="file"
+      class="hidden"
+      onchange={(e) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) uploadFile(file);
+        target.value = "";
+      }}
+    />
+    <input
+      bind:this={videoInputEl}
+      type="file"
+      accept="video/mp4,video/webm,video/quicktime"
+      class="hidden"
+      onchange={(e) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) uploadVideo(file);
         target.value = "";
       }}
     />

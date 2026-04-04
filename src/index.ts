@@ -9,6 +9,10 @@ export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte"
 
 // 익스텐션
 export { PdfBlock } from "./extensions/PdfBlock";
+export { Indent } from "./extensions/Indent";
+export { FixedDetails } from "./extensions/FixedDetails";
+export { FileAttachment } from "./extensions/FileAttachment";
+export { VideoBlock } from "./extensions/VideoBlock";
 
 // 유틸리티
 export { sanitizeHtml, stripHtmlToExcerpt } from "./utils/sanitize";

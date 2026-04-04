@@ -16,6 +16,8 @@
     FileText,
     Video,
     ChevronRight,
+    Paperclip,
+    Film,
   } from "lucide-svelte";
   import type { SlashMenuItem } from "../types";
   import type { Component } from "svelte";
@@ -150,30 +152,49 @@
     query,
     onClose,
     onPdfUpload,
+    onFileUpload,
+    onVideoUpload,
   }: {
     editor: Editor;
     query: string;
     onClose: () => void;
     onPdfUpload?: () => void;
+    onFileUpload?: () => void;
+    onVideoUpload?: () => void;
   } = $props();
 
   let selectedIndex = $state(0);
   let menuEl: HTMLDivElement | undefined = $state();
   let mouseMovedSinceKeyboard = $state(true);
 
-  const allItems = $derived(
-    onPdfUpload
-      ? [
-          ...SLASH_MENU_ITEMS_DATA,
-          {
-            label: "PDF 파일",
-            keywords: "pdf 파일 문서",
-            icon: FileText,
-            command: () => onPdfUpload!(),
-          },
-        ]
-      : SLASH_MENU_ITEMS_DATA,
-  );
+  const allItems = $derived.by(() => {
+    const items = [...SLASH_MENU_ITEMS_DATA];
+    if (onPdfUpload) {
+      items.push({
+        label: "PDF 파일",
+        keywords: "pdf 파일 문서",
+        icon: FileText,
+        command: () => onPdfUpload!(),
+      });
+    }
+    if (onVideoUpload) {
+      items.push({
+        label: "영상 파일",
+        keywords: "video 영상 동영상 비디오 메타버스",
+        icon: Film,
+        command: () => onVideoUpload!(),
+      });
+    }
+    if (onFileUpload) {
+      items.push({
+        label: "파일 첨부",
+        keywords: "file attach 파일 첨부",
+        icon: Paperclip,
+        command: () => onFileUpload!(),
+      });
+    }
+    return items;
+  });
 
   const filtered = $derived.by(() => {
     const q = query.toLowerCase();
