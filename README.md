@@ -1,198 +1,178 @@
-# @hancomac/editor
+# @teriusu/hancomac-editor
 
-TipTap 기반 Notion-style 리치 텍스트 에디터 패키지
+TipTap v3 기반 리치 텍스트 에디터. Svelte 5 컴포넌트 라이브러리.
 
-## 개요
+## 설치
 
-`hancomac-next` 프로젝트에서 에디터 관련 코드를 독립 패키지로 분리한 프로젝트입니다.
-TipTap v3 + React 18+ 기반으로, Notion 스타일의 블록 에디터 기능을 제공합니다.
+```bash
+npm install @teriusu/hancomac-editor
+```
+
+Tailwind CSS v4 사용 시 `@source` 추가:
+```css
+@import "@teriusu/hancomac-editor/styles";
+@source "../node_modules/@teriusu/hancomac-editor/dist";
+```
+
+## 기본 사용법
+
+```svelte
+<script>
+  import { TipTapEditor } from '@teriusu/hancomac-editor';
+  import '@teriusu/hancomac-editor/styles';
+
+  let html = $state('');
+</script>
+
+<TipTapEditor
+  content={html}
+  onChange={(h) => html = h}
+  onUploadFile={async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const { url } = await res.json();
+    return url;
+  }}
+/>
+```
+
+## Props
+
+| Prop | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `content` | `string` | `""` | HTML 콘텐츠 |
+| `onChange` | `(html: string) => void` | 필수 | 콘텐츠 변경 콜백 |
+| `placeholder` | `string` | `"'/'를 눌러..."` | 플레이스홀더 |
+| `onUploadFile` | `(file: File) => Promise<string>` | - | 파일 업로드 핸들러 (URL 반환) |
+| `onResolveFile` | `(fileId: string) => Promise<{src, name?, size?}>` | - | 파일 ID → URL 변환 |
+| `extensions` | `AnyExtension[]` | `[]` | 추가 TipTap 확장 주입 |
+| `editable` | `boolean` | `true` | 읽기 전용 모드 |
+
+## 파일 저장 방식
+
+### URL 직접 (기본)
+
+`onUploadFile`만 제공하면 파일 URL이 HTML에 직접 저장됩니다.
+
+```html
+<div data-file-src="/files/report.pdf" data-file-name="report.pdf" data-file-size="204800"></div>
+```
+
+### ID 기반 (하이브리드)
+
+`onResolveFile`을 추가하면 파일 ID + 캐시 URL이 함께 저장됩니다.
+
+```svelte
+<TipTapEditor
+  content={html}
+  onChange={(h) => html = h}
+  onUploadFile={async (file) => {
+    const res = await fetch('/api/upload', { method: 'POST', body: file });
+    return await res.json(); // { id, url, name, size }
+  }}
+  onResolveFile={async (fileId) => {
+    const res = await fetch(`/api/files/${fileId}`);
+    return await res.json(); // { src, name, size }
+  }}
+/>
+```
+
+```html
+<div data-file-id="abc123" data-file-src="/files/report.pdf" data-file-name="report.pdf"></div>
+```
+
+ID 기반은 URL이 변경되어도 대응 가능하고, 권한 제어(signed URL)에 활용할 수 있습니다.
+
+## 기능
+
+### 텍스트 서식
+Bold, Italic, Underline, Strikethrough, Highlight, Superscript, Subscript, 텍스트 색상
+
+### 구조
+제목 (H1~H3), 글머리/번호 목록, 체크리스트, 인용문, 구분선, 접기/펼치기 (Details), 들여쓰기 (Tab/Shift-Tab)
+
+### 미디어
+이미지, PDF (PDF.js 캔버스 렌더링), 영상 파일 (mp4/webm), YouTube, 파일 첨부, 드래그 앤 드롭 업로드
+
+### 레이아웃
+2단/3단 컬럼, 텍스트 정렬 (좌/중/우)
+
+### 테이블
+삽입, 행/열 추가/삭제, 헤더 토글, 셀 병합/분할, 셀 배경색, 열 리사이즈
+
+### 입력
+`/` 슬래시 커맨드, 고정 툴바, 테이블 버블 메뉴, Undo/Redo
+
+## 레거시 HTML 호환
+
+TipTap v2 커스텀 태그를 자동 변환합니다. 에디터 로드 시 `transformLegacyHtml`이 자동 호출됩니다.
+
+| 레거시 태그 | 변환 결과 |
+|---|---|
+| `<tiptap-file id="X">` | `<div data-file-id="X">` |
+| `<tiptap-midibus id="X">` | iframe (play.mbus.tv) |
+| `<tiptap-collapsable title="X">` | `<details><summary>` |
+| `<lite-youtube videoid="X">` | YouTube iframe |
+| `<embed type="application/pdf">` | `<div data-pdf-src>` |
+| `<div class="tiptap-columns">` | `<div data-type="columns">` |
+| `margin-left: 40px` | indent level 1 (em 출력) |
+
+게시물 조회 페이지(읽기 전용)에서도 적용:
+
+```js
+import { transformLegacyHtml } from '@teriusu/hancomac-editor';
+
+const html = transformLegacyHtml(post.content);
+```
+
+## 커스텀 확장 주입
+
+`extensions` prop으로 호스트 앱 전용 확장을 주입할 수 있습니다.
+
+```svelte
+<script>
+  import { TipTapEditor } from '@teriusu/hancomac-editor';
+  import { Node } from '@tiptap/core';
+
+  const MyExtension = Node.create({ /* ... */ });
+</script>
+
+<TipTapEditor
+  content={html}
+  onChange={handleChange}
+  extensions={[MyExtension]}
+/>
+```
+
+## Exports
+
+### 컴포넌트
+`TipTapEditor`, `FixedToolbar`, `BubbleToolbar`, `SlashCommandMenu`, `TableBubbleMenu`, `InputModal`, `PdfViewer`
+
+### 확장
+`PdfBlock`, `FileAttachment`, `VideoBlock`, `Columns`, `Column`, `Indent`, `FixedDetails`
+
+### 유틸리티
+`transformLegacyHtml`, `sanitizeHtml`, `stripHtmlToExcerpt`, `configurePdfJs`, `getPdfJs`, `cn`
+
+### 타입
+`UploadHandler`, `FileResolver`, `FileResolveResult`, `TipTapEditorProps`, `SlashMenuItem`
+
+## 빌드
+
+```bash
+npm run build          # svelte-package → dist/
+npm version patch      # 버전 올리기
+```
 
 ## 기술 스택
 
 | 구분 | 기술 |
 |------|------|
-| 에디터 엔진 | TipTap v3.20.x |
-| UI 프레임워크 | React 18+ |
-| 언어 | TypeScript 5.7 |
-| 빌드 도구 | tsup (ESM + CJS 듀얼 빌드) |
-| 아이콘 | lucide-react |
-| 스타일 | Tailwind CSS 유틸리티 + 자체 CSS |
-
-## 프로젝트 구조
-
-```
-hancomac-editor/
-├── src/
-│   ├── components/
-│   │   ├── TipTapEditor.tsx        # 메인 에디터 컴포넌트
-│   │   ├── FixedToolbar.tsx        # 상단 고정 툴바
-│   │   ├── BubbleToolbar.tsx       # 텍스트 선택 시 뜨는 플로팅 툴바
-│   │   ├── BlockHandle.tsx         # 블록 좌측 핸들 (드래그/추가)
-│   │   ├── SlashCommandMenu.tsx    # `/` 슬래시 커맨드 메뉴
-│   │   └── PdfViewer.tsx           # PDF 뷰어 컴포넌트
-│   ├── extensions/
-│   │   ├── PdfBlock.ts             # PDF 블록 TipTap 확장
-│   │   └── PdfBlockView.tsx        # PDF 블록 렌더링
-│   ├── styles/
-│   │   └── editor.css              # 에디터 전용 스타일
-│   ├── utils/
-│   │   ├── cn.ts                   # Tailwind 클래스 병합 유틸리티
-│   │   ├── escape-html.ts          # HTML 이스케이프
-│   │   ├── pdf.ts                  # PDF.js 설정/로더
-│   │   └── sanitize.ts             # HTML 새니타이즈 (XSS 방지)
-│   ├── index.ts                    # 패키지 exports
-│   └── types.ts                    # TypeScript 인터페이스
-├── dist/                           # 빌드 결과물
-├── package.json
-├── tsconfig.json
-└── tsup.config.ts
-```
-
-## 주요 기능
-
-### 에디터 (TipTapEditor)
-- 리치 텍스트 편집 (Bold, Italic, Underline, Strikethrough, Highlight)
-- 제목 (H1, H2, H3)
-- 목록 (Bullet, Ordered)
-- 인용문, 구분선
-- 코드 블록 (C++, Python 구문 강조)
-- 이미지 삽입 및 붙여넣기 업로드
-- PDF 블록 삽입
-- 링크 삽입/편집
-- 테이블 (삽입, 행/열 추가/삭제, 병합)
-- 텍스트 정렬 (좌/중/우)
-- 텍스트 색상
-
-### 슬래시 커맨드 (`/`)
-`/` 입력 시 커맨드 팔레트 표시. 키보드 방향키/Enter로 선택 가능.
-
-### 툴바
-- **FixedToolbar**: 상단 고정, 전체 서식 옵션
-- **BubbleToolbar**: 텍스트 선택 시 플로팅 메뉴
-
-### 블록 핸들
-블록 좌측 호버 시 `+` (새 블록) / `⠿` (드래그) 핸들 표시
-
-## Exports
-
-### 컴포넌트
-| Export | 설명 |
-|--------|------|
-| `TipTapEditor` | 메인 에디터 컴포넌트 |
-| `FixedToolbar` | 상단 고정 툴바 |
-| `BubbleToolbar` | 플로팅 선택 툴바 |
-| `BlockHandle` | 블록 핸들 UI |
-| `SlashCommandMenu` | 슬래시 커맨드 메뉴 |
-| `PdfViewer` | 독립형 PDF 뷰어 |
-
-### 확장
-| Export | 설명 |
-|--------|------|
-| `PdfBlock` | TipTap PDF 블록 노드 확장 |
-
-### 유틸리티
-| Export | 설명 |
-|--------|------|
-| `sanitizeHtml` | HTML 새니타이즈 |
-| `stripHtmlToExcerpt` | HTML → 플레인 텍스트 발췌 |
-| `configurePdfJs` | PDF.js 경로 설정 |
-| `getPdfJs` | PDF.js 인스턴스 가져오기 |
-| `cn` | Tailwind 클래스 병합 |
-
-### 타입
-```typescript
-TipTapEditorProps    // 에디터 props
-UploadHandler        // 파일 업로드 핸들러
-FixedToolbarProps    // 고정 툴바 props
-BlockHandleProps     // 블록 핸들 props
-SlashCommandMenuProps // 슬래시 메뉴 props
-PdfViewerProps       // PDF 뷰어 props
-SlashMenuItem        // 슬래시 메뉴 아이템
-```
-
-## 사용법
-
-### 설치 (로컬 심링크)
-
-```bash
-# hancomac-next에서
-cd node_modules/@hancomac
-ln -s ../../../hancomac-editor editor
-```
-
-### 기본 사용
-
-```tsx
-import { TipTapEditor } from "@hancomac/editor";
-import "@hancomac/editor/styles";
-
-function MyPage() {
-  const [content, setContent] = useState("");
-
-  return (
-    <TipTapEditor
-      content={content}
-      onChange={setContent}
-      placeholder="내용을 입력하세요..."
-      onUploadFile={async (file) => {
-        // 파일 업로드 후 URL 반환
-        return "https://example.com/uploaded-file.png";
-      }}
-    />
-  );
-}
-```
-
-### Next.js에서 사용 (SSR 비활성화)
-
-```tsx
-import dynamic from "next/dynamic";
-
-const TipTapEditor = dynamic(
-  () => import("@hancomac/editor").then((m) => ({ default: m.TipTapEditor })),
-  { ssr: false }
-);
-```
-
-### PDF 뷰어 사용
-
-```tsx
-import { PdfViewer } from "@hancomac/editor";
-
-<PdfViewer src="/path/to/document.pdf" name="문서.pdf" />
-```
-
-## 빌드
-
-```bash
-# 빌드
-npm run build
-
-# 개발 모드 (watch)
-npm run dev
-```
-
-빌드 결과물:
-- `dist/index.js` — ESM 번들
-- `dist/index.cjs` — CommonJS 번들
-- `dist/index.d.ts` — TypeScript 타입 정의
-- `dist/styles/editor.css` — 에디터 스타일시트
-
-## hancomac-next 연동 현황
-
-### Import 사용처
-
-| 파일 | 사용 컴포넌트 |
-|------|--------------|
-| `src/components/pages/CommunityPostEditor.tsx` | `TipTapEditor` (dynamic) |
-| `src/app/(admin)/admin/posts/new/page.tsx` | `TipTapEditor` (dynamic) |
-| `src/app/(admin)/admin/posts/[id]/edit/page.tsx` | `TipTapEditor` (dynamic) |
-| `src/components/pages/CommunityPage.tsx` | `PdfViewer` (direct) |
-| `src/lib/upload.ts` | `UploadHandler` (type) |
-| `src/app/globals.css` | `@hancomac/editor/styles` (CSS) |
-
-## 참고사항
-
-- PDF.js 사용 시 `/pdf.min.mjs`, `/pdf.worker.min.mjs` 파일을 public 폴더에 배치해야 합니다
-- `"use client"` 배너가 번들에 자동 삽입되므로 Next.js App Router에서 별도 지시자 불필요
-- React 18+ peer dependency 필요
+| 에디터 엔진 | TipTap v3 |
+| UI | Svelte 5 (runes) |
+| 언어 | TypeScript |
+| 빌드 | svelte-package |
+| 아이콘 | lucide-svelte |
+| 스타일 | Tailwind CSS + CSS 변수 |
