@@ -1,25 +1,25 @@
-# @teriusu/hancomac-editor
+# @teriusu/rich-editor
 
 TipTap v3 기반 리치 텍스트 에디터. Svelte 5 컴포넌트 라이브러리.
 
 ## 설치
 
 ```bash
-npm install @teriusu/hancomac-editor
+npm install @teriusu/rich-editor
 ```
 
 Tailwind CSS v4 사용 시 `@source` 추가:
 ```css
-@import "@teriusu/hancomac-editor/styles";
-@source "../node_modules/@teriusu/hancomac-editor/dist";
+@import "@teriusu/rich-editor/styles";
+@source "../node_modules/@teriusu/rich-editor/dist";
 ```
 
 ## 기본 사용법
 
 ```svelte
 <script>
-  import { TipTapEditor } from '@teriusu/hancomac-editor';
-  import '@teriusu/hancomac-editor/styles';
+  import { TipTapEditor } from '@teriusu/rich-editor';
+  import '@teriusu/rich-editor/styles';
 
   let html = $state('');
 </script>
@@ -121,7 +121,7 @@ TipTap v2 커스텀 태그를 자동 변환합니다. 에디터 로드 시 `tran
 게시물 조회 페이지(읽기 전용)에서도 적용:
 
 ```js
-import { transformLegacyHtml } from '@teriusu/hancomac-editor';
+import { transformLegacyHtml } from '@teriusu/rich-editor';
 
 const html = transformLegacyHtml(post.content);
 ```
@@ -132,7 +132,7 @@ const html = transformLegacyHtml(post.content);
 
 ```svelte
 <script>
-  import { TipTapEditor } from '@teriusu/hancomac-editor';
+  import { TipTapEditor } from '@teriusu/rich-editor';
   import { Node } from '@tiptap/core';
 
   const MyExtension = Node.create({ /* ... */ });

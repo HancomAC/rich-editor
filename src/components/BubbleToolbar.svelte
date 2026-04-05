@@ -19,10 +19,11 @@
     Heading2,
     Heading3,
     Type,
+    Code,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
 
-  let { editor }: { editor: Editor } = $props();
+  let { editor, minimal = false }: { editor: Editor; minimal?: boolean } = $props();
 
   let showHeadings = $state(false);
   let menuEl: HTMLDivElement | undefined = $state();
@@ -78,65 +79,67 @@
   });
 </script>
 
-<div bind:this={menuEl} class="bubble-toolbar-container">
+<div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
   <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-lg shadow-xl">
-    <!-- Block type selector -->
-    <div class="relative">
-      <button
-        type="button"
-        onclick={() => (showHeadings = !showHeadings)}
-        class="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-      >
-        <Type size={12} />
-        {getCurrentBlockLabel()}
-      </button>
-      {#if showHeadings}
-        <div
-          class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
-          style="min-width: 120px"
+    {#if !minimal}
+      <!-- Block type selector -->
+      <div class="relative">
+        <button
+          type="button"
+          onclick={() => (showHeadings = !showHeadings)}
+          class="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
         >
-          <button
-            type="button"
-            class={cn(
-              "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-              !editor.isActive("heading")
-                ? "text-white bg-white/10"
-                : "text-white/70 hover:text-white hover:bg-white/10",
-            )}
-            onclick={() => {
-              editor.chain().focus().setParagraph().run();
-              showHeadings = false;
-            }}
+          <Type size={12} />
+          {getCurrentBlockLabel()}
+        </button>
+        {#if showHeadings}
+          <div
+            class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
+            style="min-width: 120px"
           >
-            <Type size={12} /> 본문
-          </button>
-          {#each [1, 2, 3] as level}
-            {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
             <button
               type="button"
               class={cn(
                 "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                editor.isActive("heading", { level })
+                !editor.isActive("heading")
                   ? "text-white bg-white/10"
                   : "text-white/70 hover:text-white hover:bg-white/10",
               )}
               onclick={() => {
-                editor
-                  .chain()
-                  .focus()
-                  .toggleHeading({ level: level as 1 | 2 | 3 })
-                  .run();
+                editor.chain().focus().setParagraph().run();
                 showHeadings = false;
               }}
             >
-              <Icon size={12} /> 제목 {level}
+              <Type size={12} /> 본문
             </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
+            {#each [1, 2, 3] as level}
+              {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
+              <button
+                type="button"
+                class={cn(
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                  editor.isActive("heading", { level })
+                    ? "text-white bg-white/10"
+                    : "text-white/70 hover:text-white hover:bg-white/10",
+                )}
+                onclick={() => {
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHeading({ level: level as 1 | 2 | 3 })
+                    .run();
+                  showHeadings = false;
+                }}
+              >
+                <Icon size={12} /> 제목 {level}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
 
-    <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+    {/if}
 
     <!-- Format buttons -->
     <button
@@ -167,20 +170,22 @@
     >
       <Italic size={iconSize} />
     </button>
-    <button
-      type="button"
-      onclick={() => editor.chain().focus().toggleUnderline().run()}
-      title="밑줄"
-      aria-label="밑줄"
-      class={cn(
-        "p-1.5 rounded-md transition-colors",
-        editor.isActive("underline")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <UnderlineIcon size={iconSize} />
-    </button>
+    {#if !minimal}
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().toggleUnderline().run()}
+        title="밑줄"
+        aria-label="밑줄"
+        class={cn(
+          "p-1.5 rounded-md transition-colors",
+          editor.isActive("underline")
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <UnderlineIcon size={iconSize} />
+      </button>
+    {/if}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
@@ -195,19 +200,35 @@
     >
       <Strikethrough size={iconSize} />
     </button>
+    {#if !minimal}
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().toggleHighlight().run()}
+        title="하이라이트"
+        aria-label="하이라이트"
+        class={cn(
+          "p-1.5 rounded-md transition-colors",
+          editor.isActive("highlight")
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <Highlighter size={iconSize} />
+      </button>
+    {/if}
     <button
       type="button"
-      onclick={() => editor.chain().focus().toggleHighlight().run()}
-      title="하이라이트"
-      aria-label="하이라이트"
+      onclick={() => editor.chain().focus().toggleCode().run()}
+      title="코드"
+      aria-label="코드"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive("highlight")
+        editor.isActive("code")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
       )}
     >
-      <Highlighter size={iconSize} />
+      <Code size={iconSize} />
     </button>
 
     <div class="w-px h-5 bg-white/20 mx-0.5"></div>
@@ -227,50 +248,52 @@
       <LinkIcon size={iconSize} />
     </button>
 
-    <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+    {#if !minimal}
+      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
 
-    <!-- Alignment -->
-    <button
-      type="button"
-      onclick={() => editor.chain().focus().setTextAlign("left").run()}
-      title="왼쪽 정렬"
-      aria-label="왼쪽 정렬"
-      class={cn(
-        "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: "left" })
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <AlignLeft size={iconSize} />
-    </button>
-    <button
-      type="button"
-      onclick={() => editor.chain().focus().setTextAlign("center").run()}
-      title="가운데 정렬"
-      aria-label="가운데 정렬"
-      class={cn(
-        "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: "center" })
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <AlignCenter size={iconSize} />
-    </button>
-    <button
-      type="button"
-      onclick={() => editor.chain().focus().setTextAlign("right").run()}
-      title="오른쪽 정렬"
-      aria-label="오른쪽 정렬"
-      class={cn(
-        "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: "right" })
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <AlignRight size={iconSize} />
-    </button>
+      <!-- Alignment -->
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().setTextAlign("left").run()}
+        title="왼쪽 정렬"
+        aria-label="왼쪽 정렬"
+        class={cn(
+          "p-1.5 rounded-md transition-colors",
+          editor.isActive({ textAlign: "left" })
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <AlignLeft size={iconSize} />
+      </button>
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().setTextAlign("center").run()}
+        title="가운데 정렬"
+        aria-label="가운데 정렬"
+        class={cn(
+          "p-1.5 rounded-md transition-colors",
+          editor.isActive({ textAlign: "center" })
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <AlignCenter size={iconSize} />
+      </button>
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().setTextAlign("right").run()}
+        title="오른쪽 정렬"
+        aria-label="오른쪽 정렬"
+        class={cn(
+          "p-1.5 rounded-md transition-colors",
+          editor.isActive({ textAlign: "right" })
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <AlignRight size={iconSize} />
+      </button>
+    {/if}
   </div>
 </div>

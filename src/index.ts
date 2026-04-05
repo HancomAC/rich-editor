@@ -26,6 +26,7 @@ export { cn } from "./utils/cn";
 export type {
   TipTapEditorProps,
   UploadHandler,
+  ToolbarMode,
   FixedToolbarProps,
   BlockHandleProps,
   SlashCommandMenuProps,

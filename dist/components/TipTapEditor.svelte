@@ -41,7 +41,7 @@
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
   import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import type { UploadHandler } from "../types";
+  import type { UploadHandler, ToolbarMode } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
 
   const cellAttrs = {
@@ -114,6 +114,7 @@
     onResolveFile,
     extensions: extraExtensions = [],
     editable = true,
+    toolbar = 'full',
   }: {
     content: string;
     onChange: (html: string) => void;
@@ -122,6 +123,7 @@
     onResolveFile?: FileResolver;
     extensions?: AnyExtension[];
     editable?: boolean;
+    toolbar?: ToolbarMode;
   } = $props();
 
   let editorElement: HTMLDivElement | undefined = $state();
@@ -311,10 +313,12 @@
           heading: { levels: [1, 2, 3] },
           codeBlock: false,
         }),
-        CodeBlockLowlight.configure({
-          lowlight,
-          defaultLanguage: "cpp",
-        }),
+        ...(extraExtensions.some((ext) => (ext as any).name === 'codeBlock')
+          ? []
+          : [CodeBlockLowlight.configure({
+              lowlight,
+              defaultLanguage: "cpp",
+            })]),
         Placeholder.configure({
           placeholder: ({ node }) => {
             if (node.type.name === "heading") {
@@ -541,97 +545,105 @@
 </script>
 
 <div
-  class="hce-editor-wrapper relative border border-border rounded-xl bg-background"
-  ondragover={(e) => e.preventDefault()}
-  ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
+	class="hce-editor-wrapper relative{editable && toolbar === 'full' ? ' border border-border rounded-xl bg-background' : ''}"
+	ondragover={(e) => e.preventDefault()}
+	ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
 >
-  {#if editor}
-    <FixedToolbar
-      {editor}
-      onPdfClick={() => pdfInputEl?.click()}
-      onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
-      onVideoClick={onUploadFile ? () => videoInputEl?.click() : undefined}
-    />
-  {/if}
+	{#if editor && editable && toolbar === 'full'}
+		<FixedToolbar
+			{editor}
+			onPdfClick={() => pdfInputEl?.click()}
+			onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
+			onVideoClick={onUploadFile ? () => videoInputEl?.click() : undefined}
+		/>
+	{/if}
 
-  <div bind:this={editorElement}></div>
+	<div bind:this={editorElement}></div>
 
-  {#if editor}
-    <TableBubbleMenu {editor} />
+	{#if editor && editable}
+		<BubbleToolbar {editor} minimal={toolbar === 'minimal'} />
 
-    {#if uploading}
-      <div
-        class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl"
-      >
-        <p class="text-sm text-muted-foreground animate-pulse">
-          업로드 중...
-        </p>
-      </div>
-    {/if}
+		{#if toolbar !== 'minimal'}
+			<TableBubbleMenu {editor} />
+		{/if}
 
-    {#if slashMenuOpen}
-      <div
-        style="top: {slashMenuPos.top}px; left: {slashMenuPos.left}px"
-        class="fixed z-50"
-      >
-        <SlashCommandMenu
-          {editor}
-          query={slashQuery}
-          onClose={closeSlashMenu}
-          onPdfUpload={onUploadFile
-            ? () => pdfInputEl?.click()
-            : undefined}
-          onFileUpload={onUploadFile
-            ? () => fileInputEl?.click()
-            : undefined}
-          onVideoUpload={onUploadFile
-            ? () => videoInputEl?.click()
-            : undefined}
-        />
-      </div>
-    {/if}
+		{#if toolbar === 'full'}
+			{#if uploading}
+				<div
+					class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl"
+				>
+					<p class="text-sm text-muted-foreground animate-pulse">
+						업로드 중...
+					</p>
+				</div>
+			{/if}
+		{/if}
 
-    <div
-      class="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border"
-    >
-      {editor.storage.characterCount.characters()} 자 ·
-      {editor.storage.characterCount.words()} 단어
-    </div>
+		{#if toolbar !== 'minimal' && slashMenuOpen}
+			<div
+				style="top: {slashMenuPos.top}px; left: {slashMenuPos.left}px"
+				class="fixed z-50"
+			>
+				<SlashCommandMenu
+					{editor}
+					query={slashQuery}
+					onClose={closeSlashMenu}
+					onPdfUpload={onUploadFile
+						? () => pdfInputEl?.click()
+						: undefined}
+					onFileUpload={onUploadFile
+						? () => fileInputEl?.click()
+						: undefined}
+					onVideoUpload={onUploadFile
+						? () => videoInputEl?.click()
+						: undefined}
+				/>
+			</div>
+		{/if}
 
-    <input
-      bind:this={pdfInputEl}
-      type="file"
-      accept="application/pdf"
-      class="hidden"
-      onchange={(e) => {
-        const target = e.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (file) uploadPdf(file);
-        target.value = "";
-      }}
-    />
-    <input
-      bind:this={fileInputEl}
-      type="file"
-      class="hidden"
-      onchange={(e) => {
-        const target = e.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (file) uploadFile(file);
-        target.value = "";
-      }}
-    />
-    <input
-      bind:this={videoInputEl}
-      type="file"
-      accept="video/mp4,video/webm,video/quicktime"
-      class="hidden"
-      onchange={(e) => {
-        const target = e.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (file) uploadVideo(file);
-        target.value = "";
-      }}
-    />
-  {/if}
+		{#if toolbar === 'full'}
+			<div
+				class="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border"
+			>
+				{editor.storage.characterCount.characters()} 자 ·
+				{editor.storage.characterCount.words()} 단어
+			</div>
+
+			<input
+				bind:this={pdfInputEl}
+				type="file"
+				accept="application/pdf"
+				class="hidden"
+				onchange={(e) => {
+					const target = e.target as HTMLInputElement;
+					const file = target.files?.[0];
+					if (file) uploadPdf(file);
+					target.value = "";
+				}}
+			/>
+			<input
+				bind:this={fileInputEl}
+				type="file"
+				class="hidden"
+				onchange={(e) => {
+					const target = e.target as HTMLInputElement;
+					const file = target.files?.[0];
+					if (file) uploadFile(file);
+					target.value = "";
+				}}
+			/>
+			<input
+				bind:this={videoInputEl}
+				type="file"
+				accept="video/mp4,video/webm,video/quicktime"
+				class="hidden"
+				onchange={(e) => {
+					const target = e.target as HTMLInputElement;
+					const file = target.files?.[0];
+					if (file) uploadVideo(file);
+					target.value = "";
+				}}
+			/>
+		{/if}
+	{/if}
 </div>

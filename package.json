@@ -1,5 +1,5 @@
 {
-  "name": "@teriusu/hancomac-editor",
+  "name": "@teriusu/rich-editor",
   "version": "0.4.1",
   "description": "TipTap 기반 Notion-style 리치 텍스트 에디터 (Svelte)",
   "type": "module",
@@ -22,7 +22,8 @@
   "scripts": {
     "build": "svelte-package -i src",
     "dev": "svelte-package -i src --watch",
-    "dev:preview": "vite --config vite.config.dev.ts"
+    "dev:preview": "vite --config vite.config.dev.ts",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"
@@ -66,8 +67,10 @@
   "devDependencies": {
     "@sveltejs/package": "^2.3.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "jsdom": "^29.0.1",
     "svelte": "^5.0.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.2"
   }
 }

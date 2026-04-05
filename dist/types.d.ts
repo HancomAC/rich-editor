@@ -3,6 +3,8 @@ import type { Component } from "svelte";
 import type { FileResolver } from "./extensions/FileAttachment";
 /** 파일 업로드 핸들러 -- 호스트 앱에서 구현 */
 export type UploadHandler = (file: File) => Promise<string>;
+/** 툴바 모드 */
+export type ToolbarMode = 'minimal' | 'standard' | 'full';
 export interface TipTapEditorProps {
     content: string;
     onChange: (html: string) => void;
@@ -11,6 +13,8 @@ export interface TipTapEditorProps {
     onUploadFile?: UploadHandler;
     /** 파일 ID → URL 변환. 하이브리드 파일 저장 시 사용 */
     onResolveFile?: FileResolver;
+    /** 툴바 모드: 'minimal' | 'standard' | 'full' (기본값 'full') */
+    toolbar?: ToolbarMode;
 }
 export interface FixedToolbarProps {
     editor: Editor;
