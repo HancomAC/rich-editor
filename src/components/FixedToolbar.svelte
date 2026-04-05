@@ -40,7 +40,6 @@
     Paperclip,
     Film,
     Columns2,
-    Columns3,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";

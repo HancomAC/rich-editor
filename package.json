@@ -1,6 +1,6 @@
 {
   "name": "@teriusu/hancomac-editor",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "TipTap 기반 Notion-style 리치 텍스트 에디터 (Svelte)",
   "type": "module",
   "svelte": "./dist/index.js",
