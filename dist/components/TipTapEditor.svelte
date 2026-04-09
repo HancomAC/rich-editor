@@ -41,7 +41,8 @@
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
   import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import type { UploadHandler, ToolbarMode } from "../types";
+  import type { UploadHandler, ToolbarMode, ToolbarFeature } from "../types";
+  import { resolveFeatures } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
 
   const cellAttrs = {
@@ -115,6 +116,7 @@
     extensions: extraExtensions = [],
     editable = true,
     toolbar = 'full',
+    features: featuresOverride,
   }: {
     content: string;
     onChange: (html: string) => void;
@@ -124,7 +126,10 @@
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
+    features?: ToolbarFeature[];
   } = $props();
+
+  const features = $derived(resolveFeatures(toolbar, featuresOverride));
 
   let editorElement: HTMLDivElement | undefined = $state();
   let editor: Editor | undefined = $state();
@@ -224,13 +229,19 @@
     uploading = true;
     const size = file.size;
     onUploadFile(file)
-      .then((url) => {
+      .then((result) => {
+        const isFileId = result && !result.includes("/") && !result.includes(":");
         editor!
           .chain()
           .focus()
           .insertContent({
             type: "fileAttachment",
-            attrs: { src: url, name: file.name, size },
+            attrs: {
+              src: isFileId ? null : result,
+              fileId: isFileId ? result : null,
+              name: file.name,
+              size,
+            },
           })
           .run();
       })
@@ -481,7 +492,10 @@
 
     // File resolver를 storage에 등록
     if (onResolveFile) {
-      editor.storage.fileAttachment = { resolver: onResolveFile };
+      editor.storage.fileAttachment = {
+        ...editor.storage.fileAttachment,
+        resolver: onResolveFile,
+      };
     }
 
     editor.on("update", handleUpdate);
@@ -545,13 +559,14 @@
 </script>
 
 <div
-	class="hce-editor-wrapper relative{editable && toolbar === 'full' ? ' border border-border rounded-xl bg-background' : ''}"
+	class="hce-editor-wrapper relative{editable && features.has('fixed-toolbar') ? ' border border-border rounded-xl bg-background' : ''}"
 	ondragover={(e) => e.preventDefault()}
 	ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
 >
-	{#if editor && editable && toolbar === 'full'}
+	{#if editor && editable && features.has('fixed-toolbar')}
 		<FixedToolbar
 			{editor}
+			{features}
 			onPdfClick={() => pdfInputEl?.click()}
 			onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
 			onVideoClick={onUploadFile ? () => videoInputEl?.click() : undefined}
@@ -561,54 +576,57 @@
 	<div bind:this={editorElement}></div>
 
 	{#if editor && editable}
-		<BubbleToolbar {editor} minimal={toolbar === 'minimal'} />
+		{#if features.has('bubble-toolbar')}
+			<BubbleToolbar {editor} {features} />
+		{/if}
 
-		{#if toolbar !== 'minimal'}
+		{#if features.has('table-menu')}
 			<TableBubbleMenu {editor} />
 		{/if}
 
-		{#if toolbar === 'full'}
-			{#if uploading}
-				<div
-					class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl"
-				>
-					<p class="text-sm text-muted-foreground animate-pulse">
-						업로드 중...
-					</p>
-				</div>
-			{/if}
+		{#if features.has('upload-overlay') && uploading}
+			<div
+				class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl"
+			>
+				<p class="text-sm text-muted-foreground animate-pulse">
+					업로드 중...
+				</p>
+			</div>
 		{/if}
 
-		{#if toolbar !== 'minimal' && slashMenuOpen}
+		{#if features.has('slash-menu') && slashMenuOpen}
 			<div
 				style="top: {slashMenuPos.top}px; left: {slashMenuPos.left}px"
 				class="fixed z-50"
 			>
 				<SlashCommandMenu
 					{editor}
+					{features}
 					query={slashQuery}
 					onClose={closeSlashMenu}
-					onPdfUpload={onUploadFile
+					onPdfUpload={onUploadFile && features.has('pdf')
 						? () => pdfInputEl?.click()
 						: undefined}
-					onFileUpload={onUploadFile
+					onFileUpload={onUploadFile && features.has('file')
 						? () => fileInputEl?.click()
 						: undefined}
-					onVideoUpload={onUploadFile
+					onVideoUpload={onUploadFile && features.has('video')
 						? () => videoInputEl?.click()
 						: undefined}
 				/>
 			</div>
 		{/if}
 
-		{#if toolbar === 'full'}
+		{#if features.has('character-count')}
 			<div
 				class="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border"
 			>
 				{editor.storage.characterCount.characters()} 자 ·
 				{editor.storage.characterCount.words()} 단어
 			</div>
+		{/if}
 
+		{#if features.has('pdf') || features.has('file') || features.has('video')}
 			<input
 				bind:this={pdfInputEl}
 				type="file"

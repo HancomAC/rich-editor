@@ -18,3 +18,4 @@ export { Column } from "./extensions/Column";
 export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { cn } from "./utils/cn";
+export { TOOLBAR_PRESETS, resolveFeatures } from "./types";

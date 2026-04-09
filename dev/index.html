@@ -4,14 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>@hancomac/editor Dev</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --background: #ffffff;
-      --foreground: #2d3748;
+      --foreground: #1a1a2e;
       --primary: #4A7DAC;
       --primary-foreground: #ffffff;
-      --muted: #f7fafc;
-      --muted-foreground: #718096;
+      --muted: #f1f5f9;
+      --muted-foreground: #64748b;
       --border: #e2e8f0;
       --popover: #ffffff;
       --popover-foreground: #2d3748;
@@ -19,23 +22,149 @@
       --accent-foreground: #ffffff;
       --destructive: #FF6B6B;
       --ring: #4A7DAC;
+      --header-height: 0px;
     }
     * { box-sizing: border-box; margin: 0; }
     body {
-      font-family: "Noto Sans KR", sans-serif;
-      background: #f1f5f9;
-      padding: 2rem;
+      font-family: "Inter", "Noto Sans KR", sans-serif;
+      background: #f8fafc;
+      padding: 1.5rem 2rem;
       color: var(--foreground);
     }
-    #root { max-width: 800px; margin: 0 auto; }
-    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--foreground); }
+    #root { max-width: 960px; margin: 0 auto; }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--foreground);
+      letter-spacing: -0.01em;
+    }
     .output { margin-top: 1.5rem; }
-    .output summary { font-weight: 600; cursor: pointer; margin-bottom: 0.5rem; }
+    .output summary {
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
     .output pre {
       background: #1e293b; color: #e2e8f0; padding: 1rem;
       border-radius: 8px; overflow-x: auto; font-size: 0.8rem;
       max-height: 300px; white-space: pre-wrap; word-break: break-all;
     }
+
+    /* ── Tailwind 유틸리티 subset (rich-editor 컴포넌트용) ── */
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .hidden { display: none; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .fixed { position: fixed; }
+    .sticky { position: sticky; top: 0; }
+    .inset-0 { inset: 0; }
+    .z-10 { z-index: 10; }
+    .z-30 { z-index: 30; }
+    .z-50 { z-index: 50; }
+
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .justify-end { justify-content: flex-end; }
+    .gap-0\.5 { gap: 0.125rem; }
+    .gap-1 { gap: 0.25rem; }
+    .gap-2 { gap: 0.5rem; }
+    .shrink-0 { flex-shrink: 0; }
+
+    .p-1 { padding: 0.25rem; }
+    .p-1\.5 { padding: 0.375rem; }
+    .p-4 { padding: 1rem; }
+    .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .mx-0\.5 { margin-left: 0.125rem; margin-right: 0.125rem; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+
+    .w-px { width: 1px; }
+    .w-full { width: 100%; }
+    .w-6 { width: 1.5rem; }
+    .h-5 { height: 1.25rem; }
+    .h-6 { height: 1.5rem; }
+    .h-9 { height: 2.25rem; }
+    .h-px { height: 1px; }
+
+    .text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-left { text-align: left; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .uppercase { text-transform: uppercase; }
+    .tracking-wider { letter-spacing: 0.05em; }
+
+    .rounded-md { border-radius: 0.375rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-t-xl { border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem; }
+
+    .border { border-width: 1px; border-style: solid; }
+    .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+    .border-t { border-top-width: 1px; border-top-style: solid; }
+    .border-border { border-color: var(--border); }
+
+    .bg-background { background-color: var(--background); }
+    .bg-foreground { background-color: var(--foreground); }
+    .bg-popover { background-color: var(--popover); }
+    .bg-muted { background-color: var(--muted); }
+    .bg-accent { background-color: var(--accent); }
+    .bg-background\/60 { background-color: color-mix(in srgb, var(--background) 60%, transparent); }
+    .bg-primary\/10 { background-color: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .bg-white\/10 { background-color: rgba(255, 255, 255, 0.1); }
+    .bg-white\/20 { background-color: rgba(255, 255, 255, 0.2); }
+    .bg-black\/30 { background-color: rgba(0, 0, 0, 0.3); }
+    .bg-destructive\/10 { background-color: color-mix(in srgb, var(--destructive) 10%, transparent); }
+
+    .text-foreground { color: var(--foreground); }
+    .text-primary { color: var(--primary); }
+    .text-white { color: #fff; }
+    .text-white\/70 { color: rgba(255, 255, 255, 0.7); }
+    .text-white\/80 { color: rgba(255, 255, 255, 0.8); }
+    .text-muted-foreground { color: var(--muted-foreground); }
+    .text-accent-foreground { color: var(--accent-foreground); }
+    .text-destructive { color: var(--destructive); }
+
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1); }
+    .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1); }
+
+    .transition-colors { transition: color 0.15s, background-color 0.15s, border-color 0.15s; }
+    .transition-transform { transition: transform 0.15s; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .hover\:text-white:hover { color: #fff; }
+    .hover\:text-foreground:hover { color: var(--foreground); }
+    .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1); }
+    .hover\:bg-muted:hover { background-color: var(--muted); }
+    .hover\:bg-destructive\/10:hover { background-color: color-mix(in srgb, var(--destructive) 10%, transparent); }
+    .hover\:scale-105:hover { transform: scale(1.05); }
+
+    .outline-none { outline: none; }
+    .whitespace-nowrap { white-space: nowrap; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-y-auto { overflow-y: auto; }
+    .cursor-pointer { cursor: pointer; }
+    .pointer-events-none { pointer-events: none; }
+    .opacity-30 { opacity: 0.3; }
+
+    .grid { display: grid; }
+    .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .\!text-\[10px\], .text-\[10px\] { font-size: 10px; }
   </style>
 </head>
 <body>

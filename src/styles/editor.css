@@ -1,3 +1,5 @@
+@tailwind utilities;
+
 /* @hancomac/editor 스타일 */
 
 /* ── 에디터 wrapper — 메뉴가 잘리지 않도록 overflow 보장 ── */

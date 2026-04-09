@@ -27,9 +27,11 @@ export type {
   TipTapEditorProps,
   UploadHandler,
   ToolbarMode,
+  ToolbarFeature,
   FixedToolbarProps,
   BlockHandleProps,
   SlashCommandMenuProps,
   PdfViewerProps,
   SlashMenuItem,
 } from "./types";
+export { TOOLBAR_PRESETS, resolveFeatures } from "./types";

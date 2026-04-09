@@ -43,18 +43,23 @@
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
+  import type { ToolbarFeature } from "../types";
 
   let {
     editor,
+    features,
     onPdfClick,
     onFileClick,
     onVideoClick,
   }: {
     editor: Editor;
+    features: Set<ToolbarFeature>;
     onPdfClick: () => void;
     onFileClick?: () => void;
     onVideoClick?: () => void;
   } = $props();
+
+  const has = (f: ToolbarFeature) => features.has(f);
 
   const iconSize = 16;
 
@@ -119,6 +124,7 @@
   style="top: var(--header-height, 74px)"
 >
   <!-- Format -->
+  {#if has('bold')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleBold().run()}
@@ -133,6 +139,8 @@
   >
     <Bold size={iconSize} />
   </button>
+  {/if}
+  {#if has('italic')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleItalic().run()}
@@ -147,6 +155,8 @@
   >
     <Italic size={iconSize} />
   </button>
+  {/if}
+  {#if has('underline')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleUnderline().run()}
@@ -161,6 +171,8 @@
   >
     <UnderlineIcon size={iconSize} />
   </button>
+  {/if}
+  {#if has('strike')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleStrike().run()}
@@ -175,6 +187,8 @@
   >
     <Strikethrough size={iconSize} />
   </button>
+  {/if}
+  {#if has('highlight')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleHighlight().run()}
@@ -189,6 +203,8 @@
   >
     <Highlighter size={iconSize} />
   </button>
+  {/if}
+  {#if has('superscript')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleSuperscript().run()}
@@ -203,6 +219,8 @@
   >
     <Superscript size={iconSize} />
   </button>
+  {/if}
+  {#if has('subscript')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleSubscript().run()}
@@ -217,10 +235,14 @@
   >
     <Subscript size={iconSize} />
   </button>
+  {/if}
 
+  {#if has('align-left') || has('align-center') || has('align-right')}
   <div class="w-px h-6 bg-border mx-0.5"></div>
+  {/if}
 
   <!-- Alignment -->
+  {#if has('align-left')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("left").run()}
@@ -235,6 +257,8 @@
   >
     <AlignLeft size={iconSize} />
   </button>
+  {/if}
+  {#if has('align-center')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("center").run()}
@@ -249,6 +273,8 @@
   >
     <AlignCenter size={iconSize} />
   </button>
+  {/if}
+  {#if has('align-right')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setTextAlign("right").run()}
@@ -263,10 +289,14 @@
   >
     <AlignRight size={iconSize} />
   </button>
+  {/if}
 
+  {#if has('h1') || has('h2') || has('h3')}
   <div class="w-px h-6 bg-border mx-0.5"></div>
+  {/if}
 
   <!-- Headings -->
+  {#if has('h1')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -281,6 +311,8 @@
   >
     <Heading1 size={iconSize} />
   </button>
+  {/if}
+  {#if has('h2')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -295,6 +327,8 @@
   >
     <Heading2 size={iconSize} />
   </button>
+  {/if}
+  {#if has('h3')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
@@ -309,10 +343,14 @@
   >
     <Heading3 size={iconSize} />
   </button>
+  {/if}
 
+  {#if has('bullet-list') || has('ordered-list') || has('checklist') || has('blockquote') || has('horizontal-rule') || has('toggle')}
   <div class="w-px h-6 bg-border mx-0.5"></div>
+  {/if}
 
-  <!-- Lists -->
+  <!-- Lists & Blocks -->
+  {#if has('bullet-list')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleBulletList().run()}
@@ -327,6 +365,8 @@
   >
     <List size={iconSize} />
   </button>
+  {/if}
+  {#if has('ordered-list')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleOrderedList().run()}
@@ -341,6 +381,8 @@
   >
     <ListOrdered size={iconSize} />
   </button>
+  {/if}
+  {#if has('checklist')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleTaskList().run()}
@@ -355,6 +397,8 @@
   >
     <CheckSquare size={iconSize} />
   </button>
+  {/if}
+  {#if has('blockquote')}
   <button
     type="button"
     onclick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -369,6 +413,8 @@
   >
     <Quote size={iconSize} />
   </button>
+  {/if}
+  {#if has('horizontal-rule')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setHorizontalRule().run()}
@@ -378,6 +424,8 @@
   >
     <Minus size={iconSize} />
   </button>
+  {/if}
+  {#if has('toggle')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setDetails().run()}
@@ -392,10 +440,14 @@
   >
     <ChevronRight size={iconSize} />
   </button>
+  {/if}
 
+  {#if has('link') || has('image') || has('pdf') || has('youtube') || has('video') || has('file')}
   <div class="w-px h-6 bg-border mx-0.5"></div>
+  {/if}
 
   <!-- Media -->
+  {#if has('link')}
   <button
     type="button"
     onclick={addLink}
@@ -410,6 +462,8 @@
   >
     <LinkIcon size={iconSize} />
   </button>
+  {/if}
+  {#if has('image')}
   <button
     type="button"
     onclick={addImage}
@@ -419,6 +473,8 @@
   >
     <ImageIcon size={iconSize} />
   </button>
+  {/if}
+  {#if has('pdf')}
   <button
     type="button"
     onclick={onPdfClick}
@@ -428,6 +484,8 @@
   >
     <FileText size={iconSize} />
   </button>
+  {/if}
+  {#if has('youtube')}
   <button
     type="button"
     onclick={() => {
@@ -440,7 +498,8 @@
   >
     <Video size={iconSize} />
   </button>
-  {#if onVideoClick}
+  {/if}
+  {#if has('video') && onVideoClick}
     <button
       type="button"
       onclick={onVideoClick}
@@ -451,7 +510,7 @@
       <Film size={iconSize} />
     </button>
   {/if}
-  {#if onFileClick}
+  {#if has('file') && onFileClick}
     <button
       type="button"
       onclick={onFileClick}
@@ -464,6 +523,7 @@
   {/if}
 
   <!-- Columns -->
+  {#if has('columns-2')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setColumns(2).run()}
@@ -478,6 +538,8 @@
   >
     <Columns2 size={iconSize} />
   </button>
+  {/if}
+  {#if has('columns-3')}
   <button
     type="button"
     onclick={() => editor.chain().focus().setColumns(3).run()}
@@ -487,8 +549,10 @@
   >
     <Columns3 size={iconSize} />
   </button>
+  {/if}
 
   <!-- Table menu -->
+  {#if has('table')}
   <div bind:this={tableMenuEl} class="relative">
     <button
       type="button"
@@ -731,8 +795,10 @@
       </div>
     {/if}
   </div>
+  {/if}
 
   <!-- Code block menu -->
+  {#if has('code-block')}
   <div bind:this={codeMenuEl} class="relative">
     <button
       type="button"
@@ -788,10 +854,14 @@
       </div>
     {/if}
   </div>
+  {/if}
 
+  {#if has('undo') || has('redo')}
   <div class="w-px h-6 bg-border mx-0.5"></div>
+  {/if}
 
   <!-- Undo / Redo -->
+  {#if has('undo')}
   <button
     type="button"
     onclick={() => editor.chain().focus().undo().run()}
@@ -805,6 +875,8 @@
   >
     <Undo size={iconSize} />
   </button>
+  {/if}
+  {#if has('redo')}
   <button
     type="button"
     onclick={() => editor.chain().focus().redo().run()}
@@ -818,6 +890,7 @@
   >
     <Redo size={iconSize} />
   </button>
+  {/if}
 
   <!-- Modals -->
   {#if modalState?.type === "link"}

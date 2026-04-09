@@ -6,6 +6,10 @@ function formatFileSize(bytes) {
         return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+function isInlineable(name) {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    return ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext);
+}
 function getFileIcon(name) {
     const ext = name.split(".").pop()?.toLowerCase() || "";
     const icons = {
@@ -111,16 +115,47 @@ export const FileAttachment = Node.create({
             const info = document.createElement("div");
             info.style.cssText = "flex:1;min-width:0;";
             const nameEl = document.createElement("a");
-            nameEl.target = "_blank";
-            nameEl.rel = "noopener noreferrer";
             nameEl.textContent = node.attrs.name;
             nameEl.style.cssText =
-                "display:block;font-size:13px;font-weight:600;color:var(--primary, #4A7DAC);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+                "display:block;font-size:13px;font-weight:600;color:var(--primary, #4A7DAC);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;";
+            let resolvedSrc = null;
+            let resolvedName = node.attrs.name;
+            function getProxyUrl() {
+                const fileId = node.attrs.fileId;
+                if (!fileId)
+                    return null;
+                const baseUrl = editor.storage.fileAttachment?.downloadBaseUrl || "/api/upload";
+                return `${baseUrl}/${fileId}/download`;
+            }
+            function handleClick(e) {
+                e.preventDefault();
+                const proxyUrl = getProxyUrl();
+                const targetUrl = proxyUrl || resolvedSrc;
+                if (!targetUrl)
+                    return;
+                if (isInlineable(resolvedName)) {
+                    window.open(targetUrl, "_blank");
+                }
+                else {
+                    fetch(targetUrl)
+                        .then((res) => res.blob())
+                        .then((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = resolvedName;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                }
+            }
+            nameEl.addEventListener("click", handleClick);
             const sizeEl = document.createElement("span");
             sizeEl.style.cssText =
                 "font-size:11px;color:var(--muted-foreground, #718096);";
             // URL이 있으면 바로 표시
             if (node.attrs.src) {
+                resolvedSrc = node.attrs.src;
                 nameEl.href = node.attrs.src;
                 if (node.attrs.size)
                     sizeEl.textContent = formatFileSize(node.attrs.size);
@@ -134,9 +169,11 @@ export const FileAttachment = Node.create({
                 if (resolver) {
                     resolver(node.attrs.fileId)
                         .then((result) => {
+                        resolvedSrc = result.src;
                         nameEl.href = result.src;
                         nameEl.style.pointerEvents = "";
                         if (result.name) {
+                            resolvedName = result.name;
                             nameEl.textContent = result.name;
                             icon.textContent = getFileIcon(result.name);
                         }
@@ -178,7 +215,10 @@ export const FileAttachment = Node.create({
         };
     },
     addStorage() {
-        return { resolver: null };
+        return {
+            resolver: null,
+            downloadBaseUrl: "/api/upload",
+        };
     },
     addCommands() {
         return {

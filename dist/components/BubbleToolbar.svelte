@@ -22,8 +22,11 @@
     Code,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
+  import type { ToolbarFeature } from "../types";
 
-  let { editor, minimal = false }: { editor: Editor; minimal?: boolean } = $props();
+  let { editor, features }: { editor: Editor; features: Set<ToolbarFeature> } = $props();
+
+  const has = (f: ToolbarFeature) => features.has(f);
 
   let showHeadings = $state(false);
   let menuEl: HTMLDivElement | undefined = $state();
@@ -81,7 +84,7 @@
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
   <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-lg shadow-xl">
-    {#if !minimal}
+    {#if has('h1') || has('h2') || has('h3')}
       <!-- Block type selector -->
       <div class="relative">
         <button
@@ -113,6 +116,7 @@
               <Type size={12} /> 본문
             </button>
             {#each [1, 2, 3] as level}
+              {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
               {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
               <button
                 type="button"
@@ -133,6 +137,7 @@
               >
                 <Icon size={12} /> 제목 {level}
               </button>
+              {/if}
             {/each}
           </div>
         {/if}
@@ -142,6 +147,7 @@
     {/if}
 
     <!-- Format buttons -->
+    {#if has('bold')}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
@@ -156,6 +162,8 @@
     >
       <Bold size={iconSize} />
     </button>
+    {/if}
+    {#if has('italic')}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
@@ -170,7 +178,8 @@
     >
       <Italic size={iconSize} />
     </button>
-    {#if !minimal}
+    {/if}
+    {#if has('underline')}
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleUnderline().run()}
@@ -186,6 +195,7 @@
         <UnderlineIcon size={iconSize} />
       </button>
     {/if}
+    {#if has('strike')}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
@@ -200,7 +210,8 @@
     >
       <Strikethrough size={iconSize} />
     </button>
-    {#if !minimal}
+    {/if}
+    {#if has('highlight')}
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleHighlight().run()}
@@ -216,6 +227,7 @@
         <Highlighter size={iconSize} />
       </button>
     {/if}
+    {#if has('code')}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleCode().run()}
@@ -230,7 +242,9 @@
     >
       <Code size={iconSize} />
     </button>
+    {/if}
 
+    {#if has('link')}
     <div class="w-px h-5 bg-white/20 mx-0.5"></div>
 
     <button
@@ -247,11 +261,13 @@
     >
       <LinkIcon size={iconSize} />
     </button>
+    {/if}
 
-    {#if !minimal}
+    {#if has('align-left') || has('align-center') || has('align-right')}
       <div class="w-px h-5 bg-white/20 mx-0.5"></div>
 
       <!-- Alignment -->
+      {#if has('align-left')}
       <button
         type="button"
         onclick={() => editor.chain().focus().setTextAlign("left").run()}
@@ -266,6 +282,8 @@
       >
         <AlignLeft size={iconSize} />
       </button>
+      {/if}
+      {#if has('align-center')}
       <button
         type="button"
         onclick={() => editor.chain().focus().setTextAlign("center").run()}
@@ -280,6 +298,8 @@
       >
         <AlignCenter size={iconSize} />
       </button>
+      {/if}
+      {#if has('align-right')}
       <button
         type="button"
         onclick={() => editor.chain().focus().setTextAlign("right").run()}
@@ -294,6 +314,7 @@
       >
         <AlignRight size={iconSize} />
       </button>
+      {/if}
     {/if}
   </div>
 </div>

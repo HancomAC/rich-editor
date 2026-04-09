@@ -245,31 +245,36 @@ export const PdfBlock = TiptapNode.create({
                 }
             }
             // URL 해결 후 PDF 로드
+            function getProxyUrl(fileId) {
+                const baseUrl = editor.storage.fileAttachment?.downloadBaseUrl || "/api/upload";
+                return `${baseUrl}/${fileId}/download`;
+            }
             if (node.attrs.src) {
-                openLink.href = node.attrs.src;
-                loadPdf(node.attrs.src);
+                if (node.attrs.fileId) {
+                    // fileId 있으면 프록시 URL 사용 (경로 숨김)
+                    const proxyUrl = getProxyUrl(node.attrs.fileId);
+                    openLink.href = proxyUrl;
+                    loadPdf(proxyUrl);
+                }
+                else {
+                    openLink.href = node.attrs.src;
+                    loadPdf(node.attrs.src);
+                }
             }
             else if (node.attrs.fileId) {
-                // resolver로 URL 획득
-                openLink.href = "#";
+                const proxyUrl = getProxyUrl(node.attrs.fileId);
+                openLink.href = proxyUrl;
+                // resolver로 이름 획득
                 const resolver = editor.storage.fileAttachment?.resolver;
                 if (resolver) {
                     resolver(node.attrs.fileId)
                         .then((result) => {
-                        openLink.href = result.src;
                         if (result.name)
                             nameSpan.textContent = result.name;
-                        loadPdf(result.src);
                     })
-                        .catch(() => {
-                        loadingDiv.innerHTML =
-                            '<p class="text-sm text-muted-foreground">PDF URL\uC744 \uD655\uC778\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.</p>';
-                    });
+                        .catch(() => { });
                 }
-                else {
-                    loadingDiv.innerHTML =
-                        `<p class="text-sm text-muted-foreground">PDF ID: ${node.attrs.fileId}</p>`;
-                }
+                loadPdf(proxyUrl);
             }
             return {
                 dom,

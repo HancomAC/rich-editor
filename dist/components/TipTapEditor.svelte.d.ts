@@ -1,5 +1,5 @@
 import { type AnyExtension } from "@tiptap/core";
-import type { UploadHandler, ToolbarMode } from "../types";
+import type { UploadHandler, ToolbarMode, ToolbarFeature } from "../types";
 import type { FileResolver } from "../extensions/FileAttachment";
 type $$ComponentProps = {
     content: string;
@@ -10,6 +10,7 @@ type $$ComponentProps = {
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
+    features?: ToolbarFeature[];
 };
 declare const TipTapEditor: import("svelte").Component<$$ComponentProps, {}, "">;
 type TipTapEditor = ReturnType<typeof TipTapEditor>;

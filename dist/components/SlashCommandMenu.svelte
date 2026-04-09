@@ -21,18 +21,20 @@
     Columns2,
     Columns3,
   } from "lucide-svelte";
-  import type { SlashMenuItem } from "../types";
+  import type { SlashMenuItem, ToolbarFeature } from "../types";
   import type { Component } from "svelte";
 
   const SI = 14;
 
   const SLASH_MENU_ITEMS_DATA: {
+    feature: ToolbarFeature;
     label: string;
     keywords: string;
     icon: Component<{ size?: number }>;
     command: (editor: Editor) => void;
   }[] = [
     {
+      feature: "h1",
       label: "제목 1",
       keywords: "heading h1 제목",
       icon: Heading1,
@@ -40,6 +42,7 @@
         editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
     {
+      feature: "h2",
       label: "제목 2",
       keywords: "heading h2 제목",
       icon: Heading2,
@@ -47,6 +50,7 @@
         editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
+      feature: "h3",
       label: "제목 3",
       keywords: "heading h3 제목",
       icon: Heading3,
@@ -54,36 +58,42 @@
         editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
+      feature: "bullet-list",
       label: "글머리 목록",
       keywords: "bullet list 목록 리스트",
       icon: List,
       command: (editor) => editor.chain().focus().toggleBulletList().run(),
     },
     {
+      feature: "ordered-list",
       label: "번호 목록",
       keywords: "ordered number list 번호 리스트",
       icon: ListOrdered,
       command: (editor) => editor.chain().focus().toggleOrderedList().run(),
     },
     {
+      feature: "checklist",
       label: "체크리스트",
       keywords: "checklist task todo 체크 할일",
       icon: CheckSquare,
       command: (editor) => editor.chain().focus().toggleTaskList().run(),
     },
     {
+      feature: "blockquote",
       label: "인용문",
       keywords: "quote blockquote 인용",
       icon: Quote,
       command: (editor) => editor.chain().focus().toggleBlockquote().run(),
     },
     {
+      feature: "horizontal-rule",
       label: "구분선",
       keywords: "divider hr horizontal rule 구분",
       icon: Minus,
       command: (editor) => editor.chain().focus().setHorizontalRule().run(),
     },
     {
+      feature: "code-block",
       label: "C++ 코드",
       keywords: "code cpp c++ 코드 블록",
       icon: Code2,
@@ -91,6 +101,7 @@
         editor.chain().focus().setCodeBlock({ language: "cpp" }).run(),
     },
     {
+      feature: "code-block",
       label: "Python 코드",
       keywords: "code python 파이썬 코드 블록",
       icon: Code2,
@@ -98,12 +109,14 @@
         editor.chain().focus().setCodeBlock({ language: "python" }).run(),
     },
     {
+      feature: "toggle",
       label: "토글",
       keywords: "toggle details 접기 펼치기 토글",
       icon: ChevronRight,
       command: (editor) => editor.chain().focus().setDetails().run(),
     },
     {
+      feature: "table",
       label: "표",
       keywords: "table 표 테이블",
       icon: TableIcon,
@@ -115,18 +128,21 @@
           .run(),
     },
     {
+      feature: "columns-2",
       label: "2단 컬럼",
       keywords: "column 컬럼 2단 분할",
       icon: Columns2,
       command: (editor) => editor.chain().focus().setColumns(2).run(),
     },
     {
+      feature: "columns-3",
       label: "3단 컬럼",
       keywords: "column 컬럼 3단 분할",
       icon: Columns3,
       command: (editor) => editor.chain().focus().setColumns(3).run(),
     },
     {
+      feature: "youtube",
       label: "YouTube 영상",
       keywords: "youtube video 영상 동영상 유튜브",
       icon: Video,
@@ -136,6 +152,7 @@
       },
     },
     {
+      feature: "image",
       label: "이미지",
       keywords: "image 이미지 사진 img",
       icon: ImageIcon,
@@ -145,6 +162,7 @@
       },
     },
     {
+      feature: "link",
       label: "링크",
       keywords: "link url 링크 하이퍼",
       icon: LinkIcon,
@@ -163,6 +181,7 @@
 
   let {
     editor,
+    features,
     query,
     onClose,
     onPdfUpload,
@@ -170,6 +189,7 @@
     onVideoUpload,
   }: {
     editor: Editor;
+    features: Set<ToolbarFeature>;
     query: string;
     onClose: () => void;
     onPdfUpload?: () => void;
@@ -182,9 +202,10 @@
   let mouseMovedSinceKeyboard = $state(true);
 
   const allItems = $derived.by(() => {
-    const items = [...SLASH_MENU_ITEMS_DATA];
+    const items = SLASH_MENU_ITEMS_DATA.filter((item) => features.has(item.feature));
     if (onPdfUpload) {
       items.push({
+        feature: "pdf" as ToolbarFeature,
         label: "PDF 파일",
         keywords: "pdf 파일 문서",
         icon: FileText,
@@ -193,6 +214,7 @@
     }
     if (onVideoUpload) {
       items.push({
+        feature: "video" as ToolbarFeature,
         label: "영상 파일",
         keywords: "video 영상 동영상 비디오 메타버스",
         icon: Film,
@@ -201,6 +223,7 @@
     }
     if (onFileUpload) {
       items.push({
+        feature: "file" as ToolbarFeature,
         label: "파일 첨부",
         keywords: "file attach 파일 첨부",
         icon: Paperclip,
