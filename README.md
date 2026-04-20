@@ -1,25 +1,25 @@
-# @hancomac/rich-editor
+# @teriusu/rich-editor
 
 TipTap v3 기반 리치 텍스트 에디터. Svelte 5 컴포넌트 라이브러리.
 
 ## 설치
 
 ```bash
-npm install @hancomac/rich-editor
+npm install @teriusu/rich-editor
 ```
 
 Tailwind CSS v4 사용 시 `@source` 추가:
 ```css
-@import "@hancomac/rich-editor/styles";
-@source "../node_modules/@hancomac/rich-editor/dist";
+@import "@teriusu/rich-editor/styles";
+@source "../node_modules/@teriusu/rich-editor/dist";
 ```
 
 ## 기본 사용법
 
 ```svelte
 <script>
-  import { TipTapEditor } from '@hancomac/rich-editor';
-  import '@hancomac/rich-editor/styles';
+  import { TipTapEditor } from '@teriusu/rich-editor';
+  import '@teriusu/rich-editor/styles';
 
   let html = $state('');
 </script>
@@ -121,7 +121,7 @@ TipTap v2 커스텀 태그를 자동 변환합니다. 에디터 로드 시 `tran
 게시물 조회 페이지(읽기 전용)에서도 적용:
 
 ```js
-import { transformLegacyHtml } from '@hancomac/rich-editor';
+import { transformLegacyHtml } from '@teriusu/rich-editor';
 
 const html = transformLegacyHtml(post.content);
 ```
@@ -132,7 +132,7 @@ const html = transformLegacyHtml(post.content);
 
 ```svelte
 <script>
-  import { TipTapEditor } from '@hancomac/rich-editor';
+  import { TipTapEditor } from '@teriusu/rich-editor';
   import { Node } from '@tiptap/core';
 
   const MyExtension = Node.create({ /* ... */ });
@@ -159,12 +159,45 @@ const html = transformLegacyHtml(post.content);
 ### 타입
 `UploadHandler`, `FileResolver`, `FileResolveResult`, `TipTapEditorProps`, `SlashMenuItem`
 
-## 빌드
+## 빌드 / 배포
 
 ```bash
 npm run build          # svelte-package → dist/
-npm version patch      # 버전 올리기
+npm test               # vitest
 ```
+
+배포는 **main 브랜치 push 시 GitHub Actions가 자동 수행** (`.github/workflows/publish.yml`).
+수동 `npm publish`는 사용하지 않음.
+
+### 버전 정책 (SemVer)
+
+| 단계 | 조건 | 커밋 타입 |
+|------|------|-----------|
+| **patch** (`0.0.x`) | 버그 수정, 내부 리팩토링, 스타일 조정, 의존성 patch | `fix:`, `chore:`, `refactor:`, `style:` |
+| **minor** (`0.x.0`) | 하위 호환 기능 추가 (새 prop, 새 extension, 새 toolbar feature) | `feat:` |
+| **major** (`x.0.0`) | 깨는 변경 (prop 제거·rename, peer dep major bump, export 경로 변경) | `feat!:` / `BREAKING CHANGE:` |
+
+> `0.x`대에서는 관행상 **minor도 breaking일 수 있음**. 호스트 앱은 `^0.5.3` 대신 `~0.5.3` 사용을 권장.
+
+### 릴리스 플로우
+
+1. **patch만 필요한 변경**: 소스 수정 후 `main`에 push → CI가 `package.json`의 버전이 이미 publish된 최신과 같으면 **자동 patch bump** 후 publish
+2. **minor / major 변경**: push 전에 수동 bump
+   ```bash
+   npm version minor --no-git-tag-version   # 또는 major
+   git add package.json package-lock.json
+   git commit -m "chore: v$(node -p 'require(\"./package.json\").version')"
+   git push
+   ```
+   CI가 "이미 bump됨"을 감지하고 그 버전으로 publish.
+
+### 자동 전파
+
+publish 성공 시 `repository_dispatch` (`rich-editor-published`) 이벤트가 다음 repo로 전송되고, 각 repo의 `update-*` 워크플로우가 `package.json`을 새 버전으로 업데이트 + 커밋:
+- `teriusu-ko/hancomac` → `@teriusu/rich-editor`
+- `HancomAC/arcturus-next` → `apps/jungol`, `apps/codepass`의 `@teriusu/rich-editor`
+
+`teriusu-ko/teriusu`는 현재 수동 업데이트 (hook 미설정 — `GH_PAT` secret 추가 시 연결 가능).
 
 ## 기술 스택
 
