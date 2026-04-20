@@ -7,6 +7,25 @@
   overflow: visible !important;
 }
 
+/* ── 툴바·메뉴 버튼 기본 리셋 (Tailwind preflight 비활성화 상태이므로 UA 기본값만 제거) ──
+ * color·font·padding은 Tailwind 유틸리티(text-*, font-*, p-*)가 지정하도록 건드리지 않음.
+ */
+.hce-editor-wrapper button,
+.bubble-toolbar-container button,
+.slash-menu button {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.hce-editor-wrapper button:disabled,
+.bubble-toolbar-container button:disabled,
+.slash-menu button:disabled {
+  cursor: default;
+}
+
 /* ── 기본 레이아웃 (공식 TipTap 패턴) ── */
 .tiptap {
   font-size: 1.0625rem;
@@ -137,7 +156,7 @@
 /* ── 구분선 ── */
 .tiptap hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 2px solid color-mix(in srgb, var(--foreground) 38%, transparent);
   margin: 1.5em 0;
 }
 

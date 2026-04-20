@@ -10,7 +10,7 @@ export const TOOLBAR_PRESETS = {
         'link', 'image', 'pdf', 'youtube', 'video', 'file',
         'columns-2', 'columns-3', 'table', 'code-block',
         'undo', 'redo',
-        'fixed-toolbar', 'bubble-toolbar', 'slash-menu',
+        'fixed-toolbar', 'slash-menu',
         'table-menu', 'character-count', 'upload-overlay'
     ],
     standard: [
@@ -20,7 +20,7 @@ export const TOOLBAR_PRESETS = {
         'blockquote', 'horizontal-rule', 'toggle',
         'link', 'image', 'pdf', 'youtube', 'video', 'file',
         'columns-2', 'columns-3', 'table', 'code-block',
-        'fixed-toolbar', 'bubble-toolbar', 'slash-menu', 'table-menu'
+        'fixed-toolbar', 'slash-menu', 'table-menu'
     ],
     minimal: [
         'bold', 'italic', 'strike', 'code',

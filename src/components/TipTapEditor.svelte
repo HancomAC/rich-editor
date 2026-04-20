@@ -41,7 +41,7 @@
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
   import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import type { UploadHandler, ToolbarMode, ToolbarFeature } from "../types";
+  import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
 
@@ -113,6 +113,8 @@
     placeholder = "'/'를 눌러 명령어를 입력하세요...",
     onUploadFile,
     onResolveFile,
+    onPromptLink,
+    onPromptImage,
     extensions: extraExtensions = [],
     editable = true,
     toolbar = 'full',
@@ -123,6 +125,8 @@
     placeholder?: string;
     onUploadFile?: UploadHandler;
     onResolveFile?: FileResolver;
+    onPromptLink?: PromptHandler;
+    onPromptImage?: PromptHandler;
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
@@ -332,6 +336,8 @@
             })]),
         Placeholder.configure({
           placeholder: ({ node }) => {
+            // 코드블록·인용·목록 등 컨테이너/의미 있는 노드에는 placeholder 안 띄움
+            if (node.type.name === "codeBlock") return "";
             if (node.type.name === "heading") {
               const level = node.attrs.level;
               if (level === 1) return "제목 1";
@@ -567,6 +573,8 @@
 		<FixedToolbar
 			{editor}
 			{features}
+			{onPromptLink}
+			{onPromptImage}
 			onPdfClick={() => pdfInputEl?.click()}
 			onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
 			onVideoClick={onUploadFile ? () => videoInputEl?.click() : undefined}
@@ -577,7 +585,7 @@
 
 	{#if editor && editable}
 		{#if features.has('bubble-toolbar')}
-			<BubbleToolbar {editor} {features} />
+			<BubbleToolbar {editor} {features} {onPromptLink} />
 		{/if}
 
 		{#if features.has('table-menu')}
@@ -602,6 +610,8 @@
 				<SlashCommandMenu
 					{editor}
 					{features}
+					{onPromptLink}
+					{onPromptImage}
 					query={slashQuery}
 					onClose={closeSlashMenu}
 					onPdfUpload={onUploadFile && features.has('pdf')

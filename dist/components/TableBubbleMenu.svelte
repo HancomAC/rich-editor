@@ -124,7 +124,7 @@
     style="top: {pos.top}px; left: {pos.left}px; width: {pos.width}px"
   >
     <div
-      class="flex items-center justify-center gap-0.5 px-1.5 py-1 bg-foreground rounded-lg shadow-xl w-fit mx-auto"
+      class="flex items-center justify-center gap-0.5 px-1.5 py-1 bg-foreground rounded-full shadow-xl w-fit mx-auto"
     >
       <!-- Row/Col buttons -->
       <div class="hce-table-btn-wrap">
@@ -133,7 +133,7 @@
           onclick={() => editor.chain().focus().addRowBefore().run()}
           disabled={!editor.can().addRowBefore()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().addRowBefore() && "opacity-30 pointer-events-none",
           )}
@@ -149,7 +149,7 @@
           onclick={() => editor.chain().focus().addRowAfter().run()}
           disabled={!editor.can().addRowAfter()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().addRowAfter() && "opacity-30 pointer-events-none",
           )}
@@ -165,7 +165,7 @@
           onclick={() => editor.chain().focus().addColumnBefore().run()}
           disabled={!editor.can().addColumnBefore()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().addColumnBefore() &&
               "opacity-30 pointer-events-none",
@@ -182,7 +182,7 @@
           onclick={() => editor.chain().focus().addColumnAfter().run()}
           disabled={!editor.can().addColumnAfter()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().addColumnAfter() &&
               "opacity-30 pointer-events-none",
@@ -201,7 +201,7 @@
           onclick={() => editor.chain().focus().toggleHeaderRow().run()}
           disabled={!editor.can().toggleHeaderRow()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().toggleHeaderRow() &&
               "opacity-30 pointer-events-none",
@@ -218,7 +218,7 @@
           onclick={() => editor.chain().focus().toggleHeaderColumn().run()}
           disabled={!editor.can().toggleHeaderColumn()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().toggleHeaderColumn() &&
               "opacity-30 pointer-events-none",
@@ -235,7 +235,7 @@
           onclick={() => editor.chain().focus().mergeCells().run()}
           disabled={!editor.can().mergeCells()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().mergeCells() && "opacity-30 pointer-events-none",
           )}
@@ -251,7 +251,7 @@
           onclick={() => editor.chain().focus().splitCell().run()}
           disabled={!editor.can().splitCell()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-white hover:bg-white/10",
             !editor.can().splitCell() && "opacity-30 pointer-events-none",
           )}
@@ -272,7 +272,7 @@
               showLineHeight = !showLineHeight;
               showColors = false;
             }}
-            class="p-1.5 rounded-md transition-colors text-white/70 hover:text-white hover:bg-white/10"
+            class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
           >
             <UnfoldVertical size={iconSize} />
           </button>
@@ -325,6 +325,7 @@
       <div class="hce-table-btn-wrap">
         <button
           type="button"
+          class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
           onclick={() => {
             const { tableNode, tablePos } = findTableNode();
             if (!tableNode || tablePos < 0) return;
@@ -360,7 +361,6 @@
             );
             editor.view.dispatch(tr);
           }}
-          class="p-1.5 rounded-md transition-colors text-white/70 hover:text-white hover:bg-white/10"
         >
           <EqualApproximately size={iconSize} />
         </button>
@@ -376,7 +376,7 @@
               showColors = !showColors;
               showLineHeight = false;
             }}
-            class="p-1.5 rounded-md transition-colors text-white/70 hover:text-white hover:bg-white/10"
+            class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
           >
             <Paintbrush size={iconSize} />
           </button>
@@ -388,7 +388,7 @@
             style="min-width: 160px"
           >
             <p
-              class="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-1.5 px-1"
+              class="text-xs font-medium text-white/60 mb-1.5 px-1"
             >
               배경색
             </p>
@@ -426,7 +426,7 @@
           onclick={() => editor.chain().focus().deleteRow().run()}
           disabled={!editor.can().deleteRow()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-red-300 hover:bg-white/10",
             !editor.can().deleteRow() && "opacity-30 pointer-events-none",
           )}
@@ -442,7 +442,7 @@
           onclick={() => editor.chain().focus().deleteColumn().run()}
           disabled={!editor.can().deleteColumn()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-red-300 hover:bg-white/10",
             !editor.can().deleteColumn() && "opacity-30 pointer-events-none",
           )}
@@ -458,7 +458,7 @@
           onclick={() => editor.chain().focus().deleteTable().run()}
           disabled={!editor.can().deleteTable()}
           class={cn(
-            "p-1.5 rounded-md transition-colors",
+            "p-1.5 rounded-full transition-colors",
             "text-white/70 hover:text-red-300 hover:bg-white/10",
             !editor.can().deleteTable() && "opacity-30 pointer-events-none",
           )}

@@ -3,6 +3,12 @@ import type { Component } from "svelte";
 import type { FileResolver } from "./extensions/FileAttachment";
 /** 파일 업로드 핸들러 -- 호스트 앱에서 구현 */
 export type UploadHandler = (file: File) => Promise<string>;
+/**
+ * URL 프롬프트 핸들러 -- 호스트 앱에서 Dialog 등으로 구현.
+ * 제공되지 않으면 내장 InputModal (링크/이미지) 또는 window.prompt (Bubble)로 폴백.
+ * null 반환 = 취소.
+ */
+export type PromptHandler = (defaultValue: string) => Promise<string | null>;
 /** 툴바 모드 */
 export type ToolbarMode = 'minimal' | 'standard' | 'full';
 /** 개별 툴바 기능 ID */
@@ -19,6 +25,10 @@ export interface TipTapEditorProps {
     onUploadFile?: UploadHandler;
     /** 파일 ID → URL 변환. 하이브리드 파일 저장 시 사용 */
     onResolveFile?: FileResolver;
+    /** 링크 URL 프롬프트. 미제공 시 내장 InputModal (FixedToolbar) / window.prompt (BubbleToolbar) 폴백 */
+    onPromptLink?: PromptHandler;
+    /** 이미지 URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    onPromptImage?: PromptHandler;
     /** 툴바 모드: 'minimal' | 'standard' | 'full' (기본값 'full') */
     toolbar?: ToolbarMode;
     /** 개별 기능 커스터마이징. 설정 시 toolbar 모드 프리셋 대신 이 배열을 사용 */

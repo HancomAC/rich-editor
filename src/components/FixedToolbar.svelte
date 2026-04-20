@@ -43,7 +43,7 @@
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
-  import type { ToolbarFeature } from "../types";
+  import type { ToolbarFeature, PromptHandler } from "../types";
 
   let {
     editor,
@@ -51,12 +51,16 @@
     onPdfClick,
     onFileClick,
     onVideoClick,
+    onPromptLink,
+    onPromptImage,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
     onPdfClick: () => void;
     onFileClick?: () => void;
     onVideoClick?: () => void;
+    onPromptLink?: PromptHandler;
+    onPromptImage?: PromptHandler;
   } = $props();
 
   const has = (f: ToolbarFeature) => features.has(f);
@@ -91,11 +95,35 @@
     };
   });
 
-  function addLink() {
+  async function addLink() {
+    if (onPromptLink) {
+      const previous = editor.isActive("link")
+        ? (editor.getAttributes("link").href as string) || ""
+        : "";
+      const url = await onPromptLink(previous);
+      if (url === null) return;
+      if (url === "") {
+        editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      } else {
+        editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .setLink({ href: url })
+          .run();
+      }
+      return;
+    }
     modalState = { type: "link" };
   }
 
-  function addImage() {
+  async function addImage() {
+    if (onPromptImage) {
+      const url = await onPromptImage("");
+      if (!url) return;
+      editor.chain().focus().setImage({ src: url }).run();
+      return;
+    }
     modalState = { type: "image" };
   }
 
@@ -120,10 +148,11 @@
 </script>
 
 <div
-  class="sticky z-30 flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-border bg-background rounded-t-xl"
+  class="hce-toolbar sticky z-30 flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-background rounded-t-xl"
   style="top: var(--header-height, 74px)"
 >
   <!-- Format -->
+  <div class="hce-toolbar-group">
   {#if has('bold')}
   <button
     type="button"
@@ -237,11 +266,11 @@
   </button>
   {/if}
 
-  {#if has('align-left') || has('align-center') || has('align-right')}
-  <div class="w-px h-6 bg-border mx-0.5"></div>
-  {/if}
+  </div>
 
+  {#if has('align-left') || has('align-center') || has('align-right')}
   <!-- Alignment -->
+  <div class="hce-toolbar-group">
   {#if has('align-left')}
   <button
     type="button"
@@ -291,11 +320,12 @@
   </button>
   {/if}
 
-  {#if has('h1') || has('h2') || has('h3')}
-  <div class="w-px h-6 bg-border mx-0.5"></div>
+    </div>
   {/if}
 
+  {#if has('h1') || has('h2') || has('h3')}
   <!-- Headings -->
+  <div class="hce-toolbar-group">
   {#if has('h1')}
   <button
     type="button"
@@ -345,11 +375,12 @@
   </button>
   {/if}
 
-  {#if has('bullet-list') || has('ordered-list') || has('checklist') || has('blockquote') || has('horizontal-rule') || has('toggle')}
-  <div class="w-px h-6 bg-border mx-0.5"></div>
+    </div>
   {/if}
 
+  {#if has('bullet-list') || has('ordered-list') || has('checklist') || has('blockquote') || has('horizontal-rule') || has('toggle')}
   <!-- Lists & Blocks -->
+  <div class="hce-toolbar-group">
   {#if has('bullet-list')}
   <button
     type="button"
@@ -442,11 +473,12 @@
   </button>
   {/if}
 
-  {#if has('link') || has('image') || has('pdf') || has('youtube') || has('video') || has('file')}
-  <div class="w-px h-6 bg-border mx-0.5"></div>
+    </div>
   {/if}
 
-  <!-- Media -->
+  {#if has('link') || has('image') || has('pdf') || has('youtube') || has('video') || has('file') || has('columns-2') || has('columns-3') || has('table') || has('code-block')}
+  <!-- Media & Layout -->
+  <div class="hce-toolbar-group">
   {#if has('link')}
   <button
     type="button"
@@ -607,7 +639,7 @@
           </button>
         {:else}
           <p
-            class="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
           >
             구조
           </p>
@@ -671,7 +703,7 @@
           </button>
           <div class="h-px bg-border my-1"></div>
           <p
-            class="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
           >
             헤더 / 셀
           </p>
@@ -745,7 +777,7 @@
           </button>
           <div class="h-px bg-border my-1"></div>
           <p
-            class="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
           >
             삭제
           </p>
@@ -797,70 +829,31 @@
   </div>
   {/if}
 
-  <!-- Code block menu -->
+  <!-- Code block -->
   {#if has('code-block')}
-  <div bind:this={codeMenuEl} class="relative">
-    <button
-      type="button"
-      onclick={() => (codeMenuOpen = !codeMenuOpen)}
-      data-tooltip="코드 블록"
-      aria-label="코드 블록"
-      class={cn(
-        "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
-        editor.isActive("codeBlock")
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <Code2 size={iconSize} />
-      <ChevronDown size={12} />
-    </button>
-    {#if codeMenuOpen}
-      <div
-        class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
-        style="min-width: 130px"
-      >
-        <button
-          type="button"
-          class="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-          onclick={() => {
-            editor.chain().focus().setCodeBlock({ language: "cpp" }).run();
-            codeMenuOpen = false;
-          }}
-        >
-          C++
-        </button>
-        <button
-          type="button"
-          class="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-          onclick={() => {
-            editor.chain().focus().setCodeBlock({ language: "python" }).run();
-            codeMenuOpen = false;
-          }}
-        >
-          Python
-        </button>
-        <div class="h-px bg-border my-1"></div>
-        <button
-          type="button"
-          class="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-          onclick={() => {
-            editor.chain().focus().setCodeBlock({ language: "" }).run();
-            codeMenuOpen = false;
-          }}
-        >
-          일반 코드
-        </button>
-      </div>
-    {/if}
-  </div>
+  <button
+    type="button"
+    onclick={() => editor.chain().focus().setCodeBlock({ language: 'cpp' }).run()}
+    data-tooltip="코드 블록"
+    aria-label="코드 블록"
+    class={cn(
+      "p-1.5 rounded-md transition-colors",
+      editor.isActive("codeBlock")
+        ? "bg-primary/10 text-primary"
+        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+    )}
+  >
+    <Code2 size={iconSize} />
+  </button>
+  {/if}
+
+    </div>
   {/if}
 
   {#if has('undo') || has('redo')}
-  <div class="w-px h-6 bg-border mx-0.5"></div>
-  {/if}
-
   <!-- Undo / Redo -->
+  <div class="hce-toolbar-group">
+
   {#if has('undo')}
   <button
     type="button"
@@ -892,10 +885,13 @@
   </button>
   {/if}
 
+  </div>
+  {/if}
+
   <!-- Modals -->
   {#if modalState?.type === "link"}
     <InputModal
-      data-tooltip="링크 URL 입력"
+      title="링크 URL 입력"
       placeholder="https://example.com"
       defaultValue={editor.isActive("link") ? editor.getAttributes("link").href || "" : ""}
       onConfirm={(url) => {
@@ -912,7 +908,7 @@
   {/if}
   {#if modalState?.type === "image"}
     <InputModal
-      data-tooltip="이미지 URL 입력"
+      title="이미지 URL 입력"
       placeholder="https://example.com/image.png"
       onConfirm={(url) => {
         editor.chain().focus().setImage({ src: url }).run();
@@ -963,3 +959,30 @@
     </div>
   {/if}
 </div>
+
+<style>
+  /* 툴바 버튼 기본 리셋 (Tailwind preflight 비활성화 상태라 UA 기본값 제거) */
+  .hce-toolbar :global(button) {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .hce-toolbar :global(button:disabled) {
+    cursor: default;
+  }
+
+  .hce-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-xl, 8px);
+    background: color-mix(in srgb, var(--muted, #f6f7f9) 55%, transparent);
+  }
+
+  .hce-toolbar-group :global(button) {
+    flex-shrink: 0;
+  }
+</style>

@@ -22,9 +22,17 @@
     Code,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
-  import type { ToolbarFeature } from "../types";
+  import type { ToolbarFeature, PromptHandler } from "../types";
 
-  let { editor, features }: { editor: Editor; features: Set<ToolbarFeature> } = $props();
+  let {
+    editor,
+    features,
+    onPromptLink,
+  }: {
+    editor: Editor;
+    features: Set<ToolbarFeature>;
+    onPromptLink?: PromptHandler;
+  } = $props();
 
   const has = (f: ToolbarFeature) => features.has(f);
 
@@ -39,9 +47,11 @@
     return "본문";
   }
 
-  function addLink() {
+  async function addLink() {
     const previousUrl = editor.getAttributes("link").href || "";
-    const url = window.prompt("링크 URL을 입력하세요", previousUrl);
+    const url = onPromptLink
+      ? await onPromptLink(previousUrl)
+      : window.prompt("링크 URL을 입력하세요", previousUrl);
     if (url === null) return;
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -83,14 +93,14 @@
 </script>
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
-  <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-lg shadow-xl">
+  <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-full shadow-xl">
     {#if has('h1') || has('h2') || has('h3')}
       <!-- Block type selector -->
       <div class="relative">
         <button
           type="button"
           onclick={() => (showHeadings = !showHeadings)}
-          class="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
         >
           <Type size={12} />
           {getCurrentBlockLabel()}
@@ -154,7 +164,7 @@
       title="굵게"
       aria-label="굵게"
       class={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-full transition-colors",
         editor.isActive("bold")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
@@ -170,7 +180,7 @@
       title="기울임"
       aria-label="기울임"
       class={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-full transition-colors",
         editor.isActive("italic")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
@@ -186,7 +196,7 @@
         title="밑줄"
         aria-label="밑줄"
         class={cn(
-          "p-1.5 rounded-md transition-colors",
+          "p-1.5 rounded-full transition-colors",
           editor.isActive("underline")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
@@ -202,7 +212,7 @@
       title="취소선"
       aria-label="취소선"
       class={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-full transition-colors",
         editor.isActive("strike")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
@@ -218,7 +228,7 @@
         title="하이라이트"
         aria-label="하이라이트"
         class={cn(
-          "p-1.5 rounded-md transition-colors",
+          "p-1.5 rounded-full transition-colors",
           editor.isActive("highlight")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
@@ -234,7 +244,7 @@
       title="코드"
       aria-label="코드"
       class={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-full transition-colors",
         editor.isActive("code")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
@@ -253,7 +263,7 @@
       title="링크"
       aria-label="링크"
       class={cn(
-        "p-1.5 rounded-md transition-colors",
+        "p-1.5 rounded-full transition-colors",
         editor.isActive("link")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
@@ -274,7 +284,7 @@
         title="왼쪽 정렬"
         aria-label="왼쪽 정렬"
         class={cn(
-          "p-1.5 rounded-md transition-colors",
+          "p-1.5 rounded-full transition-colors",
           editor.isActive({ textAlign: "left" })
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
@@ -290,7 +300,7 @@
         title="가운데 정렬"
         aria-label="가운데 정렬"
         class={cn(
-          "p-1.5 rounded-md transition-colors",
+          "p-1.5 rounded-full transition-colors",
           editor.isActive({ textAlign: "center" })
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
@@ -306,7 +316,7 @@
         title="오른쪽 정렬"
         aria-label="오른쪽 정렬"
         class={cn(
-          "p-1.5 rounded-md transition-colors",
+          "p-1.5 rounded-full transition-colors",
           editor.isActive({ textAlign: "right" })
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",

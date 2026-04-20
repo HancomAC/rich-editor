@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/core";
-import type { ToolbarFeature } from "../types";
+import type { ToolbarFeature, PromptHandler } from "../types";
 import type { Component } from "svelte";
 type $$ComponentProps = {
     editor: Editor;
@@ -9,6 +9,8 @@ type $$ComponentProps = {
     onPdfUpload?: () => void;
     onFileUpload?: () => void;
     onVideoUpload?: () => void;
+    onPromptLink?: PromptHandler;
+    onPromptImage?: PromptHandler;
 };
 declare const SlashCommandMenu: Component<$$ComponentProps, {}, "">;
 type SlashCommandMenu = ReturnType<typeof SlashCommandMenu>;

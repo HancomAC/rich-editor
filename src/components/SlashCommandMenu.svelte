@@ -21,10 +21,34 @@
     Columns2,
     Columns3,
   } from "lucide-svelte";
-  import type { SlashMenuItem, ToolbarFeature } from "../types";
+  import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
 
   const SI = 14;
+
+  /** 각 feature가 속하는 섹션 라벨 */
+  const SECTION_MAP: Record<string, string> = {
+    h1: "기본",
+    h2: "기본",
+    h3: "기본",
+    "bullet-list": "리스트",
+    "ordered-list": "리스트",
+    checklist: "리스트",
+    toggle: "리스트",
+    blockquote: "블록",
+    "horizontal-rule": "블록",
+    "code-block": "블록",
+    table: "레이아웃",
+    "columns-2": "레이아웃",
+    "columns-3": "레이아웃",
+    link: "미디어",
+    image: "미디어",
+    youtube: "미디어",
+    pdf: "미디어",
+    video: "미디어",
+    file: "미디어",
+  };
+  const SECTION_ORDER = ["기본", "리스트", "블록", "레이아웃", "미디어"];
 
   const SLASH_MENU_ITEMS_DATA: {
     feature: ToolbarFeature;
@@ -187,6 +211,8 @@
     onPdfUpload,
     onFileUpload,
     onVideoUpload,
+    onPromptLink,
+    onPromptImage,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -195,7 +221,29 @@
     onPdfUpload?: () => void;
     onFileUpload?: () => void;
     onVideoUpload?: () => void;
+    onPromptLink?: PromptHandler;
+    onPromptImage?: PromptHandler;
   } = $props();
+
+  async function runItem(item: (typeof SLASH_MENU_ITEMS_DATA)[number]) {
+    if (item.feature === "link" && onPromptLink) {
+      const url = await onPromptLink("");
+      if (url)
+        editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .setLink({ href: url })
+          .run();
+      return;
+    }
+    if (item.feature === "image" && onPromptImage) {
+      const url = await onPromptImage("");
+      if (url) editor.chain().focus().setImage({ src: url }).run();
+      return;
+    }
+    item.command(editor);
+  }
 
   let selectedIndex = $state(0);
   let menuEl: HTMLDivElement | undefined = $state();
@@ -274,8 +322,9 @@
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (filtered[selectedIndex]) {
+          const item = filtered[selectedIndex];
           onClose();
-          filtered[selectedIndex].command(editor);
+          runItem(item);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -290,49 +339,127 @@
 {#if filtered.length === 0}
   <div
     bind:this={menuEl}
-    class="z-50 bg-popover border border-border rounded-lg shadow-lg p-2"
-    style="width: 180px"
+    class="slash-menu z-50 bg-popover border border-border rounded-xl shadow-xl p-2"
   >
     <p class="text-xs text-muted-foreground px-2 py-1">결과 없음</p>
   </div>
 {:else}
   <div
     bind:this={menuEl}
-    class="z-50 bg-popover border border-border rounded-lg shadow-lg overflow-y-auto py-1"
-    style="width: 180px; max-height: 200px"
+    class="slash-menu z-50 bg-popover border border-border rounded-xl shadow-xl overflow-y-auto py-1.5"
   >
-    <p
-      class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-3 py-1.5"
-    >
-      블록
-    </p>
-    {#each filtered as item, i}
-      <button
-        type="button"
-        data-index={i}
-        class="w-full flex items-center gap-2 px-2 py-1.5 text-left transition-colors rounded-md mx-0 {i ===
-        selectedIndex
-          ? 'bg-accent text-accent-foreground'
-          : 'hover:bg-muted text-foreground'}"
-        onmousemove={() => {
-          if (!mouseMovedSinceKeyboard) {
-            mouseMovedSinceKeyboard = true;
-            return;
-          }
-          selectedIndex = i;
-        }}
-        onclick={() => {
-          onClose();
-          item.command(editor);
-        }}
-      >
-        <span
-          class="flex items-center justify-center w-6 h-6 rounded border border-border bg-background text-muted-foreground shrink-0"
-        >
-          <item.icon size={SI} />
-        </span>
-        <span class="text-sm font-medium">{item.label}</span>
-      </button>
+    {#each SECTION_ORDER as section}
+      {@const sectionItems = filtered.filter(
+        (it) => (SECTION_MAP[it.feature] ?? '기본') === section,
+      )}
+      {#if sectionItems.length > 0}
+        <p class="slash-section">{section}</p>
+        {#each sectionItems as item}
+          {@const i = filtered.indexOf(item)}
+          <button
+            type="button"
+            data-index={i}
+            class="slash-item {i === selectedIndex ? 'is-selected' : ''}"
+            onmousemove={() => {
+              if (!mouseMovedSinceKeyboard) {
+                mouseMovedSinceKeyboard = true;
+                return;
+              }
+              selectedIndex = i;
+            }}
+            onclick={() => {
+              onClose();
+              runItem(item);
+            }}
+          >
+            <span class="slash-icon">
+              <item.icon size={SI} />
+            </span>
+            <span class="slash-label">{item.label}</span>
+          </button>
+        {/each}
+      {/if}
     {/each}
   </div>
 {/if}
+
+<style>
+  .slash-menu {
+    width: 220px;
+    max-height: 320px;
+  }
+
+  .slash-section {
+    margin: 0;
+    padding: 6px 12px 4px;
+    font-size: var(--text-xs, 11px);
+    font-weight: 600;
+    color: var(--muted-foreground);
+    letter-spacing: 0.02em;
+  }
+  .slash-section:not(:first-of-type) {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .slash-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 12px;
+    text-align: left;
+    font-size: var(--text-sm, 13px);
+    font-weight: 500;
+    color: var(--foreground);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color 0.12s;
+  }
+
+  .slash-item:hover,
+  .slash-item.is-selected {
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    color: var(--primary);
+  }
+
+  .slash-item.is-selected::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--primary);
+  }
+
+  .slash-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-md, 6px);
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+
+  .slash-item.is-selected .slash-icon,
+  .slash-item:hover .slash-icon {
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    color: var(--primary);
+  }
+
+  .slash-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>

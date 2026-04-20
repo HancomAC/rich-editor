@@ -1,5 +1,5 @@
 import { type AnyExtension } from "@tiptap/core";
-import type { UploadHandler, ToolbarMode, ToolbarFeature } from "../types";
+import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
 import type { FileResolver } from "../extensions/FileAttachment";
 type $$ComponentProps = {
     content: string;
@@ -7,6 +7,8 @@ type $$ComponentProps = {
     placeholder?: string;
     onUploadFile?: UploadHandler;
     onResolveFile?: FileResolver;
+    onPromptLink?: PromptHandler;
+    onPromptImage?: PromptHandler;
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
