@@ -76,7 +76,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
