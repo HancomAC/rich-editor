@@ -31,16 +31,11 @@
   font-size: 1.0625rem;
   line-height: 1.8;
   color: var(--foreground);
-  padding: 1.5rem 1rem 1.5rem 0;
+  padding: 1.5rem;
 }
 
 .tiptap > * + * {
   margin-top: 0.5em;
-}
-
-.tiptap > * {
-  margin-left: 1.5rem;
-  margin-right: 1.5rem;
 }
 
 /* ── 텍스트 블록 ── */

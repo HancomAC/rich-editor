@@ -149,7 +149,7 @@
   let slashMenuPos = $state({ top: 0, left: 0 });
   let slashQuery = $state("");
   let slashStartPos: number | null = null;
-  const MENU_HEIGHT = 200;
+  const MENU_HEIGHT = 320;
 
   function updateSlashMenuPosition() {
     if (!editor || slashStartPos === null) return;

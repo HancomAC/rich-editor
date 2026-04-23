@@ -28,6 +28,9 @@
 
   /** 각 feature가 속하는 섹션 라벨 */
   const SECTION_MAP: Record<string, string> = {
+    "code-block": "자주 쓰는",
+    file: "자주 쓰는",
+    pdf: "자주 쓰는",
     h1: "기본",
     h2: "기본",
     h3: "기본",
@@ -37,18 +40,15 @@
     toggle: "리스트",
     blockquote: "블록",
     "horizontal-rule": "블록",
-    "code-block": "블록",
     table: "레이아웃",
     "columns-2": "레이아웃",
     "columns-3": "레이아웃",
     link: "미디어",
     image: "미디어",
     youtube: "미디어",
-    pdf: "미디어",
     video: "미디어",
-    file: "미디어",
   };
-  const SECTION_ORDER = ["기본", "리스트", "블록", "레이아웃", "미디어"];
+  const SECTION_ORDER = ["자주 쓰는", "기본", "리스트", "블록", "레이아웃", "미디어"];
 
   const SLASH_MENU_ITEMS_DATA: {
     feature: ToolbarFeature;
@@ -118,19 +118,11 @@
     },
     {
       feature: "code-block",
-      label: "C++ 코드",
-      keywords: "code cpp c++ 코드 블록",
+      label: "코드",
+      keywords: "code 코드 블록 cpp c++ python 파이썬",
       icon: Code2,
       command: (editor) =>
         editor.chain().focus().setCodeBlock({ language: "cpp" }).run(),
-    },
-    {
-      feature: "code-block",
-      label: "Python 코드",
-      keywords: "code python 파이썬 코드 블록",
-      icon: Code2,
-      command: (editor) =>
-        editor.chain().focus().setCodeBlock({ language: "python" }).run(),
     },
     {
       feature: "toggle",
@@ -251,6 +243,15 @@
 
   const allItems = $derived.by(() => {
     const items = SLASH_MENU_ITEMS_DATA.filter((item) => features.has(item.feature));
+    if (onFileUpload) {
+      items.push({
+        feature: "file" as ToolbarFeature,
+        label: "파일 첨부",
+        keywords: "file attach 파일 첨부",
+        icon: Paperclip,
+        command: () => onFileUpload!(),
+      });
+    }
     if (onPdfUpload) {
       items.push({
         feature: "pdf" as ToolbarFeature,
@@ -267,15 +268,6 @@
         keywords: "video 영상 동영상 비디오 메타버스",
         icon: Film,
         command: () => onVideoUpload!(),
-      });
-    }
-    if (onFileUpload) {
-      items.push({
-        feature: "file" as ToolbarFeature,
-        label: "파일 첨부",
-        keywords: "file attach 파일 첨부",
-        icon: Paperclip,
-        command: () => onFileUpload!(),
       });
     }
     return items;
@@ -304,6 +296,16 @@
       const el = menuEl.querySelector(`[data-index="${selectedIndex}"]`);
       el?.scrollIntoView({ block: "nearest" });
     }
+  });
+
+  $effect(() => {
+    function handleMouseDown(e: MouseEvent) {
+      if (menuEl && !menuEl.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown, true);
+    return () => document.removeEventListener("mousedown", handleMouseDown, true);
   });
 
   $effect(() => {

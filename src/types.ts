@@ -63,7 +63,10 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 	],
 	minimal: [
 		'bold', 'italic', 'strike', 'code',
-		'link',
+		'h2', 'h3',
+		'bullet-list', 'ordered-list', 'checklist',
+		'blockquote', 'code-block',
+		'link', 'image', 'file', 'pdf',
 		'bubble-toolbar', 'slash-menu'
 	]
 };

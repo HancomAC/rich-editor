@@ -12,6 +12,7 @@ export const PdfBlock = TiptapNode.create({
       src: { default: null },
       fileId: { default: null },
       name: { default: "PDF" },
+      width: { default: null },
     };
   },
 
@@ -24,6 +25,8 @@ export const PdfBlock = TiptapNode.create({
           fileId: dom.getAttribute("data-pdf-id"),
           src: dom.getAttribute("data-pdf-src") || null,
           name: dom.getAttribute("data-pdf-name") || "PDF",
+          width:
+            dom.getAttribute("data-pdf-width") || dom.style?.width || null,
         }),
       },
       // URL 직접 방식
@@ -33,6 +36,8 @@ export const PdfBlock = TiptapNode.create({
           src: dom.getAttribute("data-pdf-src"),
           fileId: null,
           name: dom.getAttribute("data-pdf-name") || "PDF",
+          width:
+            dom.getAttribute("data-pdf-width") || dom.style?.width || null,
         }),
       },
       // 레거시: <embed type="application/pdf">
@@ -41,7 +46,7 @@ export const PdfBlock = TiptapNode.create({
         getAttrs: (dom: HTMLElement) => {
           const src = dom.getAttribute("src") || "";
           const name = src.split("/").pop()?.replace(/\?.*$/, "") || "PDF";
-          return { src, fileId: null, name };
+          return { src, fileId: null, name, width: null };
         },
       },
     ];
@@ -52,6 +57,10 @@ export const PdfBlock = TiptapNode.create({
     if (HTMLAttributes.fileId) attrs["data-pdf-id"] = HTMLAttributes.fileId;
     if (HTMLAttributes.src) attrs["data-pdf-src"] = HTMLAttributes.src;
     attrs["data-pdf-name"] = HTMLAttributes.name || "PDF";
+    if (HTMLAttributes.width) {
+      attrs["data-pdf-width"] = HTMLAttributes.width;
+      attrs["style"] = `width: ${HTMLAttributes.width}`;
+    }
     return [
       "div",
       mergeAttributes(attrs),
@@ -81,12 +90,86 @@ export const PdfBlock = TiptapNode.create({
       dom.classList.add("my-4");
       dom.contentEditable = "false";
       dom.setAttribute("data-drag-handle", "");
+      dom.setAttribute("data-node-view-wrapper", "");
+      dom.style.position = "relative";
+      dom.style.boxSizing = "border-box";
+      dom.style.maxWidth = "100%";
+      if (node.attrs.width) dom.style.width = node.attrs.width;
 
       const wrapper = document.createElement("div");
       wrapper.className =
         "border rounded-lg overflow-hidden bg-muted/30 transition-shadow";
       wrapper.style.borderColor = "var(--border)";
       dom.appendChild(wrapper);
+
+      // 리사이즈 핸들 (편집 가능 모드에서만)
+      if (editor.isEditable) {
+        const resizeHandle = document.createElement("button");
+        resizeHandle.type = "button";
+        resizeHandle.contentEditable = "false";
+        resizeHandle.setAttribute("aria-label", "PDF 너비 조절");
+        resizeHandle.style.cssText =
+          "position:absolute;right:-12px;top:0;bottom:0;width:14px;padding:0;margin:0;border:0;background:transparent;cursor:ew-resize;z-index:2;display:flex;align-items:center;justify-content:center;";
+
+        const bar = document.createElement("span");
+        bar.style.cssText =
+          "display:block;width:3px;height:48px;background:var(--border, #d1d5db);border-radius:2px;transition:background 0.15s;pointer-events:none;";
+        resizeHandle.appendChild(bar);
+
+        resizeHandle.addEventListener("mouseenter", () => {
+          bar.style.background = "var(--primary, #3382f2)";
+        });
+        resizeHandle.addEventListener("mouseleave", () => {
+          if (!resizing) bar.style.background = "var(--border, #d1d5db)";
+        });
+
+        const MIN_W = 240;
+        const MAX_W = 1600;
+        let resizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        resizeHandle.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          resizing = true;
+          startX = e.clientX;
+          startWidth = dom.getBoundingClientRect().width;
+          bar.style.background = "var(--primary, #3382f2)";
+          resizeHandle.setPointerCapture(e.pointerId);
+        });
+
+        resizeHandle.addEventListener("pointermove", (e) => {
+          if (!resizing) return;
+          const delta = e.clientX - startX;
+          const next = Math.max(MIN_W, Math.min(MAX_W, startWidth + delta));
+          dom.style.width = `${next}px`;
+        });
+
+        const endResize = (e: PointerEvent) => {
+          if (!resizing) return;
+          resizing = false;
+          bar.style.background = "var(--border, #d1d5db)";
+          try {
+            resizeHandle.releasePointerCapture(e.pointerId);
+          } catch {
+            // ignore release errors (handle may have lost capture already)
+          }
+          const finalWidth = dom.style.width;
+          if (!finalWidth) return;
+          const pos = getPos();
+          if (pos == null) return;
+          editor.view.dispatch(
+            editor.view.state.tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              width: finalWidth,
+            }),
+          );
+        };
+        resizeHandle.addEventListener("pointerup", endResize);
+        resizeHandle.addEventListener("pointercancel", endResize);
+        dom.appendChild(resizeHandle);
+      }
 
       // Header
       const header = document.createElement("div");
@@ -297,6 +380,10 @@ export const PdfBlock = TiptapNode.create({
         dom,
         update: (updatedNode) => {
           if (updatedNode.type.name !== "pdfBlock") return false;
+          const newWidth = updatedNode.attrs.width as string | null;
+          if (newWidth !== (node.attrs.width as string | null)) {
+            dom.style.width = newWidth || "";
+          }
           return true;
         },
         selectNode: () => {

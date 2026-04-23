@@ -132,19 +132,17 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
     return ({ node, editor }) => {
       const dom = document.createElement("div");
       dom.style.cssText =
-        "display:flex;align-items:center;gap:10px;padding:10px 14px;margin:8px 0;border:1px solid var(--border, #e2e8f0);border-radius:10px;background:var(--muted, #f7fafc);cursor:default;max-width:400px;";
+        "display:flex;align-items:center;gap:10px;padding:8px 14px;margin:8px 0;border:1px solid var(--border, #e2e8f0);border-radius:8px;background:var(--muted, #f7fafc);cursor:default;max-width:400px;";
 
       const icon = document.createElement("span");
-      icon.style.cssText = "font-size:24px;flex-shrink:0;line-height:1;";
+      icon.style.cssText = "font-size:22px;flex-shrink:0;line-height:1;";
       icon.textContent = getFileIcon(node.attrs.name);
 
-      const info = document.createElement("div");
-      info.style.cssText = "flex:1;min-width:0;";
-
-      const nameEl = document.createElement("a");
+      const nameEl = document.createElement("button");
+      nameEl.type = "button";
       nameEl.textContent = node.attrs.name;
       nameEl.style.cssText =
-        "display:block;font-size:13px;font-weight:600;color:var(--primary, #4A7DAC);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;";
+        "flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--primary, #4A7DAC);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:none;border:0;padding:0;text-align:left;font-family:inherit;";
 
       let resolvedSrc: string | null = null;
       let resolvedName: string = node.attrs.name;
@@ -156,8 +154,11 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
         return `${baseUrl}/${fileId}/download`;
       }
 
+      let downloadInProgress = false;
       function handleClick(e: Event) {
         e.preventDefault();
+        e.stopPropagation();
+        if (downloadInProgress) return;
         const proxyUrl = getProxyUrl();
         const targetUrl = proxyUrl || resolvedSrc;
         if (!targetUrl) return;
@@ -165,6 +166,7 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
         if (isInlineable(resolvedName)) {
           window.open(targetUrl, "_blank");
         } else {
+          downloadInProgress = true;
           fetch(targetUrl)
             .then((res) => res.blob())
             .then((blob) => {
@@ -174,25 +176,27 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
               a.download = resolvedName;
               a.click();
               URL.revokeObjectURL(url);
+            })
+            .finally(() => {
+              downloadInProgress = false;
             });
         }
       }
 
       nameEl.addEventListener("click", handleClick);
+      nameEl.addEventListener("mousedown", (e) => e.stopPropagation());
 
       const sizeEl = document.createElement("span");
       sizeEl.style.cssText =
-        "font-size:11px;color:var(--muted-foreground, #718096);";
+        "flex-shrink:0;font-size:12px;color:var(--muted-foreground, #718096);white-space:nowrap;";
 
       // URL이 있으면 바로 표시
       if (node.attrs.src) {
         resolvedSrc = node.attrs.src;
-        nameEl.href = node.attrs.src;
         if (node.attrs.size) sizeEl.textContent = formatFileSize(node.attrs.size);
       } else if (node.attrs.fileId) {
         // ID만 있으면 resolver로 해결 시도
-        nameEl.href = "#";
-        nameEl.style.pointerEvents = "none";
+        nameEl.disabled = true;
         sizeEl.textContent = "loading...";
 
         const resolver = editor.storage.fileAttachment?.resolver as FileResolver | undefined;
@@ -200,8 +204,7 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
           resolver(node.attrs.fileId)
             .then((result) => {
               resolvedSrc = result.src;
-              nameEl.href = result.src;
-              nameEl.style.pointerEvents = "";
+              nameEl.disabled = false;
               if (result.name) {
                 resolvedName = result.name;
                 nameEl.textContent = result.name;
@@ -217,17 +220,16 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
         }
       }
 
-      info.appendChild(nameEl);
-      info.appendChild(sizeEl);
       dom.appendChild(icon);
-      dom.appendChild(info);
+      dom.appendChild(nameEl);
+      dom.appendChild(sizeEl);
 
       if (editor.isEditable) {
         const del = document.createElement("button");
         del.type = "button";
         del.textContent = "\u00D7";
         del.style.cssText =
-          "flex-shrink:0;width:22px;height:22px;border:none;background:transparent;color:var(--muted-foreground, #718096);font-size:16px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;";
+          "flex-shrink:0;width:20px;height:20px;border:none;background:transparent;color:var(--muted-foreground, #718096);font-size:14px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;";
         del.addEventListener("mouseenter", () => {
           del.style.background = "var(--destructive, #FF6B6B)";
           del.style.color = "#fff";
