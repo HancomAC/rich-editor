@@ -1,35 +1,4 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-function attachHls(video, src) {
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = src;
-        return { destroy: () => { } };
-    }
-    let hls = null;
-    let cancelled = false;
-    import("hls.js")
-        .then(({ default: Hls }) => {
-        if (cancelled)
-            return;
-        if (!Hls.isSupported()) {
-            video.src = src;
-            return;
-        }
-        const instance = new Hls();
-        instance.loadSource(src);
-        instance.attachMedia(video);
-        hls = instance;
-    })
-        .catch(() => {
-        if (!cancelled)
-            video.src = src;
-    });
-    return {
-        destroy: () => {
-            cancelled = true;
-            hls?.destroy();
-        }
-    };
-}
 export const MbusVideo = Node.create({
     name: "mbusVideo",
     group: "block",
@@ -76,15 +45,20 @@ export const MbusVideo = Node.create({
             dom.style.cssText = "margin:8px 0;position:relative;box-sizing:border-box;max-width:100%;";
             if (node.attrs.width)
                 dom.style.width = node.attrs.width;
-            const video = document.createElement("video");
-            video.controls = true;
-            video.preload = "metadata";
-            video.setAttribute("controlslist", "nodownload");
-            video.setAttribute("playsinline", "");
-            video.style.cssText =
-                "width:100%;height:auto;border-radius:8px;background:#0b1020;display:block;";
-            dom.appendChild(video);
-            const handle = node.attrs.src ? attachHls(video, node.attrs.src) : null;
+            const aspect = document.createElement("div");
+            aspect.style.cssText =
+                "position:relative;width:100%;padding-top:56.25%;background:#0b1020;border-radius:8px;overflow:hidden;";
+            dom.appendChild(aspect);
+            if (node.attrs.src) {
+                const iframe = document.createElement("iframe");
+                iframe.src = node.attrs.src;
+                iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
+                iframe.setAttribute("allowfullscreen", "");
+                iframe.setAttribute("loading", "lazy");
+                iframe.style.cssText =
+                    "position:absolute;inset:0;width:100%;height:100%;border:0;display:block;";
+                aspect.appendChild(iframe);
+            }
             if (editor.isEditable) {
                 const del = document.createElement("button");
                 del.type = "button";
@@ -171,7 +145,7 @@ export const MbusVideo = Node.create({
                     dom.style.width = w || "";
                     return true;
                 },
-                destroy: () => handle?.destroy()
+                destroy: () => { }
             };
         };
     },
