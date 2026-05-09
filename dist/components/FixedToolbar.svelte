@@ -31,6 +31,7 @@
     Tv,
     Plus,
     Pilcrow,
+    Palette,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
@@ -60,22 +61,39 @@
 
   let blockMenuOpen = $state(false);
   let insertMenuOpen = $state(false);
+  let colorMenuOpen = $state(false);
   let modalState: { type: "link" | "image" | "mbus" } | null = $state(null);
   let blockMenuEl: HTMLDivElement | undefined = $state();
   let insertMenuEl: HTMLDivElement | undefined = $state();
+  let colorMenuEl: HTMLDivElement | undefined = $state();
+
+  const TEXT_COLORS = [
+    { label: "기본", value: "" },
+    { label: "검정", value: "#000000" },
+    { label: "회색", value: "#6b7280" },
+    { label: "빨강", value: "#dc2626" },
+    { label: "주황", value: "#ea580c" },
+    { label: "노랑", value: "#ca8a04" },
+    { label: "초록", value: "#16a34a" },
+    { label: "파랑", value: "#2563eb" },
+    { label: "보라", value: "#7c3aed" }
+  ];
 
   $effect(() => {
-    if (!blockMenuOpen && !insertMenuOpen) return;
+    if (!blockMenuOpen && !insertMenuOpen && !colorMenuOpen) return;
     function handleClick(e: MouseEvent) {
       if (blockMenuEl && !blockMenuEl.contains(e.target as Node))
         blockMenuOpen = false;
       if (insertMenuEl && !insertMenuEl.contains(e.target as Node))
         insertMenuOpen = false;
+      if (colorMenuEl && !colorMenuEl.contains(e.target as Node))
+        colorMenuOpen = false;
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         blockMenuOpen = false;
         insertMenuOpen = false;
+        colorMenuOpen = false;
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -236,11 +254,14 @@
         <div
           class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
           style="min-width: 200px"
+          onmousedown={(e) => e.preventDefault()}
+          role="menu"
+          tabindex="-1"
         >
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               !editor.isActive("heading") &&
                 !editor.isActive("bulletList") &&
                 !editor.isActive("orderedList") &&
@@ -259,7 +280,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("heading", { level: 1 }) && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -274,7 +295,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("heading", { level: 2 }) && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -289,7 +310,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("heading", { level: 3 }) && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -307,7 +328,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("bulletList") && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -320,7 +341,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("orderedList") && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -333,7 +354,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("taskList") && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -349,7 +370,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("blockquote") && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -362,7 +383,7 @@
           <button
             type="button"
             class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
               editor.isActive("details") && "bg-primary/10 text-primary",
             )}
             onclick={() =>
@@ -444,6 +465,70 @@
       <Strikethrough size={iconSize} />
     </button>
     {/if}
+    {#if has('text-color')}
+    <div bind:this={colorMenuEl} class="relative">
+      <button
+        type="button"
+        onclick={() => (colorMenuOpen = !colorMenuOpen)}
+        data-tooltip="글자색"
+        aria-label="글자색"
+        class={cn(
+          "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
+          editor.getAttributes('textStyle').color
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <Palette size={iconSize} />
+        <ChevronDown size={12} />
+      </button>
+      {#if colorMenuOpen}
+        <div
+          class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 p-2"
+          style="min-width: 180px"
+          onmousedown={(e) => e.preventDefault()}
+          role="menu"
+          tabindex="-1"
+        >
+          <div class="grid grid-cols-3 gap-1.5">
+            {#each TEXT_COLORS as c}
+              <button
+                type="button"
+                title={c.label}
+                class="h-8 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold bg-background"
+                style="color: {c.value || '#6b7280'}"
+                onclick={() => {
+                  if (c.value) {
+                    editor.chain().focus().setColor(c.value).run();
+                  } else {
+                    editor.chain().focus().unsetColor().run();
+                  }
+                  colorMenuOpen = false;
+                }}
+              >
+                {c.value ? "A" : "×"}
+              </button>
+            {/each}
+          </div>
+          <label
+            class="mt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+          >
+            <span>직접 선택</span>
+            <input
+              type="color"
+              class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
+              value={(editor.getAttributes('textStyle').color as string) || '#000000'}
+              onclick={(e) => e.stopPropagation()}
+              oninput={(e) => {
+                const v = (e.target as HTMLInputElement).value;
+                editor.chain().focus().setColor(v).run();
+              }}
+            />
+          </label>
+        </div>
+      {/if}
+    </div>
+    {/if}
   </div>
   {/if}
 
@@ -524,7 +609,7 @@
           {#if has('code-block')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() => editor.chain().focus().setCodeBlock().run())}
           >
@@ -534,7 +619,7 @@
           {#if has('pdf')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() => runInsert(onPdfClick)}
           >
             <FileText size={14} /> PDF
@@ -543,7 +628,7 @@
           {#if has('file') && onFileClick}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() => runInsert(onFileClick!)}
           >
             <Paperclip size={14} /> 파일 첨부
@@ -552,7 +637,7 @@
           {#if has('table')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() =>
                 editor
@@ -572,7 +657,7 @@
           {#if has('horizontal-rule')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() =>
                 editor.chain().focus().setHorizontalRule().run(),
@@ -584,7 +669,7 @@
           {#if has('columns-2')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() => editor.chain().focus().setColumns(2).run())}
           >
@@ -594,7 +679,7 @@
           {#if has('columns-3')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() => editor.chain().focus().setColumns(3).run())}
           >
@@ -608,7 +693,7 @@
           {#if has('image')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addImage}
           >
             <ImageIcon size={14} /> 이미지
@@ -617,7 +702,7 @@
           {#if has('link')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addLink}
           >
             <LinkIcon size={14} /> 링크
@@ -626,7 +711,7 @@
           {#if has('mbus')}
           <button
             type="button"
-            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addMbus}
           >
             <Tv size={14} /> 미디버스 영상
