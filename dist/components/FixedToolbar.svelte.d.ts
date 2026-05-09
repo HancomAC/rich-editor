@@ -5,7 +5,6 @@ type $$ComponentProps = {
     features: Set<ToolbarFeature>;
     onPdfClick: () => void;
     onFileClick?: () => void;
-    onVideoClick?: () => void;
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;

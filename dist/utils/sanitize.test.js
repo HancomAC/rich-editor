@@ -36,13 +36,6 @@ describe('transformLegacyHtml', () => {
         expect(result).toContain('Hidden content');
         expect(result).not.toContain('tiptap-collapsable');
     });
-    it('converts <lite-youtube videoid="X"> to YouTube iframe', () => {
-        const input = '<lite-youtube videoid="dQw4w9WgXcQ" params=""></lite-youtube>';
-        const result = transformLegacyHtml(input);
-        expect(result).toContain('https://www.youtube.com/embed/dQw4w9WgXcQ');
-        expect(result).toContain('data-youtube-video');
-        expect(result).not.toContain('lite-youtube');
-    });
     it('converts <embed type="application/pdf"> (src before type)', () => {
         const input = '<embed src="https://example.com/file.pdf" type="application/pdf" />';
         const result = transformLegacyHtml(input);

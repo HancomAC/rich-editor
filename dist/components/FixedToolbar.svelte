@@ -5,11 +5,10 @@
     Italic,
     Underline as UnderlineIcon,
     Strikethrough,
-    Highlighter,
-    LinkIcon,
     AlignLeft,
     AlignCenter,
     AlignRight,
+    LinkIcon,
     Heading1,
     Heading2,
     Heading3,
@@ -24,24 +23,14 @@
     Undo,
     Redo,
     Table as TableIcon,
-    Rows3,
-    Columns3,
-    Trash2,
-    SplitSquareHorizontal,
-    Combine,
-    PanelTop,
-    PanelLeft,
-    Paintbrush,
     CheckSquare,
-    Superscript,
-    Subscript,
-    Video,
     ChevronRight,
     Paperclip,
-    Film,
     Columns2,
+    Columns3,
     Tv,
-    Palette,
+    Plus,
+    Pilcrow,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
@@ -52,7 +41,6 @@
     features,
     onPdfClick,
     onFileClick,
-    onVideoClick,
     onPromptLink,
     onPromptImage,
     onPromptMbus,
@@ -61,7 +49,6 @@
     features: Set<ToolbarFeature>;
     onPdfClick: () => void;
     onFileClick?: () => void;
-    onVideoClick?: () => void;
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
@@ -71,46 +58,24 @@
 
   const iconSize = 16;
 
-  let codeMenuOpen = $state(false);
-  let tableMenuOpen = $state(false);
-  let colorMenuOpen = $state(false);
-  let colorPickerActive = $state(false);
-  let modalState: { type: "link" | "image" | "cellBg" | "mbus" } | null = $state(null);
-  let codeMenuEl: HTMLDivElement | undefined = $state();
-  let tableMenuEl: HTMLDivElement | undefined = $state();
-  let colorMenuEl: HTMLDivElement | undefined = $state();
-
-  const TEXT_COLORS = [
-    { label: "기본", value: "" },
-    { label: "검정", value: "#000000" },
-    { label: "회색", value: "#6b7280" },
-    { label: "빨강", value: "#dc2626" },
-    { label: "주황", value: "#ea580c" },
-    { label: "노랑", value: "#ca8a04" },
-    { label: "초록", value: "#16a34a" },
-    { label: "파랑", value: "#2563eb" },
-    { label: "보라", value: "#7c3aed" }
-  ];
+  let blockMenuOpen = $state(false);
+  let insertMenuOpen = $state(false);
+  let modalState: { type: "link" | "image" | "mbus" } | null = $state(null);
+  let blockMenuEl: HTMLDivElement | undefined = $state();
+  let insertMenuEl: HTMLDivElement | undefined = $state();
 
   $effect(() => {
-    if (!codeMenuOpen && !tableMenuOpen && !colorMenuOpen) return;
+    if (!blockMenuOpen && !insertMenuOpen) return;
     function handleClick(e: MouseEvent) {
-      if (codeMenuEl && !codeMenuEl.contains(e.target as Node))
-        codeMenuOpen = false;
-      if (tableMenuEl && !tableMenuEl.contains(e.target as Node))
-        tableMenuOpen = false;
-      if (
-        colorMenuEl &&
-        !colorMenuEl.contains(e.target as Node) &&
-        !colorPickerActive
-      )
-        colorMenuOpen = false;
+      if (blockMenuEl && !blockMenuEl.contains(e.target as Node))
+        blockMenuOpen = false;
+      if (insertMenuEl && !insertMenuEl.contains(e.target as Node))
+        insertMenuOpen = false;
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        codeMenuOpen = false;
-        tableMenuOpen = false;
-        colorMenuOpen = false;
+        blockMenuOpen = false;
+        insertMenuOpen = false;
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -122,6 +87,7 @@
   });
 
   async function addLink() {
+    insertMenuOpen = false;
     if (onPromptLink) {
       const previous = editor.isActive("link")
         ? (editor.getAttributes("link").href as string) || ""
@@ -144,6 +110,7 @@
   }
 
   async function addImage() {
+    insertMenuOpen = false;
     if (onPromptImage) {
       const url = await onPromptImage("");
       if (!url) return;
@@ -153,578 +120,441 @@
     modalState = { type: "image" };
   }
 
-  function runTableCommand(command: () => boolean) {
-    command();
-    tableMenuOpen = false;
+  async function addMbus() {
+    insertMenuOpen = false;
+    if (onPromptMbus) {
+      const url = await onPromptMbus("");
+      if (!url) return;
+      editor.chain().focus().setMbusVideo({ src: url }).run();
+      return;
+    }
+    modalState = { type: "mbus" };
   }
 
-  const isInTable = $derived(editor.isActive("table"));
+  const currentBlockLabel = $derived.by(() => {
+    if (editor.isActive("heading", { level: 1 })) return "제목 1";
+    if (editor.isActive("heading", { level: 2 })) return "제목 2";
+    if (editor.isActive("heading", { level: 3 })) return "제목 3";
+    if (editor.isActive("bulletList")) return "글머리 목록";
+    if (editor.isActive("orderedList")) return "번호 목록";
+    if (editor.isActive("taskList")) return "체크리스트";
+    if (editor.isActive("blockquote")) return "인용문";
+    if (editor.isActive("details")) return "토글";
+    return "본문";
+  });
 
-  const CELL_COLORS = [
-    { label: "없음", value: "" },
-    { label: "밝은 회색", value: "#f1f5f9" },
-    { label: "밝은 파랑", value: "#dbeafe" },
-    { label: "밝은 초록", value: "#dcfce7" },
-    { label: "밝은 노랑", value: "#fef9c3" },
-    { label: "밝은 주황", value: "#ffedd5" },
-    { label: "밝은 빨강", value: "#fee2e2" },
-    { label: "밝은 보라", value: "#ede9fe" },
-    { label: "밝은 분홍", value: "#fce7f3" },
-  ];
+  function runBlock(fn: () => void) {
+    fn();
+    blockMenuOpen = false;
+  }
+
+  function runInsert(fn: () => void) {
+    fn();
+    insertMenuOpen = false;
+  }
+
+  const hasInsertItems = $derived(
+    has("image") ||
+      has("link") ||
+      has("pdf") ||
+      has("file") ||
+      has("mbus") ||
+      has("table") ||
+      has("columns-2") ||
+      has("columns-3") ||
+      has("horizontal-rule") ||
+      has("code-block"),
+  );
+
+  const hasBlockItems = $derived(
+    has("h1") ||
+      has("h2") ||
+      has("h3") ||
+      has("bullet-list") ||
+      has("ordered-list") ||
+      has("checklist") ||
+      has("blockquote") ||
+      has("toggle"),
+  );
 </script>
 
 <div
   class="hce-toolbar sticky z-30 flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-background rounded-t-xl"
   style="top: var(--header-height, 74px)"
 >
-  <!-- Format -->
+  {#if has('undo') || has('redo')}
+  <!-- Undo / Redo -->
   <div class="hce-toolbar-group">
-  {#if has('bold')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleBold().run()}
-    data-tooltip="굵게"
-    aria-label="굵게"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("bold")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Bold size={iconSize} />
-  </button>
-  {/if}
-  {#if has('italic')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleItalic().run()}
-    data-tooltip="기울임"
-    aria-label="기울임"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("italic")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Italic size={iconSize} />
-  </button>
-  {/if}
-  {#if has('underline')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleUnderline().run()}
-    data-tooltip="밑줄"
-    aria-label="밑줄"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("underline")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <UnderlineIcon size={iconSize} />
-  </button>
-  {/if}
-  {#if has('strike')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleStrike().run()}
-    data-tooltip="취소선"
-    aria-label="취소선"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("strike")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Strikethrough size={iconSize} />
-  </button>
-  {/if}
-  {#if has('highlight')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleHighlight().run()}
-    data-tooltip="하이라이트"
-    aria-label="하이라이트"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("highlight")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Highlighter size={iconSize} />
-  </button>
-  {/if}
-  {#if has('superscript')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleSuperscript().run()}
-    data-tooltip="위첨자"
-    aria-label="위첨자"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("superscript")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Superscript size={iconSize} />
-  </button>
-  {/if}
-  {#if has('subscript')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleSubscript().run()}
-    data-tooltip="아래첨자"
-    aria-label="아래첨자"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("subscript")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Subscript size={iconSize} />
-  </button>
-  {/if}
-  {#if has('text-color')}
-  <div bind:this={colorMenuEl} class="relative">
+    {#if has('undo')}
     <button
       type="button"
-      onclick={() => (colorMenuOpen = !colorMenuOpen)}
-      data-tooltip="글자색"
-      aria-label="글자색"
+      onclick={() => editor.chain().focus().undo().run()}
+      disabled={!editor.can().undo()}
+      data-tooltip="실행 취소"
+      aria-label="실행 취소"
       class={cn(
-        "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
-        editor.getAttributes("textStyle").color
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
+        !editor.can().undo() && "opacity-30 pointer-events-none",
       )}
     >
-      <Palette size={iconSize} />
-      <ChevronDown size={12} />
+      <Undo size={iconSize} />
     </button>
-    {#if colorMenuOpen}
-      <div
-        class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 p-2"
-        style="min-width: 180px"
-      >
-        <div class="grid grid-cols-3 gap-1.5">
-          {#each TEXT_COLORS as c}
-            <button
-              type="button"
-              title={c.label}
-              class="h-8 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
-              style="color: {c.value || '#000'}"
-              onclick={() => {
-                if (c.value) {
-                  editor.chain().focus().setColor(c.value).run();
-                } else {
-                  editor.chain().focus().unsetColor().run();
-                }
-                colorMenuOpen = false;
-              }}
-            >
-              {c.value ? "A" : "×"}
-            </button>
-          {/each}
-        </div>
-        <label
-          class="mt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
-        >
-          <span>직접 선택</span>
-          <input
-            type="color"
-            class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-            value={(editor.getAttributes("textStyle").color as string) || "#000000"}
-            onpointerdown={() => (colorPickerActive = true)}
-            onclick={(e) => e.stopPropagation()}
-            oninput={(e) => {
-              const v = (e.target as HTMLInputElement).value;
-              editor.chain().focus().setColor(v).run();
-            }}
-            onchange={() => {
-              setTimeout(() => (colorPickerActive = false), 200);
-            }}
-            onblur={() => {
-              setTimeout(() => (colorPickerActive = false), 200);
-            }}
-          />
-        </label>
-      </div>
+    {/if}
+    {#if has('redo')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().redo().run()}
+      disabled={!editor.can().redo()}
+      data-tooltip="다시 실행"
+      aria-label="다시 실행"
+      class={cn(
+        "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
+        !editor.can().redo() && "opacity-30 pointer-events-none",
+      )}
+    >
+      <Redo size={iconSize} />
+    </button>
     {/if}
   </div>
   {/if}
 
+  {#if hasBlockItems}
+  <!-- Block type selector -->
+  <div class="hce-toolbar-group">
+    <div bind:this={blockMenuEl} class="relative">
+      <button
+        type="button"
+        onclick={() => (blockMenuOpen = !blockMenuOpen)}
+        data-tooltip="블록 타입"
+        aria-label="블록 타입"
+        class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground min-w-[96px]"
+      >
+        <span class="text-sm">{currentBlockLabel}</span>
+        <ChevronDown size={12} />
+      </button>
+      {#if blockMenuOpen}
+        <div
+          class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
+          style="min-width: 200px"
+        >
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              !editor.isActive("heading") &&
+                !editor.isActive("bulletList") &&
+                !editor.isActive("orderedList") &&
+                !editor.isActive("taskList") &&
+                !editor.isActive("blockquote") &&
+                !editor.isActive("codeBlock") &&
+                !editor.isActive("details") &&
+                "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().setParagraph().run())}
+          >
+            <Pilcrow size={14} /> 본문
+          </button>
+          {#if has('h1')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("heading", { level: 1 }) && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() =>
+                editor.chain().focus().toggleHeading({ level: 1 }).run(),
+              )}
+          >
+            <Heading1 size={14} /> 제목 1
+          </button>
+          {/if}
+          {#if has('h2')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("heading", { level: 2 }) && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() =>
+                editor.chain().focus().toggleHeading({ level: 2 }).run(),
+              )}
+          >
+            <Heading2 size={14} /> 제목 2
+          </button>
+          {/if}
+          {#if has('h3')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("heading", { level: 3 }) && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() =>
+                editor.chain().focus().toggleHeading({ level: 3 }).run(),
+              )}
+          >
+            <Heading3 size={14} /> 제목 3
+          </button>
+          {/if}
+          {#if has('bullet-list') || has('ordered-list') || has('checklist')}
+          <div class="h-px bg-border my-1"></div>
+          {/if}
+          {#if has('bullet-list')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("bulletList") && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().toggleBulletList().run())}
+          >
+            <List size={14} /> 글머리 목록
+          </button>
+          {/if}
+          {#if has('ordered-list')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("orderedList") && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().toggleOrderedList().run())}
+          >
+            <ListOrdered size={14} /> 번호 목록
+          </button>
+          {/if}
+          {#if has('checklist')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("taskList") && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().toggleTaskList().run())}
+          >
+            <CheckSquare size={14} /> 체크리스트
+          </button>
+          {/if}
+          {#if has('blockquote') || has('toggle')}
+          <div class="h-px bg-border my-1"></div>
+          {/if}
+          {#if has('blockquote')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("blockquote") && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().toggleBlockquote().run())}
+          >
+            <Quote size={14} /> 인용문
+          </button>
+          {/if}
+          {#if has('toggle')}
+          <button
+            type="button"
+            class={cn(
+              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
+              editor.isActive("details") && "bg-primary/10 text-primary",
+            )}
+            onclick={() =>
+              runBlock(() => editor.chain().focus().setDetails().run())}
+          >
+            <ChevronRight size={14} /> 토글
+          </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </div>
+  {/if}
 
-  {#if has('align-left') || has('align-center') || has('align-right')}
-  <!-- Alignment -->
+  {#if has('bold') || has('italic') || has('underline') || has('strike')}
+  <!-- Inline marks (core 4) -->
   <div class="hce-toolbar-group">
-  {#if has('align-left')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setTextAlign("left").run()}
-    data-tooltip="왼쪽 정렬"
-    aria-label="왼쪽 정렬"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive({ textAlign: "left" })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <AlignLeft size={iconSize} />
-  </button>
-  {/if}
-  {#if has('align-center')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setTextAlign("center").run()}
-    data-tooltip="가운데 정렬"
-    aria-label="가운데 정렬"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive({ textAlign: "center" })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <AlignCenter size={iconSize} />
-  </button>
-  {/if}
-  {#if has('align-right')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setTextAlign("right").run()}
-    data-tooltip="오른쪽 정렬"
-    aria-label="오른쪽 정렬"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive({ textAlign: "right" })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <AlignRight size={iconSize} />
-  </button>
-  {/if}
-
-    </div>
-  {/if}
-
-  {#if has('h1') || has('h2') || has('h3')}
-  <!-- Headings -->
-  <div class="hce-toolbar-group">
-  {#if has('h1')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-    data-tooltip="제목 1"
-    aria-label="제목 1"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("heading", { level: 1 })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Heading1 size={iconSize} />
-  </button>
-  {/if}
-  {#if has('h2')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-    data-tooltip="제목 2"
-    aria-label="제목 2"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("heading", { level: 2 })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Heading2 size={iconSize} />
-  </button>
-  {/if}
-  {#if has('h3')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-    data-tooltip="제목 3"
-    aria-label="제목 3"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("heading", { level: 3 })
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Heading3 size={iconSize} />
-  </button>
-  {/if}
-
-    </div>
-  {/if}
-
-  {#if has('bullet-list') || has('ordered-list') || has('checklist') || has('blockquote') || has('horizontal-rule') || has('toggle')}
-  <!-- Lists & Blocks -->
-  <div class="hce-toolbar-group">
-  {#if has('bullet-list')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleBulletList().run()}
-    data-tooltip="글머리 목록"
-    aria-label="글머리 목록"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("bulletList")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <List size={iconSize} />
-  </button>
-  {/if}
-  {#if has('ordered-list')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleOrderedList().run()}
-    data-tooltip="번호 목록"
-    aria-label="번호 목록"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("orderedList")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <ListOrdered size={iconSize} />
-  </button>
-  {/if}
-  {#if has('checklist')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleTaskList().run()}
-    data-tooltip="체크리스트"
-    aria-label="체크리스트"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("taskList")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <CheckSquare size={iconSize} />
-  </button>
-  {/if}
-  {#if has('blockquote')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().toggleBlockquote().run()}
-    data-tooltip="인용문"
-    aria-label="인용문"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("blockquote")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Quote size={iconSize} />
-  </button>
-  {/if}
-  {#if has('horizontal-rule')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setHorizontalRule().run()}
-    data-tooltip="구분선"
-    aria-label="구분선"
-    class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-  >
-    <Minus size={iconSize} />
-  </button>
-  {/if}
-  {#if has('toggle')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setDetails().run()}
-    data-tooltip="토글 (접기/펼치기)"
-    aria-label="토글 (접기/펼치기)"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("details")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <ChevronRight size={iconSize} />
-  </button>
-  {/if}
-
-    </div>
-  {/if}
-
-  {#if has('link') || has('image') || has('pdf') || has('youtube') || has('video') || has('file') || has('mbus') || has('columns-2') || has('columns-3') || has('table') || has('code-block')}
-  <!-- Media & Layout -->
-  <div class="hce-toolbar-group">
-  {#if has('link')}
-  <button
-    type="button"
-    onclick={addLink}
-    data-tooltip="링크"
-    aria-label="링크"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("link")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <LinkIcon size={iconSize} />
-  </button>
-  {/if}
-  {#if has('image')}
-  <button
-    type="button"
-    onclick={addImage}
-    data-tooltip="이미지"
-    aria-label="이미지"
-    class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-  >
-    <ImageIcon size={iconSize} />
-  </button>
-  {/if}
-  {#if has('pdf')}
-  <button
-    type="button"
-    onclick={onPdfClick}
-    data-tooltip="PDF 삽입"
-    aria-label="PDF 삽입"
-    class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-  >
-    <FileText size={iconSize} />
-  </button>
-  {/if}
-  {#if has('youtube')}
-  <button
-    type="button"
-    onclick={() => {
-      const url = window.prompt("YouTube URL을 입력하세요");
-      if (url) editor.chain().focus().setYoutubeVideo({ src: url }).run();
-    }}
-    data-tooltip="YouTube 영상"
-    aria-label="YouTube 영상"
-    class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-  >
-    <Video size={iconSize} />
-  </button>
-  {/if}
-  {#if has('mbus')}
+    {#if has('bold')}
     <button
       type="button"
-      onclick={async () => {
-        if (onPromptMbus) {
-          const url = await onPromptMbus("");
-          if (!url) return;
-          editor.chain().focus().setMbusVideo({ src: url }).run();
-        } else {
-          modalState = { type: "mbus" };
-        }
-      }}
-      data-tooltip="미디버스 영상"
-      aria-label="미디버스 영상"
-      class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Tv size={iconSize} />
-    </button>
-  {/if}
-  {#if has('video') && onVideoClick}
-    <button
-      type="button"
-      onclick={onVideoClick}
-      data-tooltip="영상 파일"
-      aria-label="영상 파일"
-      class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Film size={iconSize} />
-    </button>
-  {/if}
-  {#if has('file') && onFileClick}
-    <button
-      type="button"
-      onclick={onFileClick}
-      data-tooltip="파일 첨부"
-      aria-label="파일 첨부"
-      class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Paperclip size={iconSize} />
-    </button>
-  {/if}
-
-  <!-- Columns -->
-  {#if has('columns-2')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setColumns(2).run()}
-    data-tooltip="2단 컬럼"
-    aria-label="2단 컬럼"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("columns")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Columns2 size={iconSize} />
-  </button>
-  {/if}
-  {#if has('columns-3')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setColumns(3).run()}
-    data-tooltip="3단 컬럼"
-    aria-label="3단 컬럼"
-    class="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-  >
-    <Columns3 size={iconSize} />
-  </button>
-  {/if}
-
-  <!-- Table menu -->
-  {#if has('table')}
-  <div bind:this={tableMenuEl} class="relative">
-    <button
-      type="button"
-      onclick={() => (tableMenuOpen = !tableMenuOpen)}
-      data-tooltip="표"
-      aria-label="표"
+      onclick={() => editor.chain().focus().toggleBold().run()}
+      data-tooltip="굵게"
+      aria-label="굵게"
       class={cn(
-        "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
-        isInTable
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive("bold")
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
-      <TableIcon size={iconSize} />
-      <ChevronDown size={12} />
+      <Bold size={iconSize} />
     </button>
-    {#if tableMenuOpen}
-      <div
-        class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
-        style="min-width: 220px"
+    {/if}
+    {#if has('italic')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleItalic().run()}
+      data-tooltip="기울임"
+      aria-label="기울임"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive("italic")
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Italic size={iconSize} />
+    </button>
+    {/if}
+    {#if has('underline')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleUnderline().run()}
+      data-tooltip="밑줄"
+      aria-label="밑줄"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive("underline")
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <UnderlineIcon size={iconSize} />
+    </button>
+    {/if}
+    {#if has('strike')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleStrike().run()}
+      data-tooltip="취소선"
+      aria-label="취소선"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive("strike")
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Strikethrough size={iconSize} />
+    </button>
+    {/if}
+  </div>
+  {/if}
+
+  {#if has('align-left') || has('align-center') || has('align-right')}
+  <!-- Alignment -->
+  <div class="hce-toolbar-group">
+    {#if has('align-left')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().setTextAlign('left').run()}
+      data-tooltip="왼쪽 정렬"
+      aria-label="왼쪽 정렬"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive({ textAlign: 'left' })
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <AlignLeft size={iconSize} />
+    </button>
+    {/if}
+    {#if has('align-center')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().setTextAlign('center').run()}
+      data-tooltip="가운데 정렬"
+      aria-label="가운데 정렬"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive({ textAlign: 'center' })
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <AlignCenter size={iconSize} />
+    </button>
+    {/if}
+    {#if has('align-right')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().setTextAlign('right').run()}
+      data-tooltip="오른쪽 정렬"
+      aria-label="오른쪽 정렬"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        editor.isActive({ textAlign: 'right' })
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <AlignRight size={iconSize} />
+    </button>
+    {/if}
+  </div>
+  {/if}
+
+  {#if hasInsertItems}
+  <!-- Insert + dropdown -->
+  <div class="hce-toolbar-group">
+    <div bind:this={insertMenuEl} class="relative">
+      <button
+        type="button"
+        onclick={() => (insertMenuOpen = !insertMenuOpen)}
+        data-tooltip="삽입"
+        aria-label="삽입"
+        class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
       >
-        {#if !isInTable}
+        <Plus size={iconSize} />
+        <span class="text-sm">삽입</span>
+        <ChevronDown size={12} />
+      </button>
+      {#if insertMenuOpen}
+        <div
+          class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
+          style="min-width: 220px"
+        >
+          {#if has('code-block')}
           <button
             type="button"
             class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
-              runTableCommand(() =>
+              runInsert(() => editor.chain().focus().setCodeBlock().run())}
+          >
+            <Code2 size={14} /> 코드 블록
+          </button>
+          {/if}
+          {#if has('pdf')}
+          <button
+            type="button"
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() => runInsert(onPdfClick)}
+          >
+            <FileText size={14} /> PDF
+          </button>
+          {/if}
+          {#if has('file') && onFileClick}
+          <button
+            type="button"
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() => runInsert(onFileClick!)}
+          >
+            <Paperclip size={14} /> 파일 첨부
+          </button>
+          {/if}
+          {#if has('table')}
+          <button
+            type="button"
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() =>
+              runInsert(() =>
                 editor
                   .chain()
                   .focus()
@@ -732,272 +562,79 @@
                   .run(),
               )}
           >
-            <TableIcon size={14} />
-            표 삽입 (3x3)
+            <TableIcon size={14} /> 표 (3x3)
           </button>
+          {/if}
+
+          {#if has('horizontal-rule') || has('columns-2') || has('columns-3')}
+          <div class="h-px bg-border my-1"></div>
+          {/if}
+          {#if has('horizontal-rule')}
           <button
             type="button"
             class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
-              runTableCommand(() =>
-                editor
-                  .chain()
-                  .focus()
-                  .insertTable({ rows: 4, cols: 4, withHeaderRow: true })
-                  .run(),
+              runInsert(() =>
+                editor.chain().focus().setHorizontalRule().run(),
               )}
           >
-            <PanelTop size={14} />
-            헤더 포함 4x4
+            <Minus size={14} /> 구분선
           </button>
-        {:else}
-          <p
-            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
-          >
-            구조
-          </p>
-          <button
-            type="button"
-            disabled={!editor.can().addRowBefore()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().addRowBefore() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().addRowBefore().run(),
-              )}
-          >
-            <Rows3 size={14} /> 행 위에 추가
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().addRowAfter()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().addRowAfter() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().addRowAfter().run(),
-              )}
-          >
-            <Rows3 size={14} /> 행 아래에 추가
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().addColumnBefore()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().addColumnBefore() &&
-                "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().addColumnBefore().run(),
-              )}
-          >
-            <Columns3 size={14} /> 열 왼쪽에 추가
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().addColumnAfter()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().addColumnAfter() &&
-                "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().addColumnAfter().run(),
-              )}
-          >
-            <Columns3 size={14} /> 열 오른쪽에 추가
-          </button>
-          <div class="h-px bg-border my-1"></div>
-          <p
-            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
-          >
-            헤더 / 셀
-          </p>
-          <button
-            type="button"
-            disabled={!editor.can().toggleHeaderRow()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().toggleHeaderRow() &&
-                "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().toggleHeaderRow().run(),
-              )}
-          >
-            <PanelTop size={14} /> 헤더 행 토글
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().toggleHeaderColumn()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().toggleHeaderColumn() &&
-                "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().toggleHeaderColumn().run(),
-              )}
-          >
-            <PanelLeft size={14} /> 헤더 열 토글
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().mergeCells()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().mergeCells() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().mergeCells().run(),
-              )}
-          >
-            <Combine size={14} /> 셀 병합
-          </button>
-          <button
-            type="button"
-            disabled={!editor.can().splitCell()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.can().splitCell() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().splitCell().run(),
-              )}
-          >
-            <SplitSquareHorizontal size={14} /> 셀 분할
-          </button>
+          {/if}
+          {#if has('columns-2')}
           <button
             type="button"
             class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
-            onclick={() => {
-              tableMenuOpen = false;
-              modalState = { type: "cellBg" };
-            }}
+            onclick={() =>
+              runInsert(() => editor.chain().focus().setColumns(2).run())}
           >
-            <Paintbrush size={14} /> 셀 배경색
+            <Columns2 size={14} /> 2단 컬럼
           </button>
+          {/if}
+          {#if has('columns-3')}
+          <button
+            type="button"
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() =>
+              runInsert(() => editor.chain().focus().setColumns(3).run())}
+          >
+            <Columns3 size={14} /> 3단 컬럼
+          </button>
+          {/if}
+
+          {#if has('image') || has('link') || has('mbus')}
           <div class="h-px bg-border my-1"></div>
-          <p
-            class="px-3 py-1 text-xs font-semibold text-muted-foreground"
-          >
-            삭제
-          </p>
+          {/if}
+          {#if has('image')}
           <button
             type="button"
-            disabled={!editor.can().deleteRow()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 text-destructive hover:bg-destructive/10",
-              !editor.can().deleteRow() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().deleteRow().run(),
-              )}
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={addImage}
           >
-            <Rows3 size={14} /> 행 삭제
+            <ImageIcon size={14} /> 이미지
           </button>
+          {/if}
+          {#if has('link')}
           <button
             type="button"
-            disabled={!editor.can().deleteColumn()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 text-destructive hover:bg-destructive/10",
-              !editor.can().deleteColumn() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().deleteColumn().run(),
-              )}
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={addLink}
           >
-            <Columns3 size={14} /> 열 삭제
+            <LinkIcon size={14} /> 링크
           </button>
+          {/if}
+          {#if has('mbus')}
           <button
             type="button"
-            disabled={!editor.can().deleteTable()}
-            class={cn(
-              "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 text-destructive hover:bg-destructive/10",
-              !editor.can().deleteTable() && "opacity-30 pointer-events-none",
-            )}
-            onclick={() =>
-              runTableCommand(() =>
-                editor.chain().focus().deleteTable().run(),
-              )}
+            class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={addMbus}
           >
-            <Trash2 size={14} /> 표 삭제
+            <Tv size={14} /> 미디버스 영상
           </button>
-        {/if}
-      </div>
-    {/if}
-  </div>
-  {/if}
-
-  <!-- Code block -->
-  {#if has('code-block')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().setCodeBlock().run()}
-    data-tooltip="코드 블록"
-    aria-label="코드 블록"
-    class={cn(
-      "p-1.5 rounded-md transition-colors",
-      editor.isActive("codeBlock")
-        ? "bg-primary/10 text-primary"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-    )}
-  >
-    <Code2 size={iconSize} />
-  </button>
-  {/if}
-
+          {/if}
+        </div>
+      {/if}
     </div>
-  {/if}
-
-  {#if has('undo') || has('redo')}
-  <!-- Undo / Redo -->
-  <div class="hce-toolbar-group">
-
-  {#if has('undo')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().undo().run()}
-    disabled={!editor.can().undo()}
-    data-tooltip="실행 취소"
-    aria-label="실행 취소"
-    class={cn(
-      "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
-      !editor.can().undo() && "opacity-30 pointer-events-none",
-    )}
-  >
-    <Undo size={iconSize} />
-  </button>
-  {/if}
-  {#if has('redo')}
-  <button
-    type="button"
-    onclick={() => editor.chain().focus().redo().run()}
-    disabled={!editor.can().redo()}
-    data-tooltip="다시 실행"
-    aria-label="다시 실행"
-    class={cn(
-      "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
-      !editor.can().redo() && "opacity-30 pointer-events-none",
-    )}
-  >
-    <Redo size={iconSize} />
-  </button>
-  {/if}
-
   </div>
   {/if}
 
@@ -1040,47 +677,6 @@
       }}
       onCancel={() => (modalState = null)}
     />
-  {/if}
-  {#if modalState?.type === "cellBg"}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      onclick={() => (modalState = null)}
-    >
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="bg-popover border border-border rounded-xl shadow-lg p-4"
-        style="min-width: 240px"
-        onclick={(e) => e.stopPropagation()}
-      >
-        <p class="text-sm font-semibold mb-3">셀 배경색</p>
-        <div class="grid grid-cols-3 gap-2">
-          {#each CELL_COLORS as c}
-            <button
-              type="button"
-              title={c.label}
-              class="h-9 rounded-lg border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs"
-              style="background: {c.value ||
-                '#fff'}; {!c.value
-                ? 'background-image: linear-gradient(135deg, transparent 45%, #ef4444 45%, #ef4444 55%, transparent 55%)'
-                : ''}"
-              onclick={() => {
-                editor
-                  .chain()
-                  .focus()
-                  .setCellAttribute("backgroundColor", c.value || null)
-                  .run();
-                modalState = null;
-              }}
-            >
-              {c.value ? "" : ""}
-            </button>
-          {/each}
-        </div>
-      </div>
-    </div>
   {/if}
 </div>
 

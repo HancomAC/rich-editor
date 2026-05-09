@@ -98,6 +98,41 @@ export const Columns = TiptapNode.create({
                 }
                 return false;
             },
+            // Backspace at start of empty column: if all columns empty → unset
+            Backspace: () => {
+                const { state } = this.editor;
+                const { from, empty } = state.selection;
+                if (!empty)
+                    return false;
+                const resolved = state.doc.resolve(from);
+                // Find columns ancestor
+                let columnsDepth = -1;
+                for (let d = resolved.depth; d > 0; d--) {
+                    if (resolved.node(d).type.name === this.name) {
+                        columnsDepth = d;
+                        break;
+                    }
+                }
+                if (columnsDepth === -1)
+                    return false;
+                // Must be at start of current textblock
+                const parentOffset = resolved.parentOffset;
+                if (parentOffset !== 0)
+                    return false;
+                // All columns must be empty
+                const columnsNode = resolved.node(columnsDepth);
+                let allEmpty = true;
+                columnsNode.descendants((node) => {
+                    if (node.isTextblock && node.textContent.length > 0) {
+                        allEmpty = false;
+                        return false;
+                    }
+                    return true;
+                });
+                if (!allEmpty)
+                    return false;
+                return this.editor.chain().focus().unsetColumns().run();
+            },
         };
     },
 });

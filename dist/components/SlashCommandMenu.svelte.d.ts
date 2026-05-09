@@ -8,9 +8,9 @@ type $$ComponentProps = {
     onClose: () => void;
     onPdfUpload?: () => void;
     onFileUpload?: () => void;
-    onVideoUpload?: () => void;
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
+    onPromptMbus?: PromptHandler;
 };
 declare const SlashCommandMenu: Component<$$ComponentProps, {}, "">;
 type SlashCommandMenu = ReturnType<typeof SlashCommandMenu>;

@@ -12,15 +12,16 @@
     Strikethrough,
     Highlighter,
     LinkIcon,
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
     Heading1,
     Heading2,
     Heading3,
     Type,
-    Code,
     Palette,
+    List,
+    ListOrdered,
+    ListChecks,
+    Quote,
+    ChevronDown,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import type { ToolbarFeature, PromptHandler } from "../types";
@@ -37,9 +38,11 @@
 
   const has = (f: ToolbarFeature) => features.has(f);
 
-  let showHeadings = $state(false);
+  let showBlockMenu = $state(false);
   let showColors = $state(false);
   let menuEl: HTMLDivElement | undefined = $state();
+  let blockMenuEl: HTMLDivElement | undefined = $state();
+  let colorMenuEl: HTMLDivElement | undefined = $state();
   const iconSize = 14;
 
   const TEXT_COLORS = [
@@ -58,7 +61,21 @@
     if (editor.isActive("heading", { level: 1 })) return "제목 1";
     if (editor.isActive("heading", { level: 2 })) return "제목 2";
     if (editor.isActive("heading", { level: 3 })) return "제목 3";
+    if (editor.isActive("bulletList")) return "글머리 목록";
+    if (editor.isActive("orderedList")) return "번호 목록";
+    if (editor.isActive("taskList")) return "체크리스트";
+    if (editor.isActive("blockquote")) return "인용문";
     return "본문";
+  }
+
+  function isParagraphActive(): boolean {
+    return (
+      !editor.isActive("heading") &&
+      !editor.isActive("bulletList") &&
+      !editor.isActive("orderedList") &&
+      !editor.isActive("taskList") &&
+      !editor.isActive("blockquote")
+    );
   }
 
   async function addLink() {
@@ -76,6 +93,23 @@
         .extendMarkRange("link")
         .setLink({ href: url })
         .run();
+    }
+  }
+
+  function handleDocClick(e: MouseEvent) {
+    const target = e.target as Node;
+    if (showBlockMenu && blockMenuEl && !blockMenuEl.contains(target)) {
+      showBlockMenu = false;
+    }
+    if (showColors && colorMenuEl && !colorMenuEl.contains(target)) {
+      showColors = false;
+    }
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      showBlockMenu = false;
+      showColors = false;
     }
   }
 
@@ -99,70 +133,153 @@
     });
 
     editor.registerPlugin(plugin);
+    document.addEventListener("mousedown", handleDocClick);
+    document.addEventListener("keydown", handleKeydown);
 
     return () => {
       editor.unregisterPlugin(bubbleToolbarKey);
+      document.removeEventListener("mousedown", handleDocClick);
+      document.removeEventListener("keydown", handleKeydown);
     };
   });
+
+  const hasBlockMenu = $derived(
+    has('h1') ||
+      has('h2') ||
+      has('h3') ||
+      has('bullet-list') ||
+      has('ordered-list') ||
+      has('checklist') ||
+      has('blockquote'),
+  );
 </script>
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
   <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-full shadow-xl">
-    {#if has('h1') || has('h2') || has('h3')}
+    {#if hasBlockMenu}
       <!-- Block type selector -->
-      <div class="relative">
+      <div class="relative" bind:this={blockMenuEl}>
         <button
           type="button"
-          onclick={() => (showHeadings = !showHeadings)}
+          onclick={() => (showBlockMenu = !showBlockMenu)}
           class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
         >
           <Type size={12} />
           {getCurrentBlockLabel()}
+          <ChevronDown size={12} />
         </button>
-        {#if showHeadings}
+        {#if showBlockMenu}
           <div
             class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
-            style="min-width: 120px"
+            style="min-width: 140px"
           >
             <button
               type="button"
               class={cn(
                 "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                !editor.isActive("heading")
-                  ? "text-white bg-white/10"
+                isParagraphActive()
+                  ? "bg-primary/10 text-primary"
                   : "text-white/70 hover:text-white hover:bg-white/10",
               )}
               onclick={() => {
                 editor.chain().focus().setParagraph().run();
-                showHeadings = false;
+                showBlockMenu = false;
               }}
             >
               <Type size={12} /> 본문
             </button>
             {#each [1, 2, 3] as level}
               {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
-              {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
+                {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
+                <button
+                  type="button"
+                  class={cn(
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                    editor.isActive("heading", { level })
+                      ? "bg-primary/10 text-primary"
+                      : "text-white/70 hover:text-white hover:bg-white/10",
+                  )}
+                  onclick={() => {
+                    editor
+                      .chain()
+                      .focus()
+                      .toggleHeading({ level: level as 1 | 2 | 3 })
+                      .run();
+                    showBlockMenu = false;
+                  }}
+                >
+                  <Icon size={12} /> 제목 {level}
+                </button>
+              {/if}
+            {/each}
+            {#if has('bullet-list')}
               <button
                 type="button"
                 class={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  editor.isActive("heading", { level })
-                    ? "text-white bg-white/10"
+                  editor.isActive("bulletList")
+                    ? "bg-primary/10 text-primary"
                     : "text-white/70 hover:text-white hover:bg-white/10",
                 )}
                 onclick={() => {
-                  editor
-                    .chain()
-                    .focus()
-                    .toggleHeading({ level: level as 1 | 2 | 3 })
-                    .run();
-                  showHeadings = false;
+                  editor.chain().focus().toggleBulletList().run();
+                  showBlockMenu = false;
                 }}
               >
-                <Icon size={12} /> 제목 {level}
+                <List size={12} /> 글머리 목록
               </button>
-              {/if}
-            {/each}
+            {/if}
+            {#if has('ordered-list')}
+              <button
+                type="button"
+                class={cn(
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                  editor.isActive("orderedList")
+                    ? "bg-primary/10 text-primary"
+                    : "text-white/70 hover:text-white hover:bg-white/10",
+                )}
+                onclick={() => {
+                  editor.chain().focus().toggleOrderedList().run();
+                  showBlockMenu = false;
+                }}
+              >
+                <ListOrdered size={12} /> 번호 목록
+              </button>
+            {/if}
+            {#if has('checklist')}
+              <button
+                type="button"
+                class={cn(
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                  editor.isActive("taskList")
+                    ? "bg-primary/10 text-primary"
+                    : "text-white/70 hover:text-white hover:bg-white/10",
+                )}
+                onclick={() => {
+                  editor.chain().focus().toggleTaskList().run();
+                  showBlockMenu = false;
+                }}
+              >
+                <ListChecks size={12} /> 체크리스트
+              </button>
+            {/if}
+            {#if has('blockquote')}
+              <button
+                type="button"
+                class={cn(
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                  editor.isActive("blockquote")
+                    ? "bg-primary/10 text-primary"
+                    : "text-white/70 hover:text-white hover:bg-white/10",
+                )}
+                onclick={() => {
+                  editor.chain().focus().toggleBlockquote().run();
+                  showBlockMenu = false;
+                }}
+              >
+                <Quote size={12} /> 인용문
+              </button>
+            {/if}
           </div>
         {/if}
       </div>
@@ -235,8 +352,29 @@
       <Strikethrough size={iconSize} />
     </button>
     {/if}
+
+    {#if has('highlight') || has('text-color')}
+      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+    {/if}
+
+    {#if has('highlight')}
+      <button
+        type="button"
+        onclick={() => editor.chain().focus().toggleHighlight().run()}
+        title="하이라이트"
+        aria-label="하이라이트"
+        class={cn(
+          "p-1.5 rounded-full transition-colors",
+          editor.isActive("highlight")
+            ? "bg-white/20 text-white"
+            : "text-white/70 hover:text-white hover:bg-white/10",
+        )}
+      >
+        <Highlighter size={iconSize} />
+      </button>
+    {/if}
     {#if has('text-color')}
-      <div class="relative">
+      <div class="relative" bind:this={colorMenuEl}>
         <button
           type="button"
           onclick={() => (showColors = !showColors)}
@@ -295,110 +433,23 @@
         {/if}
       </div>
     {/if}
-    {#if has('highlight')}
-      <button
-        type="button"
-        onclick={() => editor.chain().focus().toggleHighlight().run()}
-        title="하이라이트"
-        aria-label="하이라이트"
-        class={cn(
-          "p-1.5 rounded-full transition-colors",
-          editor.isActive("highlight")
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
-        )}
-      >
-        <Highlighter size={iconSize} />
-      </button>
-    {/if}
-    {#if has('code')}
-    <button
-      type="button"
-      onclick={() => editor.chain().focus().toggleCode().run()}
-      title="코드"
-      aria-label="코드"
-      class={cn(
-        "p-1.5 rounded-full transition-colors",
-        editor.isActive("code")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <Code size={iconSize} />
-    </button>
-    {/if}
 
     {#if has('link')}
-    <div class="w-px h-5 bg-white/20 mx-0.5"></div>
-
-    <button
-      type="button"
-      onclick={addLink}
-      title="링크"
-      aria-label="링크"
-      class={cn(
-        "p-1.5 rounded-full transition-colors",
-        editor.isActive("link")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
-      )}
-    >
-      <LinkIcon size={iconSize} />
-    </button>
-    {/if}
-
-    {#if has('align-left') || has('align-center') || has('align-right')}
       <div class="w-px h-5 bg-white/20 mx-0.5"></div>
-
-      <!-- Alignment -->
-      {#if has('align-left')}
       <button
         type="button"
-        onclick={() => editor.chain().focus().setTextAlign("left").run()}
-        title="왼쪽 정렬"
-        aria-label="왼쪽 정렬"
+        onclick={addLink}
+        title="링크"
+        aria-label="링크"
         class={cn(
           "p-1.5 rounded-full transition-colors",
-          editor.isActive({ textAlign: "left" })
+          editor.isActive("link")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
         )}
       >
-        <AlignLeft size={iconSize} />
+        <LinkIcon size={iconSize} />
       </button>
-      {/if}
-      {#if has('align-center')}
-      <button
-        type="button"
-        onclick={() => editor.chain().focus().setTextAlign("center").run()}
-        title="가운데 정렬"
-        aria-label="가운데 정렬"
-        class={cn(
-          "p-1.5 rounded-full transition-colors",
-          editor.isActive({ textAlign: "center" })
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
-        )}
-      >
-        <AlignCenter size={iconSize} />
-      </button>
-      {/if}
-      {#if has('align-right')}
-      <button
-        type="button"
-        onclick={() => editor.chain().focus().setTextAlign("right").run()}
-        title="오른쪽 정렬"
-        aria-label="오른쪽 정렬"
-        class={cn(
-          "p-1.5 rounded-full transition-colors",
-          editor.isActive({ textAlign: "right" })
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
-        )}
-      >
-        <AlignRight size={iconSize} />
-      </button>
-      {/if}
     {/if}
   </div>
 </div>
