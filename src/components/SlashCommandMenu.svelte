@@ -14,12 +14,12 @@
     LinkIcon,
     Table as TableIcon,
     FileText,
-    Video,
     ChevronRight,
     Paperclip,
-    Film,
     Columns2,
     Columns3,
+    Type,
+    Tv,
   } from "lucide-svelte";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
@@ -31,9 +31,11 @@
     "code-block": "자주 쓰는",
     file: "자주 쓰는",
     pdf: "자주 쓰는",
+    paragraph: "기본",
     h1: "기본",
     h2: "기본",
     h3: "기본",
+    mbus: "미디어",
     "bullet-list": "리스트",
     "ordered-list": "리스트",
     checklist: "리스트",
@@ -45,8 +47,6 @@
     "columns-3": "레이아웃",
     link: "미디어",
     image: "미디어",
-    youtube: "미디어",
-    video: "미디어",
   };
   const SECTION_ORDER = ["자주 쓰는", "기본", "리스트", "블록", "레이아웃", "미디어"];
 
@@ -57,6 +57,13 @@
     icon: Component<{ size?: number }>;
     command: (editor: Editor) => void;
   }[] = [
+    {
+      feature: "paragraph",
+      label: "본문",
+      keywords: "paragraph text 본문 단락",
+      icon: Type,
+      command: (editor) => editor.chain().focus().setParagraph().run(),
+    },
     {
       feature: "h1",
       label: "제목 1",
@@ -158,16 +165,6 @@
       command: (editor) => editor.chain().focus().setColumns(3).run(),
     },
     {
-      feature: "youtube",
-      label: "YouTube 영상",
-      keywords: "youtube video 영상 동영상 유튜브",
-      icon: Video,
-      command: (editor) => {
-        const url = window.prompt("YouTube URL을 입력하세요");
-        if (url) editor.chain().focus().setYoutubeVideo({ src: url }).run();
-      },
-    },
-    {
       feature: "image",
       label: "이미지",
       keywords: "image 이미지 사진 img",
@@ -175,6 +172,16 @@
       command: (editor) => {
         const url = window.prompt("이미지 URL을 입력하세요");
         if (url) editor.chain().focus().setImage({ src: url }).run();
+      },
+    },
+    {
+      feature: "mbus",
+      label: "미디버스 영상",
+      keywords: "mbus video 미디버스 영상",
+      icon: Tv,
+      command: (editor) => {
+        const url = window.prompt("미디버스 영상 URL을 입력하세요");
+        if (url) editor.chain().focus().setMbusVideo({ src: url }).run();
       },
     },
     {
@@ -202,9 +209,9 @@
     onClose,
     onPdfUpload,
     onFileUpload,
-    onVideoUpload,
     onPromptLink,
     onPromptImage,
+    onPromptMbus,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -212,9 +219,9 @@
     onClose: () => void;
     onPdfUpload?: () => void;
     onFileUpload?: () => void;
-    onVideoUpload?: () => void;
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
+    onPromptMbus?: PromptHandler;
   } = $props();
 
   async function runItem(item: (typeof SLASH_MENU_ITEMS_DATA)[number]) {
@@ -232,6 +239,11 @@
     if (item.feature === "image" && onPromptImage) {
       const url = await onPromptImage("");
       if (url) editor.chain().focus().setImage({ src: url }).run();
+      return;
+    }
+    if (item.feature === "mbus" && onPromptMbus) {
+      const url = await onPromptMbus("");
+      if (url) editor.chain().focus().setMbusVideo({ src: url }).run();
       return;
     }
     item.command(editor);
@@ -259,15 +271,6 @@
         keywords: "pdf 파일 문서",
         icon: FileText,
         command: () => onPdfUpload!(),
-      });
-    }
-    if (onVideoUpload) {
-      items.push({
-        feature: "video" as ToolbarFeature,
-        label: "영상 파일",
-        keywords: "video 영상 동영상 비디오 메타버스",
-        icon: Film,
-        command: () => onVideoUpload!(),
       });
     }
     return items;

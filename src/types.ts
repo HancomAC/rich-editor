@@ -23,12 +23,12 @@ export type ToolbarFeature =
 	// 정렬
 	| 'align-left' | 'align-center' | 'align-right'
 	// 제목
-	| 'h1' | 'h2' | 'h3'
+	| 'paragraph' | 'h1' | 'h2' | 'h3'
 	// 블록
 	| 'bullet-list' | 'ordered-list' | 'checklist'
 	| 'blockquote' | 'horizontal-rule' | 'toggle'
 	// 미디어
-	| 'link' | 'image' | 'pdf' | 'youtube' | 'video' | 'file' | 'mbus'
+	| 'link' | 'image' | 'pdf' | 'file' | 'mbus'
 	// 레이아웃
 	| 'columns-2' | 'columns-3' | 'table' | 'code-block'
 	// 히스토리
@@ -43,27 +43,28 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'bold', 'italic', 'underline', 'strike', 'highlight',
 		'superscript', 'subscript', 'code', 'text-color',
 		'align-left', 'align-center', 'align-right',
-		'h1', 'h2', 'h3',
+		'paragraph', 'h1', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'horizontal-rule', 'toggle',
-		'link', 'image', 'pdf', 'youtube', 'video', 'file', 'mbus',
+		'link', 'image', 'pdf', 'file', 'mbus',
 		'columns-2', 'columns-3', 'table', 'code-block',
 		'undo', 'redo',
 		'fixed-toolbar', 'slash-menu',
 		'table-menu', 'character-count', 'upload-overlay'
 	],
 	standard: [
-		'bold', 'italic', 'strike', 'code', 'text-color',
-		'h1', 'h2', 'h3',
+		'bold', 'italic', 'underline', 'strike', 'code', 'text-color',
+		'align-left', 'align-center', 'align-right',
+		'paragraph', 'h1', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'horizontal-rule', 'toggle',
-		'link', 'image', 'pdf', 'youtube', 'video', 'file', 'mbus',
+		'link', 'image', 'pdf', 'file', 'mbus',
 		'columns-2', 'columns-3', 'table', 'code-block',
 		'fixed-toolbar', 'slash-menu', 'table-menu'
 	],
 	minimal: [
-		'bold', 'italic', 'strike', 'code',
-		'h2', 'h3',
+		'bold', 'italic', 'underline', 'strike', 'code',
+		'paragraph', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'code-block',
 		'link', 'image', 'file', 'pdf',
