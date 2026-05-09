@@ -29,8 +29,8 @@
   /** 각 feature가 속하는 섹션 라벨 */
   const SECTION_MAP: Record<string, string> = {
     "code-block": "자주 쓰는",
-    file: "자주 쓰는",
-    pdf: "자주 쓰는",
+    file: "미디어",
+    pdf: "미디어",
     paragraph: "기본",
     h1: "기본",
     h2: "기본",
@@ -390,21 +390,21 @@
 
 <style>
   .slash-menu {
-    width: 220px;
-    max-height: 320px;
+    width: 200px;
+    max-height: 280px;
   }
 
   .slash-section {
     margin: 0;
-    padding: 6px 12px 4px;
-    font-size: var(--text-xs, 11px);
+    padding: 4px 10px 2px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--muted-foreground);
     letter-spacing: 0.02em;
   }
   .slash-section:not(:first-of-type) {
-    margin-top: 4px;
-    padding-top: 8px;
+    margin-top: 2px;
+    padding-top: 6px;
     border-top: 1px solid var(--border);
   }
 
@@ -412,11 +412,11 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    padding: 6px 12px;
+    padding: 4px 10px;
     text-align: left;
-    font-size: var(--text-sm, 13px);
+    font-size: 12px;
     font-weight: 500;
     color: var(--foreground);
     background: transparent;
@@ -435,8 +435,8 @@
     content: '';
     position: absolute;
     left: 0;
-    top: 4px;
-    bottom: 4px;
+    top: 3px;
+    bottom: 3px;
     width: 3px;
     border-radius: 0 2px 2px 0;
     background: var(--primary);
@@ -447,8 +447,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: var(--radius-md, 6px);
     background: var(--muted);
     color: var(--muted-foreground);
