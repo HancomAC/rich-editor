@@ -72,6 +72,16 @@ export const FixedDetails = Details.extend({
         // focus()를 호출하지 않아 노드 뷰 재생성을 방지
       });
 
+      // summary 라인 어디든 클릭 시 토글 (텍스트 편집은 caret이 그대로 위치)
+      dom.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement;
+        if (toggle.contains(target)) return;
+        const summary = target.closest('summary');
+        if (!summary || !content.contains(summary)) return;
+        isOpen = !isOpen;
+        applyState();
+      });
+
       return {
         dom,
         contentDOM: content,

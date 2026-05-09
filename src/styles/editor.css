@@ -275,16 +275,23 @@
 }
 
 /* ── 접기/펼치기 (Details) — Collapsable 컴포넌트와 시각 통일 ── */
+/* ── 토글 (Details) — 호버 강조형 ── */
+
 /* 에디터 내부: TipTap node view (div[data-type="details"]) */
 .tiptap [data-type="details"] {
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
   padding: 0;
   margin: 0.5em 0;
   background: transparent;
   display: grid;
   grid-template-columns: 26px 1fr;
   align-items: start;
+  transition: background 0.12s;
+}
+
+.tiptap [data-type="details"]:hover {
+  background: var(--muted);
 }
 
 .tiptap [data-type="details"] > button {
@@ -299,9 +306,10 @@
   justify-content: center;
   color: var(--muted-foreground);
   border-radius: 4px;
-  transition: transform 0.2s, background 0.15s;
+  transition: transform 0.2s, color 0.15s;
   flex-shrink: 0;
-  margin-top: 11px;
+  margin-top: 13px;
+  margin-left: 4px;
 }
 
 .tiptap [data-type="details"] > button::after {
@@ -315,8 +323,7 @@
   margin-left: 2px;
 }
 
-.tiptap [data-type="details"] > button:hover {
-  background: var(--muted);
+.tiptap [data-type="details"]:hover > button {
   color: var(--foreground);
 }
 
@@ -331,14 +338,19 @@
 
 .tiptap [data-type="details"] summary {
   font-weight: 600;
-  cursor: text;
-  padding: 10px 0;
+  cursor: pointer;
+  padding: 10px 8px 10px 0;
   display: block;
-  border-bottom: 1px solid var(--border, #f6f7f9);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.tiptap [data-type="details"].is-open > div > summary {
+  border-bottom-color: var(--border, #e5e7eb);
 }
 
 .tiptap [data-type="detailsContent"] {
-  padding: 8px 0 8px 0;
+  padding: 8px 8px 8px 0;
   border-left: none;
 }
 
@@ -349,20 +361,30 @@
 /* 게시물 렌더링: 네이티브 <details> */
 .tiptap details {
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
   padding: 0;
   margin: 0.5em 0;
   background: transparent;
+  transition: background 0.12s;
+}
+
+.tiptap details:hover {
+  background: var(--muted);
 }
 
 .tiptap details summary {
   font-weight: 600;
   cursor: pointer;
-  padding: 10px 0 10px 26px;
+  padding: 10px 8px 10px 26px;
   user-select: none;
-  border-bottom: 1px solid var(--border, #f6f7f9);
+  border-bottom: 1px solid transparent;
   position: relative;
   list-style: none;
+  transition: border-color 0.15s;
+}
+
+.tiptap details[open] > summary {
+  border-bottom-color: var(--border, #e5e7eb);
 }
 
 .tiptap details summary::-webkit-details-marker {
@@ -376,7 +398,7 @@
 .tiptap details summary::before {
   content: "";
   position: absolute;
-  left: 4px;
+  left: 8px;
   top: 50%;
   width: 0;
   height: 0;
@@ -384,7 +406,11 @@
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   transform: translateY(-50%);
-  transition: transform 0.2s;
+  transition: transform 0.2s, border-left-color 0.15s;
+}
+
+.tiptap details:hover summary::before {
+  border-left-color: var(--foreground);
 }
 
 .tiptap details[open] > summary::before {
@@ -394,6 +420,7 @@
 .tiptap details[open] > *:not(summary) {
   margin-top: 8px;
   padding-left: 26px;
+  padding-right: 8px;
 }
 
 /* ── 테이블 ── */
