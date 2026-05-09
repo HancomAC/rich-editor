@@ -172,6 +172,9 @@
           <div
             class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
             style="min-width: 140px"
+            onmousedown={(e) => e.preventDefault()}
+            role="menu"
+            tabindex="-1"
           >
             <button
               type="button"
@@ -393,6 +396,9 @@
           <div
             class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 p-2"
             style="min-width: 160px"
+            onmousedown={(e) => e.preventDefault()}
+            role="menu"
+            tabindex="-1"
           >
             <div class="grid grid-cols-3 gap-1.5">
               {#each TEXT_COLORS as c}

@@ -63,7 +63,7 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'fixed-toolbar', 'slash-menu', 'table-menu'
 	],
 	minimal: [
-		'bold', 'italic', 'underline', 'strike', 'code',
+		'bold', 'italic', 'underline', 'strike', 'code', 'text-color',
 		'paragraph', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'code-block',
