@@ -405,8 +405,8 @@
                 <button
                   type="button"
                   title={c.label}
-                  class="h-7 rounded-md border border-white/20 transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold bg-white"
-                  style="color: {c.value || '#000'}"
+                  class="h-7 rounded-md border border-white/20 transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
+                  style="color: {c.value || '#000'}; background: #fff"
                   onclick={() => {
                     if (c.value) {
                       editor.chain().focus().setColor(c.value).run();
@@ -421,7 +421,7 @@
               {/each}
             </div>
             <label
-              class="mt-2 flex items-center justify-between gap-2 px-1 text-xs text-white/70 cursor-pointer hover:text-white"
+              class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-white/70 cursor-pointer hover:text-white"
             >
               <span>직접 선택</span>
               <input

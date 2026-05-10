@@ -7,6 +7,11 @@
   overflow: visible !important;
 }
 
+/* 색상 패널 — "직접 선택" 라벨 위 구분선 */
+.hce-color-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 /* ── 툴바·메뉴 버튼 기본 리셋 (Tailwind preflight 비활성화 상태이므로 UA 기본값만 제거) ──
  * color·font·padding은 Tailwind 유틸리티(text-*, font-*, p-*)가 지정하도록 건드리지 않음.
  */
