@@ -88,9 +88,36 @@ export const Indent = Extension.create({
   },
 
   addKeyboardShortcuts() {
+    const isInCodeBlock = () => this.editor.isActive("codeBlock");
     return {
-      Tab: () => this.editor.commands.indent(),
-      "Shift-Tab": () => this.editor.commands.outdent(),
+      Tab: () => {
+        // 코드블록 안에서는 들여쓰기 문자(\t) 삽입
+        if (isInCodeBlock()) {
+          return this.editor.commands.insertContent("\t");
+        }
+        return this.editor.commands.indent();
+      },
+      "Shift-Tab": () => {
+        // 코드블록 안: 줄 시작의 \t 또는 앞쪽 공백 1단계 제거
+        if (isInCodeBlock()) {
+          const { state, view } = this.editor;
+          const { $from } = state.selection;
+          const lineStart = $from.start();
+          const textBefore = state.doc.textBetween(lineStart, $from.pos, "\n");
+          const lineStartOfCursor = textBefore.lastIndexOf("\n") + 1;
+          const lineHead = textBefore.slice(lineStartOfCursor);
+          const cursorAbsLineStart = $from.pos - lineHead.length;
+          let removeLen = 0;
+          if (lineHead.startsWith("\t")) removeLen = 1;
+          else if (lineHead.startsWith("  ")) removeLen = 2;
+          else if (lineHead.startsWith(" ")) removeLen = 1;
+          if (!removeLen) return true;
+          const tr = state.tr.delete(cursorAbsLineStart, cursorAbsLineStart + removeLen);
+          view.dispatch(tr);
+          return true;
+        }
+        return this.editor.commands.outdent();
+      },
     };
   },
 });
