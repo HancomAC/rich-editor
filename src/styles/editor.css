@@ -50,15 +50,12 @@
 }
 
 /* 빈 단락 — 시각적으로 "한 줄 띄움" 분량만 차지.
-   ProseMirror는 빈 <p>에 항상 trailing <br>을 추가하므로 :only-child가 매칭되지 않음.
-   "p의 모든 자식이 <br>인 경우"를 :not(:has(:not(br)))로 잡는다. */
+   CSS :not(br)은 element selector이라 text node를 잡지 못해
+   <p>text<br>text</p> mixed에도 잘못 매칭됨. > br:only-child로 한정. */
 .tiptap p:empty,
-.tiptap p:has(br):not(:has(:not(br))) {
+.tiptap p:has(> br:only-child) {
   line-height: 0.75em !important;
   min-height: 0.75em;
-}
-.tiptap p:has(br):not(:has(:not(br))) > br {
-  line-height: 0.75em;
 }
 
 /* 선행 공백 보존 */
