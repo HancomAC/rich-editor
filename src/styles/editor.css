@@ -49,7 +49,7 @@
    - line-height: 1.5 (br 줄간격) → paragraph 내 줄바꿈은 더 빽빽 */
 .tiptap p {
   margin: 0.5em 0 !important;
-  line-height: 1.5 !important;
+  line-height: 1.5;
 }
 .tiptap p:first-child { margin-top: 0 !important; }
 .tiptap p:last-child { margin-bottom: 0 !important; }
@@ -111,7 +111,14 @@
 .tiptap ol ol ol { list-style: lower-roman; }
 
 .tiptap li {
-  margin: 0.25em 0;
+  margin: 0.4em 0;
+  line-height: 1.7;
+}
+
+/* li 내부 paragraph는 li가 간격을 결정하도록 무효화 */
+.tiptap li > p {
+  margin: 0 !important;
+  line-height: inherit !important;
 }
 
 /* ── 체크리스트 (TaskList) ── */
@@ -124,7 +131,8 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  margin: 0.1em 0;
+  margin: 0.3em 0;
+  line-height: 1.7;
   list-style: none;
   list-style-type: none;
 }
