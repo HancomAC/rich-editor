@@ -20,7 +20,7 @@
   import SuperscriptExt from "@tiptap/extension-superscript";
   import Typography from "@tiptap/extension-typography";
   import CharacterCount from "@tiptap/extension-character-count";
-  import { Table } from "@tiptap/extension-table";
+  import { Table, TableView } from "@tiptap/extension-table";
   import { TableRow } from "@tiptap/extension-table-row";
   import { TableHeader } from "@tiptap/extension-table-header";
   import { TableCell } from "@tiptap/extension-table-cell";
@@ -312,6 +312,20 @@
   onMount(() => {
     if (!editorElement) return;
 
+    // 읽기(비편집) 모드에서도 표 가로 스크롤 래퍼(.tableWrapper)를 만든다.
+    // 편집 모드는 columnResizing 플러그인의 TableView가 래퍼를 생성하지만,
+    // 비편집 에디터에는 그 플러그인이 없어 표가 맨 <table>로 렌더돼 카드를 넘친다.
+    // 비편집 인스턴스에만 addNodeView로 동일한 TableView를 달아 래퍼를 생성한다.
+    // (편집 인스턴스에 달면 columnResizing의 plugin nodeView를 섀도잉해 리사이즈가 깨진다.)
+    const TableExt = editable
+      ? Table
+      : Table.extend({
+          addNodeView() {
+            return ({ node }) =>
+              new TableView(node, this.options.cellMinWidth);
+          },
+        });
+
     editor = new Editor({
       element: editorElement,
       extensions: [
@@ -356,7 +370,7 @@
         SuperscriptExt,
         Typography,
         CharacterCount,
-        Table.configure({ resizable: true, allowTableNodeSelection: true }),
+        TableExt.configure({ resizable: true, allowTableNodeSelection: true }),
         TableRow,
         CustomTableHeader,
         CustomTableCell,
@@ -447,6 +461,9 @@
           : []),
       ],
       content: transformLegacyHtml(content),
+      // 저장된 HTML의 블록 선두 일반 공백(U+0020)이 재파싱 시 collapse되지 않도록 보존.
+      // true = 공백 보존, 블록 사이 개행은 여전히 collapse (선두 공백 버그 표적 수정).
+      parseOptions: { preserveWhitespace: true },
       editable,
       onUpdate: ({ editor: e }) => {
         // 빈 paragraph는 <p></p>로 저장 (ProseMirror가 편집기 DOM에 넣는 trailing <br>는 출력에서 제거).
@@ -515,7 +532,11 @@
     // 에디터 자체 onChange에서 나온 값이면 무시 (무한 루프 방지)
     if (content === lastEmittedHtml) return;
     const transformed = transformLegacyHtml(content);
-    editor.commands.setContent(transformed, { emitUpdate: false });
+    editor.commands.setContent(transformed, {
+      emitUpdate: false,
+      // 외부 sync 경로에서도 블록 선두 공백 보존 (편집 재로드 경로와 동일하게)
+      parseOptions: { preserveWhitespace: true }
+    });
     lastEmittedHtml = content;
     editor.commands.fixTables();
   });
