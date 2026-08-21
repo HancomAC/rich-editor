@@ -1,4 +1,11 @@
-/** 모드별 기본 feature 프리셋 */
+/**
+ * 모드별 기본 feature 프리셋.
+ *
+ * ⚠️ `'card'` 는 **일부러 빠져 있다.** 실제로 안 쓰여서 삽입 메뉴와 슬래시 메뉴에서
+ * 내렸다(사용자 요청). 다만 **확장 자체는 계속 등록된다** — 빼면 이미 카드가 들어간
+ * 문서가 열릴 때 노드를 못 알아보고 내용이 날아간다. 넣는 길만 닫은 것이라,
+ * 쓰고 싶은 호스트는 `features` 에 `'card'` 를 직접 넣으면 그대로 살아난다.
+ */
 export const TOOLBAR_PRESETS = {
     full: [
         'bold', 'italic', 'underline', 'strike', 'highlight',
@@ -7,7 +14,7 @@ export const TOOLBAR_PRESETS = {
         'paragraph', 'h1', 'h2', 'h3',
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
-        'link', 'image', 'pdf', 'file', 'mbus', 'card',
+        'link', 'image', 'pdf', 'file', 'mbus',
         'columns-2', 'columns-3', 'table', 'code-block',
         'undo', 'redo',
         'fixed-toolbar', 'slash-menu',
@@ -19,7 +26,7 @@ export const TOOLBAR_PRESETS = {
         'paragraph', 'h1', 'h2', 'h3',
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
-        'link', 'image', 'pdf', 'file', 'mbus', 'card',
+        'link', 'image', 'pdf', 'file', 'mbus',
         'columns-2', 'columns-3', 'table', 'code-block',
         'fixed-toolbar', 'slash-menu', 'table-menu'
     ],

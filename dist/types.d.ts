@@ -13,7 +13,14 @@ export type PromptHandler = (defaultValue: string) => Promise<string | null>;
 export type ToolbarMode = 'minimal' | 'standard' | 'full';
 /** 개별 툴바 기능 ID */
 export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'superscript' | 'subscript' | 'code' | 'text-color' | 'align-left' | 'align-center' | 'align-right' | 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet-list' | 'ordered-list' | 'checklist' | 'blockquote' | 'horizontal-rule' | 'toggle' | 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'card' | 'columns-2' | 'columns-3' | 'table' | 'code-block' | 'undo' | 'redo' | 'fixed-toolbar' | 'bubble-toolbar' | 'slash-menu' | 'table-menu' | 'character-count' | 'upload-overlay';
-/** 모드별 기본 feature 프리셋 */
+/**
+ * 모드별 기본 feature 프리셋.
+ *
+ * ⚠️ `'card'` 는 **일부러 빠져 있다.** 실제로 안 쓰여서 삽입 메뉴와 슬래시 메뉴에서
+ * 내렸다(사용자 요청). 다만 **확장 자체는 계속 등록된다** — 빼면 이미 카드가 들어간
+ * 문서가 열릴 때 노드를 못 알아보고 내용이 날아간다. 넣는 길만 닫은 것이라,
+ * 쓰고 싶은 호스트는 `features` 에 `'card'` 를 직접 넣으면 그대로 살아난다.
+ */
 export declare const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]>;
 /** features 배열 → Set 변환. features가 있으면 그걸 쓰고 없으면 toolbar 모드 프리셋 */
 export declare function resolveFeatures(toolbar: ToolbarMode, features?: ToolbarFeature[]): Set<ToolbarFeature>;
