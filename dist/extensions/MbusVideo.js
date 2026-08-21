@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { attachResize } from "../utils/resize";
 export const MbusVideo = Node.create({
     name: "mbusVideo",
     group: "block",
@@ -39,6 +40,9 @@ export const MbusVideo = Node.create({
     },
     addNodeView() {
         return ({ node, editor, getPos }) => {
+            // 리사이즈가 attrs 를 되쓰므로 **항상 최신 노드**여야 한다(복붙 시절의 stale 버그).
+            let currentNode = node;
+            let detachResize = null;
             const dom = document.createElement("div");
             dom.setAttribute("data-type", "mbusVideo");
             dom.setAttribute("data-node-view-wrapper", "");
@@ -72,80 +76,28 @@ export const MbusVideo = Node.create({
                     }
                 });
                 dom.appendChild(del);
-                const resizeHandle = document.createElement("button");
-                resizeHandle.type = "button";
-                resizeHandle.contentEditable = "false";
-                resizeHandle.setAttribute("aria-label", "영상 너비 조절");
-                resizeHandle.style.cssText =
-                    "position:absolute;right:-12px;top:0;bottom:0;width:14px;padding:0;margin:0;border:0;background:transparent;cursor:ew-resize;z-index:2;display:flex;align-items:center;justify-content:center;";
-                const bar = document.createElement("span");
-                bar.style.cssText =
-                    "display:block;width:3px;height:48px;background:var(--border, #d1d5db);border-radius:2px;transition:background 0.15s;pointer-events:none;";
-                resizeHandle.appendChild(bar);
-                resizeHandle.addEventListener("mouseenter", () => {
-                    bar.style.background = "var(--primary, #3382f2)";
+                detachResize = attachResize({
+                    dom,
+                    editor,
+                    getPos: () => (typeof getPos === "function" ? getPos() : undefined),
+                    getNode: () => currentNode,
+                    axis: "x",
+                    label: "영상 너비 조절"
                 });
-                resizeHandle.addEventListener("mouseleave", () => {
-                    if (!resizing)
-                        bar.style.background = "var(--border, #d1d5db)";
-                });
-                const MIN_W = 240;
-                const MAX_W = 1600;
-                let resizing = false;
-                let startX = 0;
-                let startWidth = 0;
-                resizeHandle.addEventListener("pointerdown", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    resizing = true;
-                    startX = e.clientX;
-                    startWidth = dom.getBoundingClientRect().width;
-                    bar.style.background = "var(--primary, #3382f2)";
-                    resizeHandle.setPointerCapture(e.pointerId);
-                });
-                resizeHandle.addEventListener("pointermove", (e) => {
-                    if (!resizing)
-                        return;
-                    const delta = e.clientX - startX;
-                    const next = Math.max(MIN_W, Math.min(MAX_W, startWidth + delta));
-                    dom.style.width = `${next}px`;
-                });
-                const endResize = (e) => {
-                    if (!resizing)
-                        return;
-                    resizing = false;
-                    bar.style.background = "var(--border, #d1d5db)";
-                    try {
-                        resizeHandle.releasePointerCapture(e.pointerId);
-                    }
-                    catch {
-                        // ignore
-                    }
-                    const finalWidth = dom.style.width;
-                    if (!finalWidth)
-                        return;
-                    const pos = typeof getPos === "function" ? getPos() : null;
-                    if (pos == null)
-                        return;
-                    editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, {
-                        ...node.attrs,
-                        width: finalWidth
-                    }));
-                };
-                resizeHandle.addEventListener("pointerup", endResize);
-                resizeHandle.addEventListener("pointercancel", endResize);
-                dom.appendChild(resizeHandle);
             }
             return {
                 dom,
                 update: (updated) => {
-                    if (updated.type !== node.type)
+                    if (updated.type !== currentNode.type)
                         return false;
                     const w = updated.attrs.width;
                     dom.style.width = w || "";
+                    currentNode = updated;
                     return true;
                 },
-                destroy: () => { }
+                destroy: () => {
+                    detachResize?.();
+                }
             };
         };
     },

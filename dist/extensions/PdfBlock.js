@@ -1,5 +1,6 @@
 import { Node as TiptapNode, mergeAttributes } from "@tiptap/core";
 import { getPdfJs } from "../utils/pdf";
+import { attachResize } from "../utils/resize";
 export const PdfBlock = TiptapNode.create({
     name: "pdfBlock",
     group: "block",
@@ -79,6 +80,10 @@ export const PdfBlock = TiptapNode.create({
             let destroyed = false;
             let resizeObserver = null;
             let resizeTimeout;
+            // 리사이즈가 `setNodeMarkup` 으로 attrs 를 되쓰기 때문에 **항상 최신 노드**여야 한다.
+            // 클로저의 `node` 를 쓰면 그 사이의 다른 속성 변경을 리사이즈가 되돌린다.
+            let currentNode = node;
+            let detachResize = null;
             const dom = document.createElement("div");
             dom.classList.add("my-4");
             dom.contentEditable = "false";
@@ -97,69 +102,14 @@ export const PdfBlock = TiptapNode.create({
             dom.appendChild(wrapper);
             // 리사이즈 핸들 (편집 가능 모드에서만)
             if (editor.isEditable) {
-                const resizeHandle = document.createElement("button");
-                resizeHandle.type = "button";
-                resizeHandle.contentEditable = "false";
-                resizeHandle.setAttribute("aria-label", "PDF 너비 조절");
-                resizeHandle.style.cssText =
-                    "position:absolute;right:-12px;top:0;bottom:0;width:14px;padding:0;margin:0;border:0;background:transparent;cursor:ew-resize;z-index:2;display:flex;align-items:center;justify-content:center;";
-                const bar = document.createElement("span");
-                bar.style.cssText =
-                    "display:block;width:3px;height:48px;background:var(--border, #d1d5db);border-radius:2px;transition:background 0.15s;pointer-events:none;";
-                resizeHandle.appendChild(bar);
-                resizeHandle.addEventListener("mouseenter", () => {
-                    bar.style.background = "var(--primary, #3382f2)";
+                detachResize = attachResize({
+                    dom,
+                    editor,
+                    getPos,
+                    getNode: () => currentNode,
+                    axis: "x",
+                    label: "PDF 너비 조절",
                 });
-                resizeHandle.addEventListener("mouseleave", () => {
-                    if (!resizing)
-                        bar.style.background = "var(--border, #d1d5db)";
-                });
-                const MIN_W = 240;
-                const MAX_W = 1600;
-                let resizing = false;
-                let startX = 0;
-                let startWidth = 0;
-                resizeHandle.addEventListener("pointerdown", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    resizing = true;
-                    startX = e.clientX;
-                    startWidth = dom.getBoundingClientRect().width;
-                    bar.style.background = "var(--primary, #3382f2)";
-                    resizeHandle.setPointerCapture(e.pointerId);
-                });
-                resizeHandle.addEventListener("pointermove", (e) => {
-                    if (!resizing)
-                        return;
-                    const delta = e.clientX - startX;
-                    const next = Math.max(MIN_W, Math.min(MAX_W, startWidth + delta));
-                    dom.style.width = `${next}px`;
-                });
-                const endResize = (e) => {
-                    if (!resizing)
-                        return;
-                    resizing = false;
-                    bar.style.background = "var(--border, #d1d5db)";
-                    try {
-                        resizeHandle.releasePointerCapture(e.pointerId);
-                    }
-                    catch {
-                        // ignore release errors (handle may have lost capture already)
-                    }
-                    const finalWidth = dom.style.width;
-                    if (!finalWidth)
-                        return;
-                    const pos = getPos();
-                    if (pos == null)
-                        return;
-                    editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, {
-                        ...node.attrs,
-                        width: finalWidth,
-                    }));
-                };
-                resizeHandle.addEventListener("pointerup", endResize);
-                resizeHandle.addEventListener("pointercancel", endResize);
-                dom.appendChild(resizeHandle);
             }
             // Header
             const header = document.createElement("div");
@@ -405,9 +355,10 @@ export const PdfBlock = TiptapNode.create({
                     if (updatedNode.type.name !== "pdfBlock")
                         return false;
                     const newWidth = updatedNode.attrs.width;
-                    if (newWidth !== node.attrs.width) {
+                    if (newWidth !== currentNode.attrs.width) {
                         dom.style.width = newWidth || "";
                     }
+                    currentNode = updatedNode;
                     return true;
                 },
                 selectNode: () => { },
@@ -416,6 +367,7 @@ export const PdfBlock = TiptapNode.create({
                     destroyed = true;
                     clearTimeout(resizeTimeout);
                     resizeObserver?.disconnect();
+                    detachResize?.();
                 },
             };
         };
