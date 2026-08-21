@@ -28,6 +28,7 @@
     Paperclip,
     Columns2,
     Columns3,
+    SquareDashed,
     Tv,
     Plus,
     Pilcrow,
@@ -651,7 +652,7 @@
           </button>
           {/if}
 
-          {#if has('horizontal-rule') || has('columns-2') || has('columns-3')}
+          {#if has('horizontal-rule') || has('columns-2') || has('columns-3') || has('card')}
           <div class="h-px bg-border my-1"></div>
           {/if}
           {#if has('horizontal-rule')}
@@ -684,6 +685,15 @@
               runInsert(() => editor.chain().focus().setColumns(3).run())}
           >
             <Columns3 size={14} /> 3단 컬럼
+          </button>
+          {/if}
+          {#if has('card')}
+          <button
+            type="button"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() => runInsert(() => editor.chain().focus().setCard().run())}
+          >
+            <SquareDashed size={14} /> 카드
           </button>
           {/if}
 
