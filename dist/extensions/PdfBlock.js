@@ -11,6 +11,8 @@ export const PdfBlock = TiptapNode.create({
             fileId: { default: null },
             name: { default: "PDF" },
             width: { default: null },
+            // 헤더에 보여줄 이름. `null` 이면 `name`(파일명)을 쓴다 — 옛 문서가 그대로 동작한다.
+            label: { default: null },
         };
     },
     parseHTML() {
@@ -23,6 +25,7 @@ export const PdfBlock = TiptapNode.create({
                     src: dom.getAttribute("data-pdf-src") || null,
                     name: dom.getAttribute("data-pdf-name") || "PDF",
                     width: dom.getAttribute("data-pdf-width") || dom.style?.width || null,
+                    label: dom.getAttribute("data-pdf-label") || null,
                 }),
             },
             // URL 직접 방식
@@ -33,6 +36,7 @@ export const PdfBlock = TiptapNode.create({
                     fileId: null,
                     name: dom.getAttribute("data-pdf-name") || "PDF",
                     width: dom.getAttribute("data-pdf-width") || dom.style?.width || null,
+                    label: dom.getAttribute("data-pdf-label") || null,
                 }),
             },
             // 레거시: <embed type="application/pdf">
@@ -41,7 +45,7 @@ export const PdfBlock = TiptapNode.create({
                 getAttrs: (dom) => {
                     const src = dom.getAttribute("src") || "";
                     const name = src.split("/").pop()?.replace(/[?#].*$/, "") || "PDF";
-                    return { src, fileId: null, name, width: null };
+                    return { src, fileId: null, name, width: null, label: null };
                 },
             },
         ];
@@ -53,6 +57,9 @@ export const PdfBlock = TiptapNode.create({
         if (HTMLAttributes.src)
             attrs["data-pdf-src"] = HTMLAttributes.src;
         attrs["data-pdf-name"] = HTMLAttributes.name || "PDF";
+        // ⚠️ 값이 없으면 속성을 아예 뺀다 — 옛 문서와 출력이 구분되지 않게.
+        if (HTMLAttributes.label)
+            attrs["data-pdf-label"] = HTMLAttributes.label;
         if (HTMLAttributes.width) {
             attrs["data-pdf-width"] = HTMLAttributes.width;
             attrs["style"] = `width: ${HTMLAttributes.width}`;
@@ -85,7 +92,7 @@ export const PdfBlock = TiptapNode.create({
             let currentNode = node;
             let detachResize = null;
             const dom = document.createElement("div");
-            dom.classList.add("my-4");
+            dom.classList.add("my-2");
             dom.contentEditable = "false";
             dom.setAttribute("data-type", "pdfBlock");
             dom.setAttribute("data-drag-handle", "");
@@ -113,17 +120,166 @@ export const PdfBlock = TiptapNode.create({
             }
             // Header
             const header = document.createElement("div");
+            // ⚠️ `justify-between` 이 아니라 spacer 로 민다. 이름칸이 넓어져도 오른쪽 버튼이
+            //    밀려나지 않는다.
             header.className =
-                "flex items-center justify-between px-4 py-2 border-b border-border";
+                "flex items-center gap-2 px-3 py-1 border-b border-border select-none";
             header.style.background = "var(--muted)";
             wrapper.appendChild(header);
             const cleanName = (raw) => (raw || "").replace(/[?#].*$/, "").trim() || "PDF";
-            const nameSpan = document.createElement("span");
-            nameSpan.className = "text-xs text-muted-foreground truncate select-none";
-            nameSpan.style.maxWidth = "200px";
-            nameSpan.style.userSelect = "none";
-            nameSpan.textContent = cleanName(node.attrs.name);
-            header.appendChild(nameSpan);
+            /**
+             * 헤더 표시 이름.
+             *
+             * ⚠️ **표시 전용이다.** 다운로드 파일명은 계속 `name` 을 쓴다 — 표시 이름을
+             *    `1강 자료` 로 바꿨다고 확장자 없는 파일이 내려가면 안 된다.
+             */
+            let resolvedName = null;
+            const fallbackName = () => cleanName(resolvedName ?? currentNode.attrs.name);
+            const displayName = () => {
+                const label = currentNode.attrs.label;
+                const trimmed = typeof label === "string" ? label.trim() : "";
+                return trimmed || fallbackName();
+            };
+            let nameSpan = null;
+            let nameInput = null;
+            /** 노드 속성을 되쓴다. 리사이즈(`attachResize`)와 **같은 방식**. */
+            const setAttrs = (patch) => {
+                const pos = getPos();
+                if (pos == null)
+                    return;
+                editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, {
+                    ...currentNode.attrs,
+                    ...patch,
+                }));
+            };
+            /** 입력칸이 글자 길이만큼만 차지하게 한다(빈 상자가 넓게 보이지 않도록). */
+            const fitInput = () => {
+                if (!nameInput)
+                    return;
+                nameInput.size = Math.min(40, Math.max(6, nameInput.value.length + 1));
+            };
+            /** 표시 이름을 화면에 반영한다. 입력 중일 때는 건드리지 않는다. */
+            const syncName = () => {
+                const next = displayName();
+                if (nameSpan)
+                    nameSpan.textContent = next;
+                if (nameInput &&
+                    document.activeElement !== nameInput &&
+                    nameInput.value !== next) {
+                    nameInput.value = next;
+                }
+                fitInput();
+            };
+            if (editor.isEditable) {
+                // 그 자리에서 이름을 고쳐 쓴다. 확정은 blur / Enter, 되돌리기는 Escape.
+                nameInput = document.createElement("input");
+                nameInput.type = "text";
+                nameInput.className =
+                    // ⚠️ `select-text` — 헤더가 `select-none` 이라 이 칸까지 선택이 막힌다. 이름을
+                    //    드래그해 고쳐 쓰려면 여기만 되돌려야 한다.
+                    /*
+                     * ⚠️ 평소에도 **입력칸으로 보여야 한다**(사용자 지적). 예전엔 테두리·면이 투명이라
+                     *    hover 하기 전에는 그냥 글자였고, 고칠 수 있다는 걸 알 방법이 없었다.
+                     *    헤더 면(`--muted`) 위에 `--background` 면 + 1px 테두리를 두면 한눈에 칸으로 읽힌다.
+                     */
+                    "pdf-name-input select-text text-xs text-muted-foreground min-w-0 bg-background rounded px-1.5 py-0.5 border border-border hover:border-ring focus:border-ring focus:text-foreground outline-none transition-colors";
+                nameInput.style.maxWidth = "220px";
+                nameInput.contentEditable = "false";
+                nameInput.draggable = false;
+                // ProseMirror 가 이 칸의 키/포인터를 가져가지 않도록 하는 표식(`stopEvent`).
+                nameInput.setAttribute("data-pdf-control", "");
+                nameInput.title = "표시 이름 (비우면 파일명)";
+                nameInput.setAttribute("aria-label", "PDF 표시 이름");
+                nameInput.value = displayName();
+                fitInput();
+                /** 빈칸이거나 파일명과 같으면 `label: null` — 다시 파일명을 따라간다. */
+                const commitLabel = () => {
+                    if (!nameInput)
+                        return;
+                    const typed = nameInput.value.trim();
+                    const next = typed && typed !== fallbackName() ? typed : null;
+                    const current = currentNode.attrs.label ?? null;
+                    if (next !== current)
+                        setAttrs({ label: next });
+                    nameInput.value = next || fallbackName();
+                    fitInput();
+                };
+                nameInput.addEventListener("input", fitInput);
+                nameInput.addEventListener("keydown", (e) => {
+                    // tiptap 이 단축키·타이핑을 가로채면 이 칸에 글자가 안 들어간다.
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitLabel();
+                        nameInput?.blur();
+                    }
+                    else if (e.key === "Escape") {
+                        e.preventDefault();
+                        // 되돌린 뒤 blur — 값이 현재와 같아져 blur 의 커밋은 무시된다.
+                        if (nameInput)
+                            nameInput.value = displayName();
+                        nameInput?.blur();
+                    }
+                });
+                nameInput.addEventListener("mousedown", (e) => e.stopPropagation());
+                nameInput.addEventListener("blur", commitLabel);
+                header.appendChild(nameInput);
+            }
+            else {
+                nameSpan = document.createElement("span");
+                nameSpan.className =
+                    "text-xs text-muted-foreground truncate select-none min-w-0";
+                nameSpan.style.maxWidth = "220px";
+                nameSpan.style.userSelect = "none";
+                nameSpan.textContent = displayName();
+                header.appendChild(nameSpan);
+            }
+            const spacer = document.createElement("div");
+            spacer.className = "flex-1";
+            header.appendChild(spacer);
+            // 너비 프리셋 (편집 가능 모드에서만)
+            const PRESET_BASE = "px-1.5 py-0.5 rounded text-xs leading-none tabular-nums transition-colors select-none";
+            const PRESET_IDLE = `${PRESET_BASE} text-muted-foreground hover:bg-background pdf-width-preset`;
+            const PRESET_ACTIVE = `${PRESET_BASE} bg-primary text-primary-foreground pdf-width-preset is-active`;
+            const presetButtons = [];
+            if (editor.isEditable) {
+                const presetGroup = document.createElement("div");
+                presetGroup.className = "flex items-center gap-0.5";
+                // ⚠️ 25% 는 뺐다 — 그 폭이면 PDF 글자를 읽을 수 없어 고를 이유가 없다(사용자 결정).
+                for (const value of ["50%", "75%", "100%"]) {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = PRESET_IDLE;
+                    btn.title = `너비 ${value}`;
+                    btn.textContent = value;
+                    /*
+                     * ⚠️ `mousedown` 에서 기본 동작을 막는다. 안 막으면 브라우저가 여기서 텍스트 선택을
+                     * 시작하고, 곧바로 `setAttrs` 가 NodeView 를 다시 그리면서 그 선택이 **헤더 전체**로
+                     * 번져 파일명·버튼이 통째로 파랗게 칠해졌다(사용자 지적).
+                     * 클릭 자체는 `click` 에서 처리하므로 동작에는 영향이 없다.
+                     */
+                    btn.addEventListener("mousedown", (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                    btn.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAttrs({ width: value });
+                    });
+                    presetGroup.appendChild(btn);
+                    presetButtons.push({ value, el: btn });
+                }
+                header.appendChild(presetGroup);
+            }
+            /** 현재 `width` 와 같은 프리셋을 눌린 상태로 만든다. */
+            const syncPresets = (width) => {
+                for (const { value, el } of presetButtons) {
+                    el.className = width === value ? PRESET_ACTIVE : PRESET_IDLE;
+                    el.setAttribute("aria-pressed", width === value ? "true" : "false");
+                }
+            };
+            syncPresets(node.attrs.width ?? null);
             const btnGroup = document.createElement("div");
             btnGroup.className = "flex items-center gap-1";
             header.appendChild(btnGroup);
@@ -261,7 +417,7 @@ export const PdfBlock = TiptapNode.create({
                     if (totalPages > 1) {
                         navDiv = document.createElement("div");
                         navDiv.className =
-                            "flex items-center justify-center gap-4 px-4 py-2 border-t border-border";
+                            "flex items-center justify-center gap-4 px-3 py-1 border-t border-border";
                         navDiv.style.background = "var(--muted)";
                         const prevBtn = document.createElement("button");
                         prevBtn.type = "button";
@@ -341,8 +497,10 @@ export const PdfBlock = TiptapNode.create({
                     resolver(node.attrs.fileId)
                         .then((result) => {
                         if (result.name) {
-                            nameSpan.textContent = result.name;
+                            // 다운로드 파일명은 항상 실제 파일명. 표시는 `label` 이 있으면 그쪽이 이긴다.
+                            resolvedName = result.name;
                             downloadLink.setAttribute("download", result.name);
+                            syncName();
                         }
                     })
                         .catch(() => { });
@@ -359,7 +517,14 @@ export const PdfBlock = TiptapNode.create({
                         dom.style.width = newWidth || "";
                     }
                     currentNode = updatedNode;
+                    syncPresets(newWidth ?? null);
+                    syncName();
                     return true;
+                },
+                // 이름 입력칸 위의 이벤트는 ProseMirror 가 가로채면 안 된다(CardBlock 과 같은 방식).
+                stopEvent: (event) => {
+                    const target = event.target;
+                    return target instanceof Element && !!target.closest("[data-pdf-control]");
                 },
                 selectNode: () => { },
                 deselectNode: () => { },

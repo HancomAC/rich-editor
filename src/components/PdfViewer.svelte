@@ -3,10 +3,17 @@
   import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import { getPdfJs } from "../utils/pdf";
 
-  let { src, fileName }: { src: string; fileName?: string } = $props();
+  let {
+    src,
+    fileName,
+    label
+  }: { src: string; fileName?: string; label?: string } = $props();
 
   const cleanName = (raw?: string) =>
     (raw || "").replace(/[?#].*$/, "").trim() || "PDF 문서";
+
+  /** `label` 이 있으면 그것, 없으면 파일명. */
+  const displayName = $derived(label?.trim() || cleanName(fileName));
 
   let canvasEl: HTMLCanvasElement | undefined = $state();
   let containerEl: HTMLDivElement | undefined = $state();
@@ -105,14 +112,12 @@
     <p class="text-sm text-muted-foreground animate-pulse">PDF 로딩 중...</p>
   </div>
 {:else}
-  <div class="border border-border rounded-lg overflow-hidden my-4">
-    <div
-      class="flex items-center justify-between px-4 py-2 border-b border-border bg-muted"
-    >
-      <span class="text-xs text-muted-foreground truncate">
-        {cleanName(fileName)}
+  <div class="border border-border rounded-lg overflow-hidden my-2">
+    <div class="flex items-center gap-2 px-3 py-1 border-b border-border bg-muted">
+      <span class="text-xs text-muted-foreground truncate min-w-0">
+        {displayName}
       </span>
-      <span class="text-xs text-muted-foreground tabular-nums">
+      <span class="text-xs text-muted-foreground tabular-nums ml-auto shrink-0">
         {page} / {total}
       </span>
     </div>
@@ -126,7 +131,7 @@
 
     {#if total > 1}
       <div
-        class="flex items-center justify-center gap-4 px-4 py-2 border-t border-border bg-muted"
+        class="flex items-center justify-center gap-4 px-3 py-1 border-t border-border bg-muted"
       >
         <button
           type="button"

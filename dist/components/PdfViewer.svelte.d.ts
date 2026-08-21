@@ -1,6 +1,7 @@
 type $$ComponentProps = {
     src: string;
     fileName?: string;
+    label?: string;
 };
 declare const PdfViewer: import("svelte").Component<$$ComponentProps, {}, "">;
 type PdfViewer = ReturnType<typeof PdfViewer>;
