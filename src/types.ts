@@ -28,7 +28,7 @@ export type ToolbarFeature =
 	| 'bullet-list' | 'ordered-list' | 'checklist'
 	| 'blockquote' | 'horizontal-rule' | 'toggle'
 	// 미디어
-	| 'link' | 'image' | 'pdf' | 'file' | 'mbus'
+	| 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'card'
 	// 레이아웃
 	| 'columns-2' | 'columns-3' | 'table' | 'code-block'
 	// 히스토리
@@ -46,7 +46,7 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'paragraph', 'h1', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'horizontal-rule', 'toggle',
-		'link', 'image', 'pdf', 'file', 'mbus',
+		'link', 'image', 'pdf', 'file', 'mbus', 'card',
 		'columns-2', 'columns-3', 'table', 'code-block',
 		'undo', 'redo',
 		'fixed-toolbar', 'slash-menu',
@@ -58,7 +58,7 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'paragraph', 'h1', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'horizontal-rule', 'toggle',
-		'link', 'image', 'pdf', 'file', 'mbus',
+		'link', 'image', 'pdf', 'file', 'mbus', 'card',
 		'columns-2', 'columns-3', 'table', 'code-block',
 		'fixed-toolbar', 'slash-menu', 'table-menu'
 	],

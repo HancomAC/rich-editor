@@ -20,6 +20,7 @@
     Columns3,
     Type,
     Tv,
+    SquareDashed,
   } from "lucide-svelte";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
@@ -36,6 +37,7 @@
     h2: "기본",
     h3: "기본",
     mbus: "미디어",
+    card: "블록",
     "bullet-list": "리스트",
     "ordered-list": "리스트",
     checklist: "리스트",
@@ -182,6 +184,15 @@
       command: (editor) => {
         const url = window.prompt("미디버스 영상 URL을 입력하세요");
         if (url) editor.chain().focus().setMbusVideo({ src: url }).run();
+      },
+    },
+    {
+      feature: "card",
+      label: "카드",
+      keywords: "card 카드 상자 박스 강조 배경",
+      icon: SquareDashed,
+      command: (editor) => {
+        editor.chain().focus().setCard().run();
       },
     },
     {

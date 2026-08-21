@@ -14,6 +14,8 @@ export { FixedDetails } from "./extensions/FixedDetails";
 export { FileAttachment } from "./extensions/FileAttachment";
 export type { FileResolver, FileResolveResult } from "./extensions/FileAttachment";
 export { MbusVideo } from "./extensions/MbusVideo";
+export { CardBlock } from "./extensions/CardBlock";
+export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
 export { MathInline, MathDisplay } from "./extensions/Math";
@@ -21,6 +23,8 @@ export { MathInline, MathDisplay } from "./extensions/Math";
 // 유틸리티
 export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
+export { attachResize } from "./utils/resize";
+export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
 
 // 타입

@@ -36,6 +36,7 @@
   import { Indent } from "../extensions/Indent";
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
+  import { CardBlock } from "../extensions/CardBlock";
   import FixedToolbar from "./FixedToolbar.svelte";
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
@@ -116,6 +117,7 @@
     onPromptLink,
     onPromptImage,
     onPromptMbus,
+    onPromptCardBackground,
     extensions: extraExtensions = [],
     editable = true,
     toolbar = 'full',
@@ -130,6 +132,8 @@
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
+    onPromptCardBackground?: PromptHandler;
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
@@ -380,6 +384,7 @@
           ...(fileDownloadBaseUrl ? { downloadBaseUrl: fileDownloadBaseUrl } : {}),
         }),
         MbusVideo,
+        CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
         Columns,
         Column,
         CodeBlockTopEscape,

@@ -15,7 +15,27 @@ const ALLOWED_ATTRS = {
     col: new Set(["style", "width"]),
     td: new Set(["colspan", "rowspan", "colwidth", "style"]),
     th: new Set(["colspan", "rowspan", "colwidth", "style"]),
-    div: new Set(["data-pdf-src", "data-pdf-name"]),
+    // ⚠️ 에디터가 실제로 뱉는 `div` 속성을 전부 적는다. 여기 빠진 것은 조용히 지워져
+    //    블록이 평범한 빈 `div` 로 내려앉는다 — 파일·영상·단·카드가 그렇게 사라진다.
+    //    (`data-pdf-*` 만 있던 시절엔 나머지가 전부 누락돼 있었다. `sanitizeHtml` 이
+    //     아직 아무 데서도 호출되지 않아 드러나지 않았을 뿐이다.)
+    div: new Set([
+        "data-type",
+        "data-pdf-src",
+        "data-pdf-name",
+        "data-pdf-id",
+        "data-pdf-width",
+        "data-file-id",
+        "data-file-src",
+        "data-file-name",
+        "data-file-size",
+        "data-mbus-src",
+        "data-mbus-width",
+        "data-card-title",
+        "data-card-background",
+        "data-card-height",
+        "style",
+    ]),
     pre: new Set(["class"]),
     code: new Set(["class"]),
     "tiptap-midibus": new Set(["id", "start", "uuid", "width", "height"]),
@@ -70,6 +90,27 @@ export function transformLegacyHtml(html) {
         // <tiptap-collapsable title="X">content</tiptap-collapsable>
         // → <details><summary>X</summary><div>content</div></details>
         .replace(/<tiptap-collapsable\s+title="([^"]*)">([\s\S]*?)<\/tiptap-collapsable>/gi, '<details><summary>$1</summary><div>$2</div></details>')
+        // <tiptap-card title="T" background="B" height="H">content</tiptap-card>
+        // → <div data-type="card" data-card-*>content</div>
+        //
+        // 정올 전용이던 카드 블록. 속성이 셋 다 선택적이고 순서도 보장되지 않아,
+        // 여는 태그를 통째로 잡은 뒤 그 안에서 개별 속성을 뽑는다 —
+        // 위 embed 처럼 순서별 규칙을 여러 개 두면 3! 가지가 되어 감당이 안 된다.
+        .replace(/<tiptap-card\b([^>]*)>([\s\S]*?)<\/tiptap-card>/gi, (_match, rawAttrs, inner) => {
+        const pick = (name) => {
+            const m = rawAttrs.match(new RegExp(`\\b${name}="([^"]*)"`, "i"));
+            return m ? m[1] : "";
+        };
+        const attrs = [
+            `data-type="card"`,
+            pick("title") && `data-card-title="${pick("title")}"`,
+            pick("background") && `data-card-background="${pick("background")}"`,
+            `data-card-height="${pick("height") || "190"}"`,
+        ]
+            .filter(Boolean)
+            .join(" ");
+        return `<div ${attrs}>${inner}</div>`;
+    })
         // <embed src="X" type="application/pdf" ...>
         // → <div data-pdf-src="X" data-pdf-name="filename">
         .replace(/<embed\s+[^>]*src="([^"]*)"[^>]*type="application\/pdf"[^>]*\/?>/gi, (_match, src) => {

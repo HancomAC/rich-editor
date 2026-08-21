@@ -7,7 +7,7 @@ export const TOOLBAR_PRESETS = {
         'paragraph', 'h1', 'h2', 'h3',
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
-        'link', 'image', 'pdf', 'file', 'mbus',
+        'link', 'image', 'pdf', 'file', 'mbus', 'card',
         'columns-2', 'columns-3', 'table', 'code-block',
         'undo', 'redo',
         'fixed-toolbar', 'slash-menu',
@@ -19,7 +19,7 @@ export const TOOLBAR_PRESETS = {
         'paragraph', 'h1', 'h2', 'h3',
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
-        'link', 'image', 'pdf', 'file', 'mbus',
+        'link', 'image', 'pdf', 'file', 'mbus', 'card',
         'columns-2', 'columns-3', 'table', 'code-block',
         'fixed-toolbar', 'slash-menu', 'table-menu'
     ],

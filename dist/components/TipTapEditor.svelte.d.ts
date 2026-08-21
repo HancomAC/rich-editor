@@ -11,6 +11,8 @@ type $$ComponentProps = {
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
+    onPromptCardBackground?: PromptHandler;
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
