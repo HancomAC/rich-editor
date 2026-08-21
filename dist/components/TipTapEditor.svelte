@@ -38,6 +38,7 @@
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
   import { CardBlock } from "../extensions/CardBlock";
+  import { MathInline, MathDisplay } from "../extensions/Math";
   import FixedToolbar from "./FixedToolbar.svelte";
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
@@ -148,6 +149,18 @@
 
   let editorElement: HTMLDivElement | undefined = $state();
   let editor: Editor | undefined = $state();
+
+  /*
+   * 글자수는 `editor.storage` 에서 읽는데 그건 `$state` 가 아니라, 그냥 부르면 첫 값에
+   * 굳어 **타이핑해도 숫자가 안 바뀐다**(사용자 지적). 트랜잭션마다 카운터를 올리고
+   * 그 카운터를 함께 읽어 Svelte 에 의존성을 알린다 — 툴바 활성 표시와 같은 방식이다.
+   */
+  let editorTick = $state(0);
+  const counts = $derived.by(() => {
+    editorTick;
+    const cc = editor?.storage?.characterCount;
+    return { chars: cc?.characters?.() ?? 0, words: cc?.words?.() ?? 0 };
+  });
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
   let fileInputEl: HTMLInputElement | undefined = $state();
@@ -389,6 +402,21 @@
         }),
         MbusVideo,
         CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
+        /*
+         * ⚠️ **수학은 여기서 등록한다.** 예전엔 `MathInline`/`MathDisplay` 를 내보내기만 하고
+         * 등록은 호스트에 맡겼는데, 그러면 앱마다 기억해서 `extensions` 로 넘겨야 한다 —
+         * 정올이 실제로 빠뜨려서 `\le` 같은 수식이 문제 본문에 **원문 그대로** 떴다.
+         * 두 앱 다 필요한 것이면 패키지가 갖고 있는 게 맞다.
+         *
+         * 호스트가 이미 넘겼으면 비켜선다(같은 이름 확장을 두 번 등록하면 TipTap 이 죽는다).
+         * `codeBlock` 이 쓰는 방식과 같다.
+         */
+        ...(extraExtensions.some((ext) => (ext as any).name === "math_inline")
+          ? []
+          : [MathInline]),
+        ...(extraExtensions.some((ext) => (ext as any).name === "math_display")
+          ? []
+          : [MathDisplay]),
         Columns,
         Column,
         CodeBlockTopEscape,
@@ -493,8 +521,12 @@
       /*
        * ⚠️ 예전엔 여기서 `editor = editor` 로 Svelte 를 밀었다. 그건 Svelte 4 관용구고
        * rune 에서는 **같은 참조 재대입이라 아무 일도 일어나지 않는다** — 툴바 활성 표시가
-       * 영영 갱신되지 않았다. 이제 각 툴바가 `transaction` 을 직접 구독해 스스로 다시 그린다.
+       * 영영 갱신되지 않았다. 툴바는 이제 `transaction` 을 직접 구독하고, 이 컴포넌트가
+       * 그리는 글자수는 아래 카운터로 다시 읽는다.
        */
+      onTransaction: () => {
+        editorTick++;
+      },
     });
 
     editor.on("update", handleUpdate);
@@ -579,7 +611,12 @@
 		/>
 	{/if}
 
-	<div bind:this={editorElement}></div>
+	<!--
+		본문이 들어가는 자리. **이름을 준다** — 호스트가 상자 높이를 정해 놓고 이 안을
+		채우게 하려면 이 요소를 지목할 수 있어야 한다. 이름이 없으면 남는 높이가 아무에게도
+		배분되지 않아 글자수 표시가 상자 중간에 떠 버린다.
+	-->
+	<div class="hce-editor-body" bind:this={editorElement}></div>
 
 	{#if editor && editable}
 		{#if features.has('bubble-toolbar')}
@@ -627,8 +664,7 @@
 			<div
 				class="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border"
 			>
-				{editor.storage.characterCount.characters()} 자 ·
-				{editor.storage.characterCount.words()} 단어
+				{counts.chars} 자 · {counts.words} 단어
 			</div>
 		{/if}
 
