@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { onMount, onDestroy } from "svelte";
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
@@ -118,6 +119,7 @@
     onPromptImage,
     onPromptMbus,
     onPromptCardBackground,
+    toolbarEnd,
     extensions: extraExtensions = [],
     editable = true,
     toolbar = 'full',
@@ -134,6 +136,8 @@
     onPromptMbus?: PromptHandler;
     /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
     onPromptCardBackground?: PromptHandler;
+    /** 고정 툴바 오른쪽 끝에 끼워 넣을 조각 */
+    toolbarEnd?: Snippet;
     extensions?: AnyExtension[];
     editable?: boolean;
     toolbar?: ToolbarMode;
@@ -486,10 +490,11 @@
         scrollThreshold: 100,
         scrollMargin: 100,
       },
-      onTransaction: () => {
-        // Force Svelte to re-render so toolbar active states update
-        editor = editor;
-      },
+      /*
+       * ⚠️ 예전엔 여기서 `editor = editor` 로 Svelte 를 밀었다. 그건 Svelte 4 관용구고
+       * rune 에서는 **같은 참조 재대입이라 아무 일도 일어나지 않는다** — 툴바 활성 표시가
+       * 영영 갱신되지 않았다. 이제 각 툴바가 `transaction` 을 직접 구독해 스스로 다시 그린다.
+       */
     });
 
     editor.on("update", handleUpdate);
@@ -568,6 +573,7 @@
 			{onPromptLink}
 			{onPromptImage}
 			{onPromptMbus}
+			{toolbarEnd}
 			onPdfClick={() => pdfInputEl?.click()}
 			onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
 		/>

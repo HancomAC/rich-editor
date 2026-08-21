@@ -36,6 +36,30 @@
     onPromptLink?: PromptHandler;
   } = $props();
 
+  /*
+   * ⚠️ **툴바가 스스로 다시 그려지게 하는 장치.**
+   *
+   * `editor` 는 TipTap 이 만든 평범한 객체라 `$state` 가 아니다. 그래서 선택이 바뀌거나
+   * 서식이 켜져도 Svelte 는 아무것도 모르고, `editor.isActive('bold')` 를 다시 읽지 않는다
+   * — 버튼이 영영 비활성 모양으로 남는다(실측: `isActive` 는 true 인데 클래스는 그대로).
+   *
+   * 예전엔 `onTransaction` 에서 `editor = editor` 로 밀어 줬는데 그건 **Svelte 4 관용구**다.
+   * rune 에서는 같은 참조를 다시 대입해도 아무 일도 일어나지 않는다.
+   *
+   * 대신 트랜잭션마다 카운터를 올리고, 활성 여부를 읽는 자리에서 그 카운터를 함께 읽는다
+   * (쉼표 연산자). 그러면 Svelte 가 "이 표현식은 tick 에 의존한다"고 알아채 다시 계산한다.
+   */
+  let tick = $state(0);
+  $effect(() => {
+    const bump = () => tick++;
+    editor.on("transaction", bump);
+    return () => {
+      editor.off("transaction", bump);
+    };
+  });
+  const isActive = (...args: Parameters<Editor["isActive"]>) =>
+    (tick, editor.isActive(...args));
+
   const has = (f: ToolbarFeature) => features.has(f);
 
   let showBlockMenu = $state(false);
@@ -58,23 +82,23 @@
   ];
 
   function getCurrentBlockLabel(): string {
-    if (editor.isActive("heading", { level: 1 })) return "제목 1";
-    if (editor.isActive("heading", { level: 2 })) return "제목 2";
-    if (editor.isActive("heading", { level: 3 })) return "제목 3";
-    if (editor.isActive("bulletList")) return "글머리 목록";
-    if (editor.isActive("orderedList")) return "번호 목록";
-    if (editor.isActive("taskList")) return "체크리스트";
-    if (editor.isActive("blockquote")) return "인용문";
+    if (isActive("heading", { level: 1 })) return "제목 1";
+    if (isActive("heading", { level: 2 })) return "제목 2";
+    if (isActive("heading", { level: 3 })) return "제목 3";
+    if (isActive("bulletList")) return "글머리 목록";
+    if (isActive("orderedList")) return "번호 목록";
+    if (isActive("taskList")) return "체크리스트";
+    if (isActive("blockquote")) return "인용문";
     return "본문";
   }
 
   function isParagraphActive(): boolean {
     return (
-      !editor.isActive("heading") &&
-      !editor.isActive("bulletList") &&
-      !editor.isActive("orderedList") &&
-      !editor.isActive("taskList") &&
-      !editor.isActive("blockquote")
+      !isActive("heading") &&
+      !isActive("bulletList") &&
+      !isActive("orderedList") &&
+      !isActive("taskList") &&
+      !isActive("blockquote")
     );
   }
 
@@ -181,7 +205,7 @@
               class={cn(
                 "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                 isParagraphActive()
-                  ? "bg-primary/10 text-primary"
+                  ? "hce-active"
                   : "text-white/70 hover:text-white hover:bg-white/10",
               )}
               onclick={() => {
@@ -198,8 +222,8 @@
                   type="button"
                   class={cn(
                     "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                    editor.isActive("heading", { level })
-                      ? "bg-primary/10 text-primary"
+                    isActive("heading", { level })
+                      ? "hce-active"
                       : "text-white/70 hover:text-white hover:bg-white/10",
                   )}
                   onclick={() => {
@@ -220,8 +244,8 @@
                 type="button"
                 class={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  editor.isActive("bulletList")
-                    ? "bg-primary/10 text-primary"
+                  isActive("bulletList")
+                    ? "hce-active"
                     : "text-white/70 hover:text-white hover:bg-white/10",
                 )}
                 onclick={() => {
@@ -237,8 +261,8 @@
                 type="button"
                 class={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  editor.isActive("orderedList")
-                    ? "bg-primary/10 text-primary"
+                  isActive("orderedList")
+                    ? "hce-active"
                     : "text-white/70 hover:text-white hover:bg-white/10",
                 )}
                 onclick={() => {
@@ -254,8 +278,8 @@
                 type="button"
                 class={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  editor.isActive("taskList")
-                    ? "bg-primary/10 text-primary"
+                  isActive("taskList")
+                    ? "hce-active"
                     : "text-white/70 hover:text-white hover:bg-white/10",
                 )}
                 onclick={() => {
@@ -271,8 +295,8 @@
                 type="button"
                 class={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  editor.isActive("blockquote")
-                    ? "bg-primary/10 text-primary"
+                  isActive("blockquote")
+                    ? "hce-active"
                     : "text-white/70 hover:text-white hover:bg-white/10",
                 )}
                 onclick={() => {
@@ -299,7 +323,7 @@
       aria-label="굵게"
       class={cn(
         "p-1.5 rounded-full transition-colors",
-        editor.isActive("bold")
+        isActive("bold")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
       )}
@@ -315,7 +339,7 @@
       aria-label="기울임"
       class={cn(
         "p-1.5 rounded-full transition-colors",
-        editor.isActive("italic")
+        isActive("italic")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
       )}
@@ -331,7 +355,7 @@
         aria-label="밑줄"
         class={cn(
           "p-1.5 rounded-full transition-colors",
-          editor.isActive("underline")
+          isActive("underline")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
         )}
@@ -347,7 +371,7 @@
       aria-label="취소선"
       class={cn(
         "p-1.5 rounded-full transition-colors",
-        editor.isActive("strike")
+        isActive("strike")
           ? "bg-white/20 text-white"
           : "text-white/70 hover:text-white hover:bg-white/10",
       )}
@@ -368,7 +392,7 @@
         aria-label="하이라이트"
         class={cn(
           "p-1.5 rounded-full transition-colors",
-          editor.isActive("highlight")
+          isActive("highlight")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
         )}
@@ -449,7 +473,7 @@
         aria-label="링크"
         class={cn(
           "p-1.5 rounded-full transition-colors",
-          editor.isActive("link")
+          isActive("link")
             ? "bg-white/20 text-white"
             : "text-white/70 hover:text-white hover:bg-white/10",
         )}

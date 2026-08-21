@@ -954,3 +954,21 @@
 		font-size: 1.35rem;
 	}
 }
+
+/* ── 툴바 활성 표시 ──────────────────────────────────────────────────────
+ * 서식이 켜져 있다는 것을 **배경으로** 보여준다. 글자색만 바꾸면 14px 아이콘에서는
+ * 켜졌는지 꺼졌는지 눈에 안 들어온다(사용자 지적).
+ *
+ * ⚠️ Tailwind 의 `bg-primary/10` 을 쓰지 않는다. 호스트 앱이 `--primary` 를 **hex** 로
+ * 주는데(`.claude/rules/rich-editor.md`), Tailwind 3 의 투명도 변형은 채널 표기를 요구해
+ * 그 클래스를 **조용히 만들지 않는다** — 빌드된 CSS 에 `.bg-primary\/10` 규칙이 아예 없었다.
+ * 그래서 규칙 문서가 정한 대로 `color-mix` 로 직접 만든다.
+ */
+.hce-active {
+	background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+	color: var(--primary);
+}
+
+.hce-active:hover {
+	background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+}

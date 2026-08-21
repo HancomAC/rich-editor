@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Editor } from "@tiptap/core";
+  import type { Snippet } from "svelte";
   import {
     Bold,
     Italic,
@@ -46,6 +47,7 @@
     onPromptLink,
     onPromptImage,
     onPromptMbus,
+    toolbarEnd,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -54,7 +56,39 @@
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /**
+     * 툴바 **오른쪽 끝**에 호스트가 끼워 넣는 조각(예: HTML ↔ 에디터 토글).
+     *
+     * 이게 없으면 호스트는 툴바 위에 `position: absolute` 로 띄우는 수밖에 없는데,
+     * 그러면 툴바 버튼들과 세로 정렬이 맞지 않고(사용자 지적) 좁은 폭에서는 겹친다.
+     * 여기에 넣으면 툴바의 flex 행에 그대로 얹혀 정렬이 저절로 맞는다.
+     */
+    toolbarEnd?: Snippet;
   } = $props();
+
+  /*
+   * ⚠️ **툴바가 스스로 다시 그려지게 하는 장치.**
+   *
+   * `editor` 는 TipTap 이 만든 평범한 객체라 `$state` 가 아니다. 그래서 선택이 바뀌거나
+   * 서식이 켜져도 Svelte 는 아무것도 모르고, `editor.isActive('bold')` 를 다시 읽지 않는다
+   * — 버튼이 영영 비활성 모양으로 남는다(실측: `isActive` 는 true 인데 클래스는 그대로).
+   *
+   * 예전엔 `onTransaction` 에서 `editor = editor` 로 밀어 줬는데 그건 **Svelte 4 관용구**다.
+   * rune 에서는 같은 참조를 다시 대입해도 아무 일도 일어나지 않는다.
+   *
+   * 대신 트랜잭션마다 카운터를 올리고, 활성 여부를 읽는 자리에서 그 카운터를 함께 읽는다
+   * (쉼표 연산자). 그러면 Svelte 가 "이 표현식은 tick 에 의존한다"고 알아채 다시 계산한다.
+   */
+  let tick = $state(0);
+  $effect(() => {
+    const bump = () => tick++;
+    editor.on("transaction", bump);
+    return () => {
+      editor.off("transaction", bump);
+    };
+  });
+  const isActive = (...args: Parameters<Editor["isActive"]>) =>
+    (tick, editor.isActive(...args));
 
   const has = (f: ToolbarFeature) => features.has(f);
 
@@ -108,7 +142,7 @@
   async function addLink() {
     insertMenuOpen = false;
     if (onPromptLink) {
-      const previous = editor.isActive("link")
+      const previous = isActive("link")
         ? (editor.getAttributes("link").href as string) || ""
         : "";
       const url = await onPromptLink(previous);
@@ -151,14 +185,14 @@
   }
 
   const currentBlockLabel = $derived.by(() => {
-    if (editor.isActive("heading", { level: 1 })) return "제목 1";
-    if (editor.isActive("heading", { level: 2 })) return "제목 2";
-    if (editor.isActive("heading", { level: 3 })) return "제목 3";
-    if (editor.isActive("bulletList")) return "글머리 목록";
-    if (editor.isActive("orderedList")) return "번호 목록";
-    if (editor.isActive("taskList")) return "체크리스트";
-    if (editor.isActive("blockquote")) return "인용문";
-    if (editor.isActive("details")) return "토글";
+    if (isActive("heading", { level: 1 })) return "제목 1";
+    if (isActive("heading", { level: 2 })) return "제목 2";
+    if (isActive("heading", { level: 3 })) return "제목 3";
+    if (isActive("bulletList")) return "글머리 목록";
+    if (isActive("orderedList")) return "번호 목록";
+    if (isActive("taskList")) return "체크리스트";
+    if (isActive("blockquote")) return "인용문";
+    if (isActive("details")) return "토글";
     return "본문";
   });
 
@@ -263,14 +297,14 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              !editor.isActive("heading") &&
-                !editor.isActive("bulletList") &&
-                !editor.isActive("orderedList") &&
-                !editor.isActive("taskList") &&
-                !editor.isActive("blockquote") &&
-                !editor.isActive("codeBlock") &&
-                !editor.isActive("details") &&
-                "bg-primary/10 text-primary",
+              !isActive("heading") &&
+                !isActive("bulletList") &&
+                !isActive("orderedList") &&
+                !isActive("taskList") &&
+                !isActive("blockquote") &&
+                !isActive("codeBlock") &&
+                !isActive("details") &&
+                "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().setParagraph().run())}
@@ -282,7 +316,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("heading", { level: 1 }) && "bg-primary/10 text-primary",
+              isActive("heading", { level: 1 }) && "hce-active",
             )}
             onclick={() =>
               runBlock(() =>
@@ -297,7 +331,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("heading", { level: 2 }) && "bg-primary/10 text-primary",
+              isActive("heading", { level: 2 }) && "hce-active",
             )}
             onclick={() =>
               runBlock(() =>
@@ -312,7 +346,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("heading", { level: 3 }) && "bg-primary/10 text-primary",
+              isActive("heading", { level: 3 }) && "hce-active",
             )}
             onclick={() =>
               runBlock(() =>
@@ -330,7 +364,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("bulletList") && "bg-primary/10 text-primary",
+              isActive("bulletList") && "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleBulletList().run())}
@@ -343,7 +377,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("orderedList") && "bg-primary/10 text-primary",
+              isActive("orderedList") && "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleOrderedList().run())}
@@ -356,7 +390,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("taskList") && "bg-primary/10 text-primary",
+              isActive("taskList") && "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleTaskList().run())}
@@ -372,7 +406,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("blockquote") && "bg-primary/10 text-primary",
+              isActive("blockquote") && "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleBlockquote().run())}
@@ -385,7 +419,7 @@
             type="button"
             class={cn(
               "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
-              editor.isActive("details") && "bg-primary/10 text-primary",
+              isActive("details") && "hce-active",
             )}
             onclick={() =>
               runBlock(() => editor.chain().focus().setDetails().run())}
@@ -410,8 +444,8 @@
       aria-label="굵게"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive("bold")
-          ? "bg-primary/10 text-primary"
+        isActive("bold")
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -426,8 +460,8 @@
       aria-label="기울임"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive("italic")
-          ? "bg-primary/10 text-primary"
+        isActive("italic")
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -442,8 +476,8 @@
       aria-label="밑줄"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive("underline")
-          ? "bg-primary/10 text-primary"
+        isActive("underline")
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -458,8 +492,8 @@
       aria-label="취소선"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive("strike")
-          ? "bg-primary/10 text-primary"
+        isActive("strike")
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -476,7 +510,7 @@
         class={cn(
           "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
           editor.getAttributes('textStyle').color
-            ? "bg-primary/10 text-primary"
+            ? "hce-active"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >
@@ -544,8 +578,8 @@
       aria-label="왼쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: 'left' })
-          ? "bg-primary/10 text-primary"
+        isActive({ textAlign: 'left' })
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -560,8 +594,8 @@
       aria-label="가운데 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: 'center' })
-          ? "bg-primary/10 text-primary"
+        isActive({ textAlign: 'center' })
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -576,8 +610,8 @@
       aria-label="오른쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
-        editor.isActive({ textAlign: 'right' })
-          ? "bg-primary/10 text-primary"
+        isActive({ textAlign: 'right' })
+          ? "hce-active"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -738,7 +772,7 @@
     <InputModal
       title="링크 URL 입력"
       placeholder="https://example.com"
-      defaultValue={editor.isActive("link") ? editor.getAttributes("link").href || "" : ""}
+      defaultValue={isActive("link") ? editor.getAttributes("link").href || "" : ""}
       onConfirm={(url) => {
         editor
           .chain()
@@ -773,6 +807,10 @@
       onCancel={() => (modalState = null)}
     />
   {/if}
+
+  {#if toolbarEnd}
+    <div class="hce-toolbar-end">{@render toolbarEnd()}</div>
+  {/if}
 </div>
 
 <style>
@@ -786,6 +824,32 @@
   }
   .hce-toolbar :global(button:disabled) {
     cursor: default;
+  }
+
+  /*
+   * ── 활성 표시 ──────────────────────────────────────────────────────────
+   * ⚠️ **이 규칙은 반드시 위 리셋보다 구체적이어야 한다.** 바로 위
+   * `.hce-toolbar :global(button)` 이 `background: transparent; color: inherit` 을 걸어
+   * (0,2,1), 유틸리티 클래스 하나짜리(0,1,0)로는 절대 못 이긴다. 그래서 켜진 버튼이
+   * **아무 표시도 안 났다** — 오래된 버그다(사용자 지적).
+   *
+   * 색은 `color-mix` 로 만든다. 호스트 앱이 `--primary` 를 hex 로 주기 때문에 Tailwind 의
+   * `bg-primary/10` 같은 투명도 변형은 아예 생성되지 않는다(`.claude/rules/rich-editor.md`).
+   */
+  .hce-toolbar :global(button.hce-active) {
+    background-color: color-mix(in srgb, var(--primary, #3382f2) 12%, transparent);
+    color: var(--primary, #3382f2);
+  }
+
+  .hce-toolbar :global(button.hce-active:hover) {
+    background-color: color-mix(in srgb, var(--primary, #3382f2) 18%, transparent);
+  }
+
+  /* 오른쪽 끝으로 밀어 붙인다 — 툴바가 flex 라 auto 마진이면 충분하다. */
+  .hce-toolbar-end {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
   }
 
   .hce-toolbar-group {
