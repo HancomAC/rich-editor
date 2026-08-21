@@ -89,6 +89,17 @@
   });
   const isActive = (...args: Parameters<Editor["isActive"]>) =>
     (tick, editor.isActive(...args));
+  /**
+   * ⚠️ `isActive` 만 고쳐서는 부족했다. **되돌리기 가능 여부**와 **지금 글자색**도
+   * 매 트랜잭션마다 다시 읽어야 하는데, 그냥 `editor.can()` / `editor.getAttributes()` 를
+   * 부르면 Svelte 가 의존성을 못 봐서 처음 값에 굳는다 —
+   * 되돌리기가 영영 비활성으로 남고(사용자 지적), 글자색 버튼은 한 번 켜지면 색을 꺼도
+   * 계속 켜진 채였다.
+   */
+  const canDo = (fn: (c: ReturnType<Editor["can"]>) => boolean) =>
+    (tick, fn(editor.can()));
+  const attrOf = (name: string, key: string) =>
+    (tick, editor.getAttributes(name)[key] as string | undefined);
 
   const has = (f: ToolbarFeature) => features.has(f);
 
@@ -102,17 +113,39 @@
   let insertMenuEl: HTMLDivElement | undefined = $state();
   let colorMenuEl: HTMLDivElement | undefined = $state();
 
-  const TEXT_COLORS = [
+  /*
+   * ⚠️ **`검정(#000000)` 은 뺐다.** `기본`(×, 색 지정 해제)과 눈으로 구별이 안 되는데
+   * (본문 기본색이 거의 검정이다) 두 가지가 다 있으면 헷갈린다 — 사용자가 짚은 부분이다.
+   *
+   * 남기는 쪽은 **`기본`** 이다. `검정` 만 남기면 본문 기본색으로 **되돌릴 방법이 없어지고**,
+   * 저장된 HTML 에 `#000000` 이 눌러앉는다. 그 글은 다크 모드에서 검정 글자가 되어
+   * 안 보인다(코드패스가 `sanitizeBodyColors` 로 이 자국을 걷어내고 있는 이유다).
+   *
+   * `브랜드` 는 앱마다 다르므로 값을 고정하지 않고 `--primary` 를 읽는다 —
+   * 정올과 코드패스가 각자 자기 색을 얻는다. 저장은 계산된 실제 색으로 한다
+   * (`var(--primary)` 를 그대로 저장하면 앱 밖에서 렌더할 때 색이 사라진다).
+   *
+   * ⚠️ **아홉 개로 맞춰 둔다.** 팔레트가 `grid-cols-3` 라 여덟 개면 마지막 줄에 빈 칸이
+   * 남아 덜 만든 것처럼 보인다(사용자 지적). `기본` + 색 여덟이 3×3 을 정확히 채운다.
+   * 색은 색상환을 고르게 훑도록 골랐다 — 빨강·주황·노랑·초록·파랑에 브랜드(남보라)와
+   * 그 사이를 메우는 분홍, 그리고 무채색 회색. 여기서 더 늘리려면 12개(3×4)로 가야 한다.
+   */
+  const TEXT_COLORS: { label: string; value: string; cssVar?: string }[] = [
     { label: "기본", value: "" },
-    { label: "검정", value: "#000000" },
+    { label: "브랜드", value: "", cssVar: "--primary" },
     { label: "회색", value: "#6b7280" },
     { label: "빨강", value: "#dc2626" },
     { label: "주황", value: "#ea580c" },
     { label: "노랑", value: "#ca8a04" },
     { label: "초록", value: "#16a34a" },
     { label: "파랑", value: "#2563eb" },
-    { label: "보라", value: "#7c3aed" }
+    { label: "분홍", value: "#db2777" }
   ];
+
+  /** `--primary` 같은 CSS 변수를 그 자리에서 실제 색 문자열로 바꾼다. */
+  function resolveCssVar(el: HTMLElement, name: string): string {
+    return getComputedStyle(el).getPropertyValue(name).trim();
+  }
 
   $effect(() => {
     if (!blockMenuOpen && !insertMenuOpen && !colorMenuOpen) return;
@@ -242,12 +275,12 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().undo().run()}
-      disabled={!editor.can().undo()}
+      disabled={!canDo((c) => c.undo())}
       data-tooltip="실행 취소"
       aria-label="실행 취소"
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
-        !editor.can().undo() && "opacity-30 pointer-events-none",
+        !canDo((c) => c.undo()) && "opacity-30 pointer-events-none",
       )}
     >
       <Undo size={iconSize} />
@@ -257,12 +290,12 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().redo().run()}
-      disabled={!editor.can().redo()}
+      disabled={!canDo((c) => c.redo())}
       data-tooltip="다시 실행"
       aria-label="다시 실행"
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
-        !editor.can().redo() && "opacity-30 pointer-events-none",
+        !canDo((c) => c.redo()) && "opacity-30 pointer-events-none",
       )}
     >
       <Redo size={iconSize} />
@@ -509,7 +542,7 @@
         aria-label="글자색"
         class={cn(
           "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
-          editor.getAttributes('textStyle').color
+          attrOf('textStyle', 'color')
             ? "hce-active"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
@@ -531,17 +564,20 @@
                 type="button"
                 title={c.label}
                 class="h-8 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold bg-background"
-                style="color: {c.value || '#6b7280'}"
-                onclick={() => {
-                  if (c.value) {
-                    editor.chain().focus().setColor(c.value).run();
+                style="color: {c.cssVar ? `var(${c.cssVar})` : c.value || '#6b7280'}"
+                onclick={(e) => {
+                  const color = c.cssVar
+                    ? resolveCssVar(e.currentTarget as HTMLElement, c.cssVar)
+                    : c.value;
+                  if (color) {
+                    editor.chain().focus().setColor(color).run();
                   } else {
                     editor.chain().focus().unsetColor().run();
                   }
                   colorMenuOpen = false;
                 }}
               >
-                {c.value ? "A" : "×"}
+                {c.cssVar || c.value ? "A" : "×"}
               </button>
             {/each}
           </div>
@@ -552,7 +588,7 @@
             <input
               type="color"
               class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-              value={(editor.getAttributes('textStyle').color as string) || '#000000'}
+              value={attrOf('textStyle', 'color') || '#000000'}
               onclick={(e) => e.stopPropagation()}
               oninput={(e) => {
                 const v = (e.target as HTMLInputElement).value;
