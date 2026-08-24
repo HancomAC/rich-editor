@@ -112,8 +112,7 @@ export const FileAttachment = Node.create({
             const icon = document.createElement("span");
             icon.style.cssText = "font-size:22px;flex-shrink:0;line-height:1;";
             icon.textContent = getFileIcon(node.attrs.name);
-            const nameEl = document.createElement("button");
-            nameEl.type = "button";
+            const nameEl = document.createElement("a");
             nameEl.textContent = node.attrs.name;
             nameEl.style.cssText =
                 "flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--primary, #4A7DAC);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:none;border:0;padding:0;text-align:left;font-family:inherit;";
@@ -126,6 +125,16 @@ export const FileAttachment = Node.create({
                 const baseUrl = editor.storage.fileAttachment?.downloadBaseUrl || "/api/upload";
                 return `${baseUrl}/${fileId}/download`;
             }
+            // href/download가 있어야 브라우저 우클릭의 "다른 이름으로 링크 저장"이 실제 파일을
+            // 가리킨다 — 없으면 현재 페이지 HTML이 저장된다.
+            function updateHref() {
+                const targetUrl = getProxyUrl() || resolvedSrc;
+                if (!targetUrl)
+                    return;
+                nameEl.href = targetUrl;
+                nameEl.download = resolvedName;
+            }
+            updateHref();
             let downloadInProgress = false;
             function handleClick(e) {
                 e.preventDefault();
@@ -164,6 +173,7 @@ export const FileAttachment = Node.create({
             // URL이 있으면 바로 표시
             if (node.attrs.src) {
                 resolvedSrc = node.attrs.src;
+                updateHref();
                 if (node.attrs.size)
                     sizeEl.textContent = formatFileSize(node.attrs.size);
             }
@@ -181,6 +191,7 @@ export const FileAttachment = Node.create({
                             nameEl.textContent = result.name;
                             icon.textContent = getFileIcon(result.name);
                         }
+                        updateHref();
                         sizeEl.textContent = result.size ? formatFileSize(result.size) : "";
                     })
                         .catch(() => {
