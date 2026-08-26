@@ -45,7 +45,7 @@
     { label: '제목', items: ['h1', 'h2', 'h3'] },
     { label: '블록', items: ['bullet-list', 'ordered-list', 'checklist', 'blockquote', 'horizontal-rule', 'toggle'] },
     { label: '미디어', items: ['link', 'image', 'pdf', 'file'] },
-    { label: '레이아웃', items: ['columns-2', 'columns-3', 'table', 'code-block'] },
+    { label: '레이아웃', items: ['columns-2', 'columns-3', 'table', 'code-block', 'math'] },
     { label: '히스토리', items: ['undo', 'redo'] },
     { label: 'UI', items: ['fixed-toolbar', 'bubble-toolbar', 'slash-menu', 'table-menu', 'character-count', 'upload-overlay'] },
   ];

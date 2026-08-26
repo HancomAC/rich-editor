@@ -7,6 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!--
+    KaTeX 스타일시트. **패키지가 아니라 호스트가 넣는 것**이라 여기서도 넣어 줘야
+    수식이 제대로 보인다(정올·코패는 `components/window/Head.svelte` 에서 CDN 으로 넣는다).
+    없으면 KaTeX 가 뱉은 마크업은 그대로인데 분수 막대·루트가 사라져, 분자·분모가
+    "ba" 처럼 나란히 붙어 나온다 — 수식이 깨진 걸로 오진하기 딱 좋다.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
   <style>
     :root {
       --background: #ffffff;
@@ -116,6 +123,31 @@
     .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
     .border-t { border-top-width: 1px; border-top-style: solid; }
     .border-border { border-color: var(--border); }
+
+    /*
+      ⚠️ 이 놀이터는 Tailwind 를 돌리지 않고 **쓰는 유틸리티만 손으로** 흉내낸다.
+      빠진 게 있으면 요소가 사라진 것처럼 보인다 — `.bg-primary` 가 없어서 확인 버튼이
+      흰 글자 + 투명 배경이 돼 "버튼이 안 그려진다" 고 오진한 적 있다. 컴포넌트에 새 유틸을
+      쓰면 여기에도 추가할 것. (배포되는 CSS 는 `npm run build` 가 Tailwind 로 따로 만든다.)
+    */
+    .bg-primary { background-color: var(--primary); }
+    .text-primary-foreground { color: var(--primary-foreground); }
+    .justify-between { justify-content: space-between; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .resize-y { resize: vertical; }
+    .overflow-x-auto { overflow-x: auto; }
+    .break-all { word-break: break-all; }
+    .mt-3 { margin-top: 0.75rem; }
+    .mt-4 { margin-top: 1rem; }
+    .p-5 { padding: 1.25rem; }
+    .px-3\.5 { padding-left: 0.875rem; padding-right: 0.875rem; }
+    .min-h-\[52px\] { min-height: 52px; }
+    .w-\[440px\] { width: 440px; }
+    .max-w-\[90vw\] { max-width: 90vw; }
+    .text-\[11px\] { font-size: 11px; }
+    .bg-black\/40 { background-color: rgba(0, 0, 0, 0.4); }
+    .hover\:opacity-90:hover { opacity: 0.9; }
+    .transition-opacity { transition: opacity 0.15s; }
 
     .bg-background { background-color: var(--background); }
     .bg-foreground { background-color: var(--foreground); }
