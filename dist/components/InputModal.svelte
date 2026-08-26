@@ -61,7 +61,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="bg-background border border-border rounded-xl shadow-xl p-5 w-[360px] max-w-[90vw]"
+    class="hce-input-panel bg-background border border-border rounded-xl shadow-xl p-5 w-[360px] max-w-[90vw]"
     onclick={(e) => e.stopPropagation()}
   >
     {#if title}
@@ -103,3 +103,16 @@
     </div>
   </div>
 </div>
+
+<style>
+	/*
+	 * `w-full` 은 `width: 100%` 일 뿐이라, `box-sizing` 이 `content-box` 로 남아 있으면
+	 * 좌우 패딩·테두리가 그대로 더해져 입력창이 모달 밖으로 나간다. 이 패키지는 Tailwind
+	 * preflight 를 끄고 배포하고 정올 앱에도 전역 리셋이 없다 — 수식 모달에서 실제로 터졌다.
+	 * 같은 조합이므로 여기서도 미리 못을 박는다.
+	 */
+	.hce-input-panel,
+	.hce-input-panel input {
+		box-sizing: border-box;
+	}
+</style>

@@ -94,7 +94,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="bg-background border border-border rounded-xl shadow-xl p-5 w-[440px] max-w-[90vw]"
+    class="hce-math-panel bg-background border border-border rounded-xl shadow-xl p-5 w-[440px] max-w-[90vw]"
     onclick={(e) => e.stopPropagation()}
   >
     <div class="flex items-center justify-between mb-3">
@@ -128,7 +128,7 @@
       `color-mix` 를 인라인으로 준다. `editor.css` 의 `.hce-active` 가 같은 이유로 같은 처방을 쓴다.
     -->
     <div
-      class="mt-3 min-h-[52px] flex items-center justify-center rounded-md border border-border px-3 py-2 overflow-x-auto"
+      class="hce-math-preview mt-3 min-h-[52px] flex items-center justify-center rounded-md border border-border px-3 py-2 overflow-x-auto"
       style="background-color: color-mix(in srgb, var(--muted) 40%, transparent)"
     >
       {#if preview.error}
@@ -142,7 +142,7 @@
       {/if}
     </div>
 
-    <div class="flex items-center justify-between gap-2 mt-4">
+    <div class="hce-math-actions flex items-center justify-between gap-2 mt-4">
       <span class="text-[11px] text-muted-foreground">⌘/Ctrl + Enter 로 확인</span>
       <div class="flex gap-2">
         <button
@@ -163,3 +163,28 @@
     </div>
   </div>
 </div>
+
+<style>
+	/*
+	 * ⚠️ **`box-sizing` 을 호스트에 기대면 안 된다.**
+	 *
+	 * 이 패키지는 Tailwind preflight 를 끄고 배포하고(`tailwind.config.js` 의
+	 * `corePlugins.preflight: false`), 정올 앱에도 전역 `* { box-sizing: border-box }` 리셋이
+	 * 없다(`layout.css` 의 `*` 규칙은 reduced-motion 과 탭 하이라이트뿐). 그래서 `w-full`
+	 * (= `width: 100%`) 에 좌우 패딩 24px + 테두리 2px 가 **그대로 더해져** 입력창이 모달
+	 * 오른쪽으로 삐져나왔다(사용자 제보).
+	 *
+	 * 패키지가 내보내는 상자는 자기 안에서 못을 박는다 — 툴바 버튼·표 셀·카드 프레임이
+	 * 이미 같은 이유로 각자 `box-sizing` 을 들고 있다.
+	 */
+	.hce-math-panel,
+	.hce-math-panel textarea,
+	.hce-math-preview,
+	.hce-math-actions {
+		box-sizing: border-box;
+	}
+
+	.hce-math-panel textarea {
+		max-width: 100%;
+	}
+</style>
