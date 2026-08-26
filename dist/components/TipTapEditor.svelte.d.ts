@@ -1,5 +1,6 @@
 import type { Snippet } from "svelte";
 import { type AnyExtension } from "@tiptap/core";
+import { type MathPrompt } from "../extensions/Math";
 import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
 import type { FileResolver } from "../extensions/FileAttachment";
 type $$ComponentProps = {
@@ -14,6 +15,8 @@ type $$ComponentProps = {
     onPromptMbus?: PromptHandler;
     /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
     onPromptCardBackground?: PromptHandler;
+    /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */
+    onPromptMath?: MathPrompt;
     /** 고정 툴바 오른쪽 끝에 끼워 넣을 조각 */
     toolbarEnd?: Snippet;
     extensions?: AnyExtension[];

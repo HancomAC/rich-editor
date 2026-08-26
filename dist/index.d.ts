@@ -3,6 +3,7 @@ export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
 export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
 export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
 export { default as InputModal } from "./components/InputModal.svelte";
+export { default as MathModal } from "./components/MathModal.svelte";
 export { default as PdfViewer } from "./components/PdfViewer.svelte";
 export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
 export { PdfBlock } from "./extensions/PdfBlock";
@@ -16,6 +17,7 @@ export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBl
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
 export { MathInline, MathDisplay } from "./extensions/Math";
+export type { MathPrompt, MathOptions } from "./extensions/Math";
 export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";

@@ -22,6 +22,7 @@
     ListChecks,
     Quote,
     ChevronDown,
+    Sigma,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import type { ToolbarFeature, PromptHandler } from "../types";
@@ -377,6 +378,28 @@
       )}
     >
       <Strikethrough size={iconSize} />
+    </button>
+    {/if}
+
+    {#if has('math')}
+    <!--
+      버블 툴바는 **뭔가 선택돼 있을 때만** 뜨므로 여기서는 감싸기/풀기만 하면 된다
+      (고정 툴바처럼 "빈 선택이면 새로 넣기" 로 떨어질 일이 없다).
+      `minimal` 프리셋에는 고정 툴바가 없어서, 댓글에서 수식을 만드는 유일한 버튼이 이것이다.
+    -->
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleMathInline().run()}
+      title="인라인 수식"
+      aria-label="인라인 수식"
+      class={cn(
+        "p-1.5 rounded-full transition-colors",
+        isActive("math_inline")
+          ? "bg-white/20 text-white"
+          : "text-white/70 hover:text-white hover:bg-white/10",
+      )}
+    >
+      <Sigma size={iconSize} />
     </button>
     {/if}
 

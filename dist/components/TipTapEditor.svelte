@@ -38,11 +38,12 @@
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
   import { CardBlock } from "../extensions/CardBlock";
-  import { MathInline, MathDisplay } from "../extensions/Math";
+  import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
   import FixedToolbar from "./FixedToolbar.svelte";
   import BubbleToolbar from "./BubbleToolbar.svelte";
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
   import TableBubbleMenu from "./TableBubbleMenu.svelte";
+  import MathModal from "./MathModal.svelte";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
@@ -120,6 +121,7 @@
     onPromptImage,
     onPromptMbus,
     onPromptCardBackground,
+    onPromptMath,
     toolbarEnd,
     extensions: extraExtensions = [],
     editable = true,
@@ -137,6 +139,8 @@
     onPromptMbus?: PromptHandler;
     /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
     onPromptCardBackground?: PromptHandler;
+    /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */
+    onPromptMath?: MathPrompt;
     /** 고정 툴바 오른쪽 끝에 끼워 넣을 조각 */
     toolbarEnd?: Snippet;
     extensions?: AnyExtension[];
@@ -161,6 +165,36 @@
     const cc = editor?.storage?.characterCount;
     return { chars: cc?.characters?.() ?? 0, words: cc?.words?.() ?? 0 };
   });
+  /*
+   * 수식 프롬프트 다리.
+   *
+   * 확장(vanilla NodeView·입력 규칙)은 Svelte 를 모르므로 **약속된 함수 하나**만 받는다.
+   * 그 함수가 여기서 `MathModal` 을 띄우고 사용자가 확인/취소할 때 resolve 한다.
+   * 링크·이미지가 `InputModal` 로 하는 것과 같은 구조인데, 저쪽은 툴바가 열고 이쪽은
+   * 본문 클릭·입력 규칙·슬래시가 열기 때문에 상태를 에디터 최상단에 둬야 한다.
+   *
+   * ⚠️ 이 함수는 확장을 만들 때 한 번만 캡처된다. 그래서 `onPromptMath` 를 직접 넘기지 않고
+   *    호출 시점에 읽는다 — 호스트가 나중에 핸들러를 붙여도 따라간다.
+   */
+  let mathPrompt = $state<{
+    latex: string;
+    displayMode: boolean;
+    resolve: (value: string | null) => void;
+  } | null>(null);
+
+  const promptMath: MathPrompt = (latex, displayMode) => {
+    if (onPromptMath) return onPromptMath(latex, displayMode);
+    return new Promise<string | null>((resolve) => {
+      mathPrompt = { latex, displayMode, resolve };
+    });
+  };
+
+  function closeMathPrompt(value: string | null) {
+    const pending = mathPrompt;
+    mathPrompt = null;
+    pending?.resolve(value);
+  }
+
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
   let fileInputEl: HTMLInputElement | undefined = $state();
@@ -413,10 +447,10 @@
          */
         ...(extraExtensions.some((ext) => (ext as any).name === "math_inline")
           ? []
-          : [MathInline]),
+          : [MathInline.configure({ promptMath })]),
         ...(extraExtensions.some((ext) => (ext as any).name === "math_display")
           ? []
-          : [MathDisplay]),
+          : [MathDisplay.configure({ promptMath })]),
         Columns,
         Column,
         CodeBlockTopEscape,
@@ -658,6 +692,20 @@
 						: undefined}
 				/>
 			</div>
+		{/if}
+
+		<!--
+			수식 프롬프트. `onPromptMath` 를 준 호스트에겐 열리지 않는다(그쪽이 직접 띄운다).
+			`features` 로 막지 않는다 — `$…$` 입력 규칙과 붙여넣기 변환은 feature 와 무관하게
+			항상 살아 있어서, 그렇게 만든 수식을 고치려면 이 모달이 필요하다.
+		-->
+		{#if mathPrompt}
+			<MathModal
+				latex={mathPrompt.latex}
+				displayMode={mathPrompt.displayMode}
+				onConfirm={(value) => closeMathPrompt(value)}
+				onCancel={() => closeMathPrompt(null)}
+			/>
 		{/if}
 
 		{#if features.has('character-count')}

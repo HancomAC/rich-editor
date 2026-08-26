@@ -34,6 +34,7 @@
     Plus,
     Pilcrow,
     Palette,
+    Sigma,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import InputModal from "./InputModal.svelte";
@@ -249,7 +250,8 @@
       has("columns-2") ||
       has("columns-3") ||
       has("horizontal-rule") ||
-      has("code-block"),
+      has("code-block") ||
+      has("math"),
   );
 
   const hasBlockItems = $derived(
@@ -533,6 +535,37 @@
       <Strikethrough size={iconSize} />
     </button>
     {/if}
+    {#if has('math')}
+    <!--
+      선택한 텍스트를 인라인 수식으로 감싸고, 이미 수식인 자리에서 누르면 원문으로 되돌린다
+      (구세대 `setMath.js` 와 같은 토글). 선택이 없으면 감쌀 게 없으니 프롬프트로 새로 넣는다.
+
+      ⚠️ **`run()` 의 반환값으로 갈라지면 안 된다.** `chain().focus().toggleMathInline().run()`
+      은 감싸기가 실제로 성공해도 false 를 돌려주는 경우가 있어(체인의 다른 단계가 false 를
+      섞는다), 감싸 놓고 프롬프트까지 같이 여는 걸 브라우저에서 확인했다.
+      **무엇을 할지는 실행 전에 상태로 정한다.**
+    -->
+    <button
+      type="button"
+      onclick={() => {
+        if (editor.state.selection.empty && !editor.isActive('math_inline')) {
+          editor.chain().focus().promptMathInline().run();
+        } else {
+          editor.chain().focus().toggleMathInline().run();
+        }
+      }}
+      data-tooltip="인라인 수식"
+      aria-label="인라인 수식"
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        isActive("math_inline")
+          ? "hce-active"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Sigma size={iconSize} />
+    </button>
+    {/if}
     {#if has('text-color')}
     <div bind:this={colorMenuEl} class="relative">
       <button
@@ -685,6 +718,16 @@
               runInsert(() => editor.chain().focus().setCodeBlock().run())}
           >
             <Code2 size={14} /> 코드 블록
+          </button>
+          {/if}
+          {#if has('math')}
+          <button
+            type="button"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() =>
+              runInsert(() => editor.chain().focus().promptMathDisplay().run())}
+          >
+            <Sigma size={14} /> 수식 블록
           </button>
           {/if}
           {#if has('pdf')}

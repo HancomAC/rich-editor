@@ -21,6 +21,7 @@
     Type,
     Tv,
     SquareDashed,
+    Sigma,
   } from "lucide-svelte";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
@@ -30,6 +31,7 @@
   /** 각 feature가 속하는 섹션 라벨 */
   const SECTION_MAP: Record<string, string> = {
     "code-block": "자주 쓰는",
+    math: "자주 쓰는",
     file: "미디어",
     pdf: "미디어",
     paragraph: "기본",
@@ -132,6 +134,15 @@
       icon: Code2,
       command: (editor) =>
         editor.chain().focus().setCodeBlock().run(),
+    },
+    {
+      feature: "math",
+      label: "수식",
+      keywords: "math latex tex 수식 공식 수학 katex 시그마 분수",
+      icon: Sigma,
+      // 슬래시 메뉴는 `/수식` 을 지우면서 커맨드를 부른다. 프롬프트는 그 뒤에 열려야
+      // 지운 자리에 결과가 들어간다 — `promptMathDisplay` 가 비동기라 순서가 맞는다.
+      command: (editor) => editor.chain().focus().promptMathDisplay().run(),
     },
     {
       feature: "toggle",
