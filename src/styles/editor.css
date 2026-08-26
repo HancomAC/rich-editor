@@ -797,6 +797,89 @@
 .hce-table-btn-wrap:hover .hce-table-btn-tooltip { opacity: 1; }
 
 
+/* ── 수식 (KaTeX) ────────────────────────────────────────────────────────
+ * `<math-inline>` · `<math-display>` 는 **커스텀 엘리먼트**다. 브라우저 기본값이
+ * `display: inline` 이라 블록 수식도 문단 사이에 끼어 버린다 — 여기서 못을 박아야 한다.
+ * (KaTeX 가 주는 `.katex-display` 만으로는 바깥 상자가 여전히 인라인이다.)
+ *
+ * 읽기 화면도 같은 CSS 를 쓴다 — 두 앱의 `TipTap.svelte` 가 `editable` 여부와 무관하게
+ * `@teriusu/rich-editor/styles` 를 불러오고, 본문 표시도 `editable={false}` 인 같은
+ * 에디터로 그린다. 그래서 앱 `layout.css` 에 복사할 필요가 없다(거기 남은 `.tiptap` 규칙은
+ * 표·선택색 오버라이드 둘뿐이다). 규칙 문서의 "앱과 반드시 동일" 은 그 시절 기준이다.
+ */
+.tiptap math-inline,
+math-inline.math-node {
+	display: inline-block;
+	vertical-align: baseline;
+}
+
+.tiptap math-display,
+math-display.math-node {
+	display: block;
+	margin: 0.9em 0;
+	text-align: center;
+}
+
+/*
+ * ⚠️ **크기 보정. 빼면 수식이 본문보다 21% 커진다.**
+ *
+ * KaTeX 는 자기 CSS 에서 `.katex { font: normal 1.21em … }` 로 **무조건 키운다**. 구세대는
+ * `@seorii/prosemirror-math` 의 `style/math.css` 가 그걸 두 단계로 눌러 본문에 맞췄는데,
+ * 그 패키지를 떠나면서 눌러 주던 CSS 도 같이 사라졌다 — 그래서 lms 쪽 문제 본문의 `\le` 가
+ * prod 보다 크게 보인다는 문의가 들어왔다(2026-08-26).
+ *
+ * 구세대와 **같은 배율**로 되돌린다:
+ *   인라인  .math-node(0.95) × .math-render(0.85) × .katex(1.21) ≈ 0.977em  → 본문과 같음
+ *   블록    .math-node(0.95) ×                     .katex(1.21) ≈ 1.150em  → 살짝 큼(의도)
+ *
+ * 구세대의 `.math-render` 래퍼가 여기엔 없어서(NodeView 가 KaTeX 출력을 바로 넣는다)
+ * 두 배율을 `calc()` 로 합쳐 `.katex` 에 준다. 숫자를 미리 곱해 두지 않는 건 위 표와
+ * 눈으로 대조할 수 있게 하기 위해서다.
+ */
+.tiptap .math-node,
+.math-node {
+	font-size: 0.95em;
+}
+
+.tiptap math-inline.math-node .katex,
+math-inline.math-node .katex {
+	font-size: calc(0.85 * 1.21em);
+}
+
+/* 편집 중일 때만 "누를 수 있다"는 신호를 준다. 읽기 화면에선 그냥 글자여야 한다. */
+.tiptap[contenteditable="true"] .math-node {
+	cursor: pointer;
+	border-radius: 4px;
+	transition: background-color 0.12s;
+}
+
+.tiptap[contenteditable="true"] .math-node:hover {
+	background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.tiptap .math-node.ProseMirror-selectednode {
+	background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+	outline: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* 내용이 빈 수식 — 지워도 자리는 남으므로 눌러서 채울 수 있게 표시해 둔다. */
+.tiptap .math-node.empty-math .math-placeholder {
+	font-size: 0.85em;
+	padding: 0 0.35em;
+	color: var(--muted-foreground);
+	border: 1px dashed var(--border);
+	border-radius: 4px;
+}
+
+/* KaTeX 가 파싱을 포기한 원문. 저장은 그대로 되니 지우지 말고 눈에만 띄게 한다. */
+.tiptap .math-error,
+.math-node .math-error {
+	color: #dc2626;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 0.9em;
+}
+
+
 /* ── 카드 블록 ───────────────────────────────────────────────────────────
  * 정올에서 올라온 블록. 배경(그라디언트/이미지) 위에 반투명 흰 판을 얹어 본문 대비를
  * 확보하는 구조라, 배경이 무엇이든 글자가 읽힌다.
