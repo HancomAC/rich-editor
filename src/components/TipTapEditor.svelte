@@ -1,53 +1,53 @@
-<script lang="ts">
-  import type { Snippet } from "svelte";
-  import { onMount, onDestroy } from "svelte";
-  import { Editor } from "@tiptap/core";
-  import StarterKit from "@tiptap/starter-kit";
-  import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+<script module lang="ts">
+  import { Table, TableView } from "@tiptap/extension-table";
+  import { TableHeader } from "@tiptap/extension-table-header";
+  import { TableCell } from "@tiptap/extension-table-cell";
+  import { Extension } from "@tiptap/core";
+  import { TextSelection } from "@tiptap/pm/state";
   import { common, createLowlight } from "lowlight";
   import cpp from "highlight.js/lib/languages/cpp";
   import python from "highlight.js/lib/languages/python";
-  import Placeholder from "@tiptap/extension-placeholder";
-  import Image from "@tiptap/extension-image";
-  import Link from "@tiptap/extension-link";
-  import Underline from "@tiptap/extension-underline";
-  import TextAlign from "@tiptap/extension-text-align";
-  import Color from "@tiptap/extension-color";
-  import { TextStyle } from "@tiptap/extension-text-style";
-  import HighlightExt from "@tiptap/extension-highlight";
-  import TaskList from "@tiptap/extension-task-list";
-  import TaskItem from "@tiptap/extension-task-item";
-  import SubscriptExt from "@tiptap/extension-subscript";
-  import SuperscriptExt from "@tiptap/extension-superscript";
-  import Typography from "@tiptap/extension-typography";
-  import CharacterCount from "@tiptap/extension-character-count";
-  import { Table, TableView } from "@tiptap/extension-table";
-  import { TableRow } from "@tiptap/extension-table-row";
-  import { TableHeader } from "@tiptap/extension-table-header";
-  import { TableCell } from "@tiptap/extension-table-cell";
-  import { DetailsContent, DetailsSummary } from "@tiptap/extension-details";
-  import { FixedDetails } from "../extensions/FixedDetails";
-  import FileHandler from "@tiptap/extension-file-handler";
-  import { Extension, type AnyExtension } from "@tiptap/core";
-  import { TextSelection } from "@tiptap/pm/state";
-  import { PdfBlock } from "../extensions/PdfBlock";
-  import { Columns } from "../extensions/Columns";
-  import { Column } from "../extensions/Column";
-  import { transformLegacyHtml } from "../utils/sanitize";
-  import { Indent } from "../extensions/Indent";
-  import { FileAttachment } from "../extensions/FileAttachment";
-  import { MbusVideo } from "../extensions/MbusVideo";
-  import { CardBlock } from "../extensions/CardBlock";
-  import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
-  import FixedToolbar from "./FixedToolbar.svelte";
-  import BubbleToolbar from "./BubbleToolbar.svelte";
-  import SlashCommandMenu from "./SlashCommandMenu.svelte";
-  import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import MathModal from "./MathModal.svelte";
-  import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
-  import { resolveFeatures } from "../types";
-  import type { FileResolver } from "../extensions/FileAttachment";
 
+  /*
+   * 문법 하이라이터는 **모듈에 한 벌만** 둔다.
+   *
+   * `common` 은 언어 37종이고, 예전엔 이 등록이 인스턴스 스크립트에 있어 에디터를 세울
+   * 때마다 통째로 다시 돌았다. 정올 기출 퀴즈처럼 한 화면에 에디터가 26~27개 서는
+   * 곳에서는 그게 1000번 가까이 반복된다.
+   *
+   * lowlight 는 문법을 담아 두는 레지스트리일 뿐 편집기별 상태를 갖지 않으므로 공유해도
+   * 안전하다. (측정해 보면 이 항목 자체는 27개 기준 13ms 수준이라 큰 몫은 아니다 —
+   * 다만 공짜로 없앨 수 있는 반복이라 남겨 둘 이유가 없다.)
+   */
+  const lowlight = createLowlight(common);
+  lowlight.register("cpp", cpp);
+  lowlight.register("python", python);
+
+  /*
+   * 읽기 전용용 표 확장도 **한 벌만** 만든다.
+   *
+   * 읽기(비편집) 모드에서도 표 가로 스크롤 래퍼(`.tableWrapper`)가 필요하다. 편집 모드는
+   * columnResizing 플러그인의 TableView 가 래퍼를 만들어 주지만, 비편집 에디터에는 그
+   * 플러그인이 없어 표가 맨 `<table>` 로 렌더돼 카드를 넘친다. 그래서 비편집 인스턴스에만
+   * 같은 TableView 를 `addNodeView` 로 달아 준다.
+   * (편집 인스턴스에 달면 columnResizing 의 plugin nodeView 를 섀도잉해 리사이즈가 깨진다.)
+   *
+   * `extend()` 는 확장 클래스를 새로 찍어내는 일이라, 예전처럼 `onMount` 안에 두면 읽기
+   * 인스턴스마다 반복된다. 결과물이 인스턴스와 무관하므로 모듈에 한 번만 둔다.
+   */
+  const ReadOnlyTable = Table.extend({
+    addNodeView() {
+      return ({ node }: any) => new TableView(node, this.options.cellMinWidth);
+    },
+  });
+
+  /*
+   * 표 셀 속성 확장과 코드블록 키맵도 **모듈에 한 벌**이다.
+   *
+   * `extend()`·`create()` 는 확장 클래스를 새로 찍어내는 일이고, 결과물은 인스턴스와
+   * 무관하다. 인스턴스 스크립트에 두면 에디터를 세울 때마다 같은 클래스를 다시 만든다 —
+   * 한 화면에 26~27개가 서는 화면에서는 그 반복이 그대로 비용이다.
+   */
   const cellAttrs = {
     backgroundColor: {
       default: null,
@@ -105,10 +105,50 @@
       };
     },
   });
+</script>
 
-  const lowlight = createLowlight(common);
-  lowlight.register("cpp", cpp);
-  lowlight.register("python", python);
+<script lang="ts">
+  import type { Snippet } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import { Editor } from "@tiptap/core";
+  import StarterKit from "@tiptap/starter-kit";
+  import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+  import Placeholder from "@tiptap/extension-placeholder";
+  import Image from "@tiptap/extension-image";
+  import Link from "@tiptap/extension-link";
+  import Underline from "@tiptap/extension-underline";
+  import TextAlign from "@tiptap/extension-text-align";
+  import Color from "@tiptap/extension-color";
+  import { TextStyle } from "@tiptap/extension-text-style";
+  import HighlightExt from "@tiptap/extension-highlight";
+  import TaskList from "@tiptap/extension-task-list";
+  import TaskItem from "@tiptap/extension-task-item";
+  import SubscriptExt from "@tiptap/extension-subscript";
+  import SuperscriptExt from "@tiptap/extension-superscript";
+  import Typography from "@tiptap/extension-typography";
+  import CharacterCount from "@tiptap/extension-character-count";
+  import { TableRow } from "@tiptap/extension-table-row";
+  import { DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+  import { FixedDetails } from "../extensions/FixedDetails";
+  import FileHandler from "@tiptap/extension-file-handler";
+  import type { AnyExtension } from "@tiptap/core";
+  import { PdfBlock } from "../extensions/PdfBlock";
+  import { Columns } from "../extensions/Columns";
+  import { Column } from "../extensions/Column";
+  import { transformLegacyHtml } from "../utils/sanitize";
+  import { Indent } from "../extensions/Indent";
+  import { FileAttachment } from "../extensions/FileAttachment";
+  import { MbusVideo } from "../extensions/MbusVideo";
+  import { CardBlock } from "../extensions/CardBlock";
+  import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
+  import FixedToolbar from "./FixedToolbar.svelte";
+  import BubbleToolbar from "./BubbleToolbar.svelte";
+  import SlashCommandMenu from "./SlashCommandMenu.svelte";
+  import TableBubbleMenu from "./TableBubbleMenu.svelte";
+  import MathModal from "./MathModal.svelte";
+  import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
+  import { resolveFeatures } from "../types";
+  import type { FileResolver } from "../extensions/FileAttachment";
 
   let {
     content = "",
@@ -367,19 +407,8 @@
   onMount(() => {
     if (!editorElement) return;
 
-    // 읽기(비편집) 모드에서도 표 가로 스크롤 래퍼(.tableWrapper)를 만든다.
-    // 편집 모드는 columnResizing 플러그인의 TableView가 래퍼를 생성하지만,
-    // 비편집 에디터에는 그 플러그인이 없어 표가 맨 <table>로 렌더돼 카드를 넘친다.
-    // 비편집 인스턴스에만 addNodeView로 동일한 TableView를 달아 래퍼를 생성한다.
-    // (편집 인스턴스에 달면 columnResizing의 plugin nodeView를 섀도잉해 리사이즈가 깨진다.)
-    const TableExt = editable
-      ? Table
-      : Table.extend({
-          addNodeView() {
-            return ({ node }) =>
-              new TableView(node, this.options.cellMinWidth);
-          },
-        });
+    // 읽기 전용 표 확장의 경위는 모듈 블록의 `ReadOnlyTable` 주석 참고.
+    const TableExt = editable ? Table : ReadOnlyTable;
 
     editor = new Editor({
       element: editorElement,
@@ -394,21 +423,31 @@
               lowlight,
               defaultLanguage: "cpp",
             })]),
-        Placeholder.configure({
-          placeholder: ({ node }) => {
-            // 코드블록·인용·목록 등 컨테이너/의미 있는 노드에는 placeholder 안 띄움
-            if (node.type.name === "codeBlock") return "";
-            if (node.type.name === "heading") {
-              const level = node.attrs.level;
-              if (level === 1) return "제목 1";
-              if (level === 2) return "제목 2";
-              if (level === 3) return "제목 3";
-            }
-            return placeholder;
-          },
-          showOnlyWhenEditable: true,
-          showOnlyCurrent: true,
-        }),
+        /*
+         * 안내문은 **쓸 수 있을 때만** 단다. `showOnlyWhenEditable` 로 이미 화면에는 안
+         * 나왔지만, 확장 자체는 그대로 실려 문서가 바뀔 때마다 도는 데코레이션 플러그인을
+         * 하나 더 얹고 있었다. 읽기 전용 인스턴스가 한 화면에 26~27개 서는 곳(정올 기출
+         * 퀴즈)에서는 그런 "화면엔 안 보이지만 실려는 있는" 것들이 그대로 비용이 된다.
+         */
+        ...(editable
+          ? [
+              Placeholder.configure({
+                placeholder: ({ node }) => {
+                  // 코드블록·인용·목록 등 컨테이너/의미 있는 노드에는 placeholder 안 띄움
+                  if (node.type.name === "codeBlock") return "";
+                  if (node.type.name === "heading") {
+                    const level = node.attrs.level;
+                    if (level === 1) return "제목 1";
+                    if (level === 2) return "제목 2";
+                    if (level === 3) return "제목 3";
+                  }
+                  return placeholder;
+                },
+                showOnlyWhenEditable: true,
+                showOnlyCurrent: true,
+              }),
+            ]
+          : []),
         Image.configure({ inline: false }),
         Link.configure({
           openOnClick: false,
@@ -423,8 +462,17 @@
         TaskItem.configure({ nested: true }),
         SubscriptExt,
         SuperscriptExt,
-        Typography,
-        CharacterCount,
+        /*
+         * 둘 다 스키마에 관여하지 않으므로, 필요 없을 때 빼도 **렌더 결과가 같다**
+         * (노드·마크 확장은 빼면 결과가 달라지니 그대로 둔다).
+         *
+         * `Typography` 는 입력 규칙(`--` → `—`)이라 치는 동안에만 쓸모가 있다.
+         * `CharacterCount` 는 **`editable` 이 아니라 기능 스위치를 따른다** — 글자 수 칸은
+         * `features.has('character-count')` 로 그려지므로, 읽기 전용이면서 그 칸을 켠 호스트가
+         * 있으면 확장을 빼는 순간 0 자로 굳는다.
+         */
+        ...(editable ? [Typography] : []),
+        ...(editable || features.has("character-count") ? [CharacterCount] : []),
         TableExt.configure({ resizable: true, allowTableNodeSelection: true }),
         TableRow,
         CustomTableHeader,

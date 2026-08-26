@@ -1,5 +1,5 @@
 import type { Snippet } from "svelte";
-import { type AnyExtension } from "@tiptap/core";
+import type { AnyExtension } from "@tiptap/core";
 import { type MathPrompt } from "../extensions/Math";
 import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
 import type { FileResolver } from "../extensions/FileAttachment";
