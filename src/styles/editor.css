@@ -652,9 +652,28 @@
   z-index: -1;
 }
 
-/* ── BubbleToolbar z-index ── */
-.bubble-toolbar-container {
-  z-index: 50;
+/* ── 떠 있는 메뉴 판(버블 툴바·표 버블 메뉴) 공통 ────────────────────────────
+ *
+ * 배경: **`bg-foreground` 를 쓰면 안 된다.** 그 유틸리티는 `var(--foreground)` 이고,
+ * `--foreground` 는 shadcn 규약상 **본문 글자색**이다. 라이트 테마에서는 그게 먹색이라
+ * "어두운 판 + 흰 아이콘"이 우연히 성립하지만, **다크 테마에서는 글자색이 밝은 쪽으로
+ * 뒤집히므로 판이 거의 흰색이 된다.** 아이콘은 `text-white/*` 로 고정이라 결과가
+ * **흰 판 위 흰 아이콘**이다 — 소비 앱(정올) 실측 대비 **1.17**, 사실상 안 보였다.
+ * 판 색은 글자색과 무관한 자기 변수를 갖는다. 기본값은 어느 테마에서도 흰 아이콘이
+ * 읽히는 어두운 크롬이고, 소비 앱이 `--hce-menu-surface` 로 자기 팔레트에 맞출 수 있다.
+ *
+ * z-index: 기본 50 은 **앱 크롬에 진다.** 정올에서 sticky 브레드크럼(z 93)이 버블 위에
+ * 그려져 판 윗부분이 잘린 것처럼 보였다(`elementFromPoint` 로 확인 — 잘린 게 아니라
+ * 가려진 것이다. `overflow` 클리퍼는 하나도 없었다).
+ * 100 은 부동 메뉴의 통상 눈금이고 모달(보통 1000+)보다는 낮다.
+ */
+.bubble-toolbar-container,
+.hce-table-bubble {
+  z-index: var(--hce-menu-z, 100);
+}
+
+.hce-menu-surface {
+  background-color: var(--hce-menu-surface, #333333);
 }
 
 /* ── Floating + 버튼 ── */

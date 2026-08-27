@@ -152,7 +152,14 @@
         if (e.isActive("image")) return false;
         return true;
       },
-      tippyOptions: {
+      /*
+       * ⚠️ `tippyOptions` 는 **TipTap 2 시절 이름이라 v3 에서는 통째로 무시된다.**
+       * v3 의 BubbleMenu 는 tippy 가 아니라 floating-ui 기반이고, 받는 키가 `options`
+       * (placement·offset·flip·shift·…)로 바뀌었다. 지금까지 이 블록은 아무 효과가 없었다.
+       * 마침 v3 기본값이 `placement: "top"` + `flip`·`shift` 활성이라 화면상 차이는 없었지만,
+       * 죽은 설정을 남겨 두면 "위치를 지정해 뒀다"고 착각하게 된다.
+       */
+      options: {
         placement: "top",
       },
     });
@@ -180,7 +187,7 @@
 </script>
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
-  <div class="flex items-center gap-0.5 px-1.5 py-1 bg-foreground rounded-full shadow-xl">
+  <div class="flex items-center gap-0.5 px-1.5 py-1 hce-menu-surface rounded-full shadow-xl">
     {#if hasBlockMenu}
       <!-- Block type selector -->
       <div class="relative" bind:this={blockMenuEl}>
@@ -195,7 +202,7 @@
         </button>
         {#if showBlockMenu}
           <div
-            class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
+            class="absolute bottom-full left-0 mb-1 hce-menu-surface rounded-lg shadow-xl border border-white/10 py-1"
             style="min-width: 140px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"
@@ -441,7 +448,7 @@
         </button>
         {#if showColors}
           <div
-            class="absolute bottom-full left-0 mb-1 bg-foreground rounded-lg shadow-xl border border-white/10 p-2"
+            class="absolute bottom-full left-0 mb-1 hce-menu-surface rounded-lg shadow-xl border border-white/10 p-2"
             style="min-width: 160px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"

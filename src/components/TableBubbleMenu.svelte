@@ -120,11 +120,11 @@
 {#if visible}
   <div
     bind:this={menuEl}
-    class="absolute z-50"
+    class="absolute hce-table-bubble"
     style="top: {pos.top}px; left: {pos.left}px; width: {pos.width}px"
   >
     <div
-      class="flex items-center justify-center gap-0.5 px-1.5 py-1 bg-foreground rounded-full shadow-xl w-fit mx-auto"
+      class="flex items-center justify-center gap-0.5 px-1.5 py-1 hce-menu-surface rounded-full shadow-xl w-fit mx-auto"
     >
       <!-- Row/Col buttons -->
       <div class="hce-table-btn-wrap">
@@ -280,7 +280,7 @@
         </div>
         {#if showLineHeight}
           <div
-            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-foreground rounded-lg shadow-xl border border-white/10 py-1"
+            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hce-menu-surface rounded-lg shadow-xl border border-white/10 py-1"
             style="min-width: 100px"
           >
             {#each LINE_HEIGHTS as lh}
@@ -384,7 +384,7 @@
         </div>
         {#if showColors}
           <div
-            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-foreground rounded-lg shadow-xl border border-white/10 p-2"
+            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hce-menu-surface rounded-lg shadow-xl border border-white/10 p-2"
             style="min-width: 160px"
           >
             <p
