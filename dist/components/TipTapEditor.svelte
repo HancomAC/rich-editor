@@ -413,9 +413,26 @@
     editor = new Editor({
       element: editorElement,
       extensions: [
+        /*
+         * `link`·`underline` 을 끄는 것은 **v3 이전의 뒷정리**다.
+         *
+         * ⚠️ StarterKit v2 에는 이 둘이 없어서 아래에 `Link`·`Underline` 을 따로 달았다.
+         * v3(3.22.x)부터 StarterKit 이 그것을 품으면서 같은 이름이 두 번 등록되고
+         * `Duplicate extension names found: ['link', 'underline']` 경고가 뜬다.
+         *
+         * 지금은 나중에 등록한 아래 `Link.configure` 가 이긴다 — 실측으로 `target=_blank`
+         * 와 `rel=noopener noreferrer` 가 붙는 것을 확인했다. 하지만 **그 우선순위는 계약이
+         * 아니다.** TipTap 의 해결 순서가 바뀌면 `openOnClick: false` 와 rel/target 이
+         * 조용히 빠진다. 읽기 전용 인스턴스가 한 화면에 26~27 개 서는 곳도 있어서(아래
+         * 안내문 주석 참고) 중복 등록과 경고가 그만큼 쌓인다.
+         *
+         * `codeBlock: false` 와 같은 꼴 — **StarterKit 에서는 끄고 자기 것을 단다** — 로 맞춘다.
+         */
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
           codeBlock: false,
+          link: false,
+          underline: false,
         }),
         ...(extraExtensions.some((ext) => (ext as any).name === 'codeBlock')
           ? []
