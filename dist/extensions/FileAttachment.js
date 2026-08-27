@@ -6,9 +6,57 @@ function formatFileSize(bytes) {
         return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+/**
+ * Open in a tab instead of forcing a download.
+ *
+ * This is the *client* half of the decision. The server half is the
+ * `Content-Disposition` it sends, and the two have to agree: an extension left
+ * out here takes the `else` branch below, which fetches the blob and clicks a
+ * synthetic `<a download>` — a download no server header can talk it out of.
+ * That is exactly how `.txt` opened while `.cpp` still downloaded.
+ *
+ * Source and testcase files are here because this editor is used by an online
+ * judge, where reading someone's `.cpp` or peeking at an `.in` is the common
+ * case and saving it to disk is the rare one.
+ */
 function isInlineable(name) {
     const ext = name.split(".").pop()?.toLowerCase() || "";
-    return ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "txt", "html", "htm"].includes(ext);
+    return [
+        "pdf",
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "webp",
+        "svg",
+        "html",
+        "htm",
+        // text · data
+        "txt",
+        "csv",
+        "log",
+        "md",
+        "json",
+        // testcase input/output
+        "in",
+        "out",
+        "ans",
+        // source
+        "c",
+        "cpp",
+        "cc",
+        "cxx",
+        "h",
+        "hpp",
+        "py",
+        "java",
+        "cs",
+        "js",
+        "ts",
+        "kt",
+        "go",
+        "rs",
+    ].includes(ext);
 }
 function getFileIcon(name) {
     const ext = name.split(".").pop()?.toLowerCase() || "";
