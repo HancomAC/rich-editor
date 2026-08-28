@@ -105,25 +105,32 @@ describe('PdfBlock extension', () => {
             const kinds = [...frame.children].map((c) => c.tagName === 'CANVAS' ? 'canvas' : c.className);
             expect(kinds).toEqual(['canvas', 'pdf-status', 'pdf-overlay']);
         });
-        it('gives editors the name box, the width presets and delete', () => {
+        it('gives editors the width presets and delete', () => {
             const { overlay } = mount();
-            expect(overlay.querySelector('input.pdf-name')).toBeTruthy();
             expect([...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)).toEqual(['50%', '75%', '100%']);
             expect(overlay.querySelector('.pdf-ctl-danger')).toBeTruthy();
         });
         it('hides authoring controls from readers but keeps the file actions', () => {
             const { overlay } = mount(PDF_HTML, false);
             // 저장되는 문서 속성을 읽는 사람이 건드릴 자리는 없다.
-            expect(overlay.querySelector('input.pdf-name')).toBeNull();
             expect(overlay.querySelector('.pdf-preset')).toBeNull();
             expect(overlay.querySelector('.pdf-ctl-danger')).toBeNull();
-            // 이름은 남는다 — 없으면 `label` 속성이 편집 화면 전용 값이 돼 버린다.
-            expect(overlay.querySelector('.pdf-cluster-start')?.textContent).toBe('doc.pdf');
             expect(overlay.querySelectorAll('a.pdf-ctl').length).toBe(2);
         });
-        it('shows the label instead of the file name when one is set', () => {
-            const { overlay } = mount('<div data-pdf-src="https://example.com/doc.pdf" data-pdf-name="doc.pdf" data-pdf-label="1강 자료"></div>', false);
-            expect(overlay.querySelector('.pdf-cluster-start')?.textContent).toBe('1강 자료');
+        /*
+         * 이름은 어느 모드에서도 그리지 않는다. 다만 `label` 을 스키마에서 빼지는 않았다 —
+         * 이미 이름을 지정해 둔 문서를 한 번 열었다 저장하는 것만으로 값이 사라지면 안 된다.
+         */
+        it('never paints the file name, but still round-trips the label', () => {
+            for (const editable of [true, false]) {
+                const { overlay } = mount('<div data-pdf-src="https://example.com/doc.pdf" data-pdf-name="doc.pdf" data-pdf-label="1강 자료"></div>', editable);
+                expect(overlay.querySelector('.pdf-cluster-start')).toBeNull();
+                expect(overlay.querySelector('.pdf-name')).toBeNull();
+                expect(overlay.textContent).not.toContain('1강 자료');
+                expect(overlay.textContent).not.toContain('doc.pdf');
+                expect(editor.getHTML()).toContain('data-pdf-label="1강 자료"');
+                editor.destroy();
+            }
         });
         it('marks the width preset that matches the current width', () => {
             const { overlay } = mount('<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="75%"></div>');
@@ -154,15 +161,15 @@ describe('PdfBlock extension', () => {
          * 걸리는 클래스가 실제로 붙는지**를 지킨다.
          */
         /*
-         * ⚠️ 조작부를 누르면 브라우저가 거기서 글자 선택을 시작해 이름·프리셋이 통째로
-         * 파랗게 칠해졌다(사용자 지적). 이름 입력칸만 예외다.
+         * ⚠️ 조작부를 누르면 브라우저가 거기서 글자 선택을 시작해 프리셋·쪽수가 통째로
+         * 파랗게 칠해졌다(사용자 지적). 유일한 입력칸인 쪽 번호만 예외다.
          */
         it('does not let clicks select the control text', () => {
             const css = readFileSync('src/styles/editor.css', 'utf-8');
             const rule = css.match(/\.pdf-overlay\s*\{[^}]*\}/)?.[0] ?? '';
             expect(rule).toContain('user-select: none');
-            const nameRule = css.match(/\.pdf-overlay \.pdf-name\s*\{[^}]*\}/)?.[0] ?? '';
-            expect(nameRule).toContain('user-select: text');
+            const inputRule = css.match(/\.pdf-overlay \.pdf-page-input\s*\{[^}]*\}/)?.[0] ?? '';
+            expect(inputRule).toContain('user-select: text');
         });
         /*
          * ⚠️ `.pdf-ctl` 과 `.pdf-nav` 는 특이도가 같아 **순서가 승부를 가른다.** 앞에 두면

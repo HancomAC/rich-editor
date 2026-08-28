@@ -137,10 +137,6 @@ export const PdfBlock = TiptapNode.create({
       overlay.setAttribute("data-pdf-control", "");
       // 판에는 캔버스·상태문구 **뒤에** 붙인다(아래) — 여기서는 만들어 채우기만 한다.
 
-      const startCluster = document.createElement("div");
-      startCluster.className = "pdf-cluster pdf-cluster-start";
-      overlay.appendChild(startCluster);
-
       const endCluster = document.createElement("div");
       endCluster.className = "pdf-cluster pdf-cluster-end";
       overlay.appendChild(endCluster);
@@ -148,23 +144,17 @@ export const PdfBlock = TiptapNode.create({
       const cleanName = (raw: string | null | undefined) =>
         (raw || "").replace(/[?#].*$/, "").trim() || "PDF";
 
-      /**
-       * 헤더 표시 이름.
+      /*
+       * ⚠️ **표시 이름은 화면에서 뺐다**(사용자 결정) — 편집용 입력칸도, 읽기용 글자도
+       * 없다. 판 위에 이름표가 늘 붙어 있는 게 소음이었다.
        *
-       * ⚠️ **표시 전용이다.** 다운로드 파일명은 계속 `name` 을 쓴다 — 표시 이름을
-       *    `1강 자료` 로 바꿨다고 확장자 없는 파일이 내려가면 안 된다.
+       * 그래도 `label` 속성 자체는 **스키마에 남긴다.** 이미 이름을 지정해 둔 문서가
+       * 있고, 속성을 지우면 그 문서를 한 번 열었다 저장하는 것만으로 값이 조용히
+       * 사라진다. 지금은 아무도 읽지 않지만 왕복은 그대로 된다.
+       *
+       * 다운로드 파일명은 원래부터 `label` 이 아니라 `name` 이다 — 표시 이름을
+       * `1강 자료` 로 바꿨다고 확장자 없는 파일이 내려가면 안 되기 때문.
        */
-      let resolvedName: string | null = null;
-      const fallbackName = () =>
-        cleanName(resolvedName ?? (currentNode.attrs.name as string | null));
-      const displayName = () => {
-        const label = currentNode.attrs.label;
-        const trimmed = typeof label === "string" ? label.trim() : "";
-        return trimmed || fallbackName();
-      };
-
-      let nameSpan: HTMLSpanElement | null = null;
-      let nameInput: HTMLInputElement | null = null;
 
       /** 노드 속성을 되쓴다. 리사이즈(`attachResize`)와 **같은 방식**. */
       const setAttrs = (patch: Record<string, unknown>) => {
@@ -177,93 +167,6 @@ export const PdfBlock = TiptapNode.create({
           })
         );
       };
-
-      /** 입력칸이 글자 길이만큼만 차지하게 한다(빈 상자가 넓게 보이지 않도록). */
-      const fitInput = () => {
-        if (!nameInput) return;
-        nameInput.size = Math.min(40, Math.max(6, nameInput.value.length + 1));
-      };
-
-      /** 표시 이름을 화면에 반영한다. 입력 중일 때는 건드리지 않는다. */
-      const syncName = () => {
-        const next = displayName();
-        if (nameSpan) nameSpan.textContent = next;
-        if (
-          nameInput &&
-          document.activeElement !== nameInput &&
-          nameInput.value !== next
-        ) {
-          nameInput.value = next;
-        }
-        fitInput();
-      };
-
-      if (editor.isEditable) {
-        // 그 자리에서 이름을 고쳐 쓴다. 확정은 blur / Enter, 되돌리기는 Escape.
-        nameInput = document.createElement("input");
-        nameInput.type = "text";
-        /*
-         * ⚠️ 평소에도 **입력칸으로 보여야 한다**(사용자 지적). 예전엔 테두리·면이 투명이라
-         *    hover 하기 전에는 그냥 글자였고, 고칠 수 있다는 걸 알 방법이 없었다.
-         *    조작부가 뜬 동안에는 면 + 1px 테두리로 한눈에 칸으로 읽힌다.
-         */
-        nameInput.className = "pdf-name";
-        nameInput.style.maxWidth = "220px";
-        nameInput.contentEditable = "false";
-        nameInput.draggable = false;
-        nameInput.placeholder = "표시 이름";
-        nameInput.title = "표시 이름 (비우면 파일명)";
-        nameInput.setAttribute("aria-label", "PDF 표시 이름");
-        nameInput.value = displayName();
-        fitInput();
-
-        /** 빈칸이거나 파일명과 같으면 `label: null` — 다시 파일명을 따라간다. */
-        const commitLabel = () => {
-          if (!nameInput) return;
-          const typed = nameInput.value.trim();
-          const next = typed && typed !== fallbackName() ? typed : null;
-          const current = (currentNode.attrs.label as string | null) ?? null;
-          if (next !== current) setAttrs({ label: next });
-          nameInput.value = next || fallbackName();
-          fitInput();
-        };
-
-        nameInput.addEventListener("input", fitInput);
-
-        nameInput.addEventListener("keydown", (e) => {
-          // tiptap 이 단축키·타이핑을 가로채면 이 칸에 글자가 안 들어간다.
-          e.stopPropagation();
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commitLabel();
-            nameInput?.blur();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            // 되돌린 뒤 blur — 값이 현재와 같아져 blur 의 커밋은 무시된다.
-            if (nameInput) nameInput.value = displayName();
-            nameInput?.blur();
-          }
-        });
-        nameInput.addEventListener("mousedown", (e) => e.stopPropagation());
-        nameInput.addEventListener("blur", commitLabel);
-        startCluster.appendChild(nameInput);
-      } else {
-        /*
-         * 읽기 모드에도 이름은 남긴다 — 조작부가 뜬 동안만 보이므로 상시 소음은 아니고,
-         * 자료가 여러 개 박힌 글에서 "이게 뭐였지"를 짚어 준다. 이게 없으면 `label`
-         * 속성 자체가 편집 화면에서만 보이는 무의미한 값이 된다.
-         */
-        nameSpan = document.createElement("span");
-        nameSpan.className = "pdf-page";
-        nameSpan.style.cursor = "default";
-        nameSpan.style.maxWidth = "220px";
-        nameSpan.style.overflow = "hidden";
-        nameSpan.style.textOverflow = "ellipsis";
-        nameSpan.style.whiteSpace = "nowrap";
-        nameSpan.style.userSelect = "none";
-        nameSpan.textContent = displayName();
-        startCluster.appendChild(nameSpan);
-      }
 
       // 너비 프리셋 (편집 가능 모드에서만)
       const PRESET_IDLE = "pdf-preset";
@@ -617,10 +520,8 @@ export const PdfBlock = TiptapNode.create({
           resolver(node.attrs.fileId)
             .then((result) => {
               if (result.name) {
-                // 다운로드 파일명은 항상 실제 파일명. 표시는 `label` 이 있으면 그쪽이 이긴다.
-                resolvedName = result.name;
+                // \uB2E4\uC6B4\uB85C\uB4DC \uD30C\uC77C\uBA85\uC740 \uD56D\uC0C1 \uC2E4\uC81C \uD30C\uC77C\uBA85\uC774\uB2E4.
                 downloadLink.setAttribute("download", result.name);
-                syncName();
               }
             })
             .catch(() => {});
@@ -638,7 +539,6 @@ export const PdfBlock = TiptapNode.create({
           }
           currentNode = updatedNode;
           syncPresets(newWidth ?? null);
-          syncName();
           return true;
         },
         // 이름 입력칸 위의 이벤트는 ProseMirror 가 가로채면 안 된다(CardBlock 과 같은 방식).

@@ -406,13 +406,13 @@
   transition: opacity 0.15s ease;
   /*
    * ⚠️ **조작부에서는 글자가 잡히면 안 된다.** 판이 `contentEditable=false` 안에 있어서,
-   * 버튼이나 이름칸을 누르면 브라우저가 거기서 글자 선택을 시작하고 **이름·프리셋이
-   * 통째로 파랗게 칠해진다**(사용자 지적). 이름 입력칸만 아래에서 되돌린다.
+   * 버튼을 누르면 브라우저가 거기서 글자 선택을 시작하고 **프리셋·쪽수가 통째로
+   * 파랗게 칠해진다**(사용자 지적). 유일한 입력칸인 쪽 번호는 아래에서 되돌린다.
    */
   user-select: none;
   -webkit-user-select: none;
 }
-.pdf-overlay .pdf-name {
+.pdf-overlay .pdf-page-input {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -436,34 +436,38 @@
  * ⚠️ **판 색에 앱 테마 토큰을 쓰면 안 된다.** 이 조작부는 PDF 페이지 **위에** 얹히는데,
  * 그 페이지가 늘 흰 바탕인 게 아니다(어두운 슬라이드·스캔본·도표). 아래에 뭐가 오든
  * 읽히도록 자기 크롬 — 어두운 반투명 + blur — 을 쓴다.
+ *
+ * 다만 **조용해야 한다**(사용자 지적: 너무 강조된다). 이건 읽는 대상이 아니라 필요할 때
+ * 손이 가는 도구다. 판을 덜 채우고(0.72 → 0.52) blur 를 키워 아래 내용이 비치게 두면,
+ * 대비는 blur 가 만들어 주므로 불투명도를 낮춰도 아이콘은 그대로 읽힌다.
+ * 진해지는 건 **가리킨 것 하나**뿐이다 — hover 에서만 또렷해진다.
  */
 .pdf-cluster {
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
+  gap: 1px;
+  padding: 2px;
   border-radius: 999px;
-  background: rgb(24 24 27 / 0.72);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgb(255 255 255 / 0.14);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
+  background: rgb(24 24 27 / 0.52);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
   color: #fff;
   pointer-events: auto;
   max-width: calc(100% - 16px);
+  transition: background-color 0.15s ease;
 }
-.pdf-cluster-start {
-  top: 8px;
-  left: 8px;
-  min-width: 0;
+.pdf-cluster:hover {
+  background: rgb(24 24 27 / 0.72);
 }
 .pdf-cluster-end {
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
 }
 .pdf-cluster-page {
-  bottom: 8px;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -521,7 +525,8 @@
   box-sizing: border-box;
   border: 0;
   background: transparent;
-  color: rgb(255 255 255 / 0.88);
+  /* 평소엔 한 톤 죽여 두고 가리킬 때만 또렷해진다. */
+  color: rgb(255 255 255 / 0.72);
   font-family: inherit;
   cursor: pointer;
   border-radius: 999px;
@@ -530,14 +535,18 @@
     color 0.12s;
 }
 .pdf-overlay .pdf-ctl {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   flex: none;
+}
+.pdf-overlay .pdf-ctl svg {
+  width: 13px;
+  height: 13px;
 }
 .pdf-overlay .pdf-ctl:hover,
 .pdf-overlay .pdf-preset:hover,
 .pdf-overlay .pdf-page:hover {
-  background: rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.16);
   color: #fff;
 }
 .pdf-overlay .pdf-ctl:disabled {
@@ -546,38 +555,40 @@
   background: transparent;
 }
 .pdf-overlay .pdf-ctl-danger:hover {
-  background: rgb(248 113 113 / 0.3);
+  background: rgb(248 113 113 / 0.26);
   color: #fff;
 }
 .pdf-overlay .pdf-ctl:focus-visible,
 .pdf-overlay .pdf-preset:focus-visible,
 .pdf-overlay .pdf-page:focus-visible,
-.pdf-overlay .pdf-name:focus-visible {
-  outline: 2px solid #fff;
+.pdf-overlay .pdf-page-input:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 0.8);
   outline-offset: 1px;
 }
 
 .pdf-overlay .pdf-preset {
-  height: 24px;
-  padding: 0 8px;
-  font-size: 11px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 10px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   flex: none;
 }
-.pdf-overlay .pdf-preset.is-active {
-  background: #fff;
-  color: #18181b;
-}
+/*
+ * ⚠️ 고른 프리셋을 **흰 알약**으로 칠했더니 조작부에서 제일 밝은 게 이 칩이 됐다
+ * (사용자 지적: 너무 강조된다). 지금 값을 알려 주기만 하면 되므로, 옅게 채우고
+ * 글자만 또렷하게 한다 — 눌린 상태는 읽히되 눈을 끌지는 않는다.
+ */
+.pdf-overlay .pdf-preset.is-active,
 .pdf-overlay .pdf-preset.is-active:hover {
-  background: #fff;
-  color: #18181b;
+  background: rgb(255 255 255 / 0.22);
+  color: #fff;
 }
 
 .pdf-overlay .pdf-page {
-  height: 24px;
-  padding: 0 10px;
-  font-size: 12px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -587,29 +598,28 @@
  * 순서가 승부를 가르는데, 앞에 두면 `.pdf-ctl { background: transparent }` 가 이겨
  * **판이 통째로 사라지고 아이콘만 PDF 위에 맨몸으로 남는다**(사용자 지적: 잘 안 보인다).
  *
- * 크기도 나머지보다 키운다. 우상단 묶음은 판 모서리에 붙어 있어 눈이 찾아가지만 이 둘은
- * 내용 위에 홀로 떠 있고, 읽는 동안 가장 자주 누르는 버튼이라 손도 커야 한다.
+ * 크기는 나머지보다 조금 크되 **눈에 띄려고 커지는 건 아니다.** 이 둘은 판 모서리가
+ * 아니라 내용 위에 홀로 떠 있어 판이 곧 버튼이고, 읽는 동안 가장 자주 누른다.
  */
 .pdf-overlay .pdf-nav {
-  width: 40px;
-  height: 40px;
-  background: rgb(24 24 27 / 0.88);
-  border-color: rgb(255 255 255 / 0.28);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.42);
-  color: #fff;
+  width: 28px;
+  height: 28px;
+  background: rgb(24 24 27 / 0.52);
+  border-color: rgb(255 255 255 / 0.1);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
 }
 .pdf-overlay .pdf-nav svg {
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
 }
 .pdf-overlay .pdf-nav:hover {
-  background: rgb(63 63 70 / 0.96);
+  background: rgb(24 24 27 / 0.78);
   color: #fff;
 }
 .pdf-overlay .pdf-nav:disabled {
   /* 끝에 닿았다는 신호는 주되, 사라진 것처럼 보이면 안 된다. */
-  opacity: 0.55;
-  background: rgb(24 24 27 / 0.6);
+  opacity: 0.5;
+  background: rgb(24 24 27 / 0.38);
 }
 
 /* 판을 두 갈래로 나누는 선 — 왼쪽은 문서 속성(저장됨), 오른쪽은 파일 동작. */
@@ -617,15 +627,20 @@
   flex: none;
   width: 1px;
   align-self: stretch;
-  margin: 2px 3px;
-  background: rgb(255 255 255 / 0.22);
+  margin: 2px;
+  background: rgb(255 255 255 / 0.18);
 }
 
-.pdf-overlay .pdf-name,
 .pdf-overlay .pdf-page-input {
   box-sizing: border-box;
-  background: rgb(255 255 255 / 0.12);
-  border: 1px solid rgb(255 255 255 / 0.24);
+  height: 20px;
+  width: 44px;
+  padding: 0 5px;
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: rgb(255 255 255 / 0.14);
+  border: 1px solid rgb(255 255 255 / 0.22);
   color: #fff;
   border-radius: 999px;
   font-family: inherit;
@@ -634,28 +649,9 @@
     background-color 0.12s,
     border-color 0.12s;
 }
-.pdf-overlay .pdf-name {
-  height: 24px;
-  padding: 0 9px;
-  font-size: 11px;
-  min-width: 0;
-}
-.pdf-overlay .pdf-page-input {
-  height: 24px;
-  width: 52px;
-  padding: 0 6px;
-  font-size: 12px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.pdf-overlay .pdf-name::placeholder {
-  color: rgb(255 255 255 / 0.55);
-}
-.pdf-overlay .pdf-name:hover,
-.pdf-overlay .pdf-name:focus,
 .pdf-overlay .pdf-page-input:focus {
-  background: rgb(255 255 255 / 0.2);
-  border-color: rgb(255 255 255 / 0.5);
+  background: rgb(255 255 255 / 0.22);
+  border-color: rgb(255 255 255 / 0.45);
 }
 
 /* 로딩·오류는 바가 없어졌으므로 판 안에서 자리를 차지한다. */
