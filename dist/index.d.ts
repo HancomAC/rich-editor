@@ -4,7 +4,6 @@ export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
 export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
 export { default as InputModal } from "./components/InputModal.svelte";
 export { default as MathModal } from "./components/MathModal.svelte";
-export { default as PdfViewer } from "./components/PdfViewer.svelte";
 export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
 export { PdfBlock } from "./extensions/PdfBlock";
 export { Indent } from "./extensions/Indent";
@@ -24,6 +23,6 @@ export { attachResize } from "./utils/resize";
 export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
 export { lowlight, CODE_LANGUAGES } from "./utils/lowlight";
-export type { TipTapEditorProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, PdfViewerProps, SlashMenuItem, } from "./types";
+export type { TipTapEditorProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, SlashMenuItem, } from "./types";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
 //# sourceMappingURL=index.d.ts.map

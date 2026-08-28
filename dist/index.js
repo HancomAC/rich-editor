@@ -5,7 +5,6 @@ export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
 export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
 export { default as InputModal } from "./components/InputModal.svelte";
 export { default as MathModal } from "./components/MathModal.svelte";
-export { default as PdfViewer } from "./components/PdfViewer.svelte";
 export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
 // 익스텐션
 export { PdfBlock } from "./extensions/PdfBlock";

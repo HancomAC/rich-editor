@@ -148,13 +148,6 @@ export interface SlashCommandMenuProps {
   onPdfUpload?: () => void;
 }
 
-export interface PdfViewerProps {
-  src: string;
-  fileName?: string;
-  /** 헤더에 보여줄 이름. 없으면 `fileName` 을 쓴다. */
-  label?: string;
-}
-
 export interface SlashMenuItem {
   label: string;
   keywords: string;
