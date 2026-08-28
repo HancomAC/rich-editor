@@ -260,7 +260,7 @@ export const PdfBlock = TiptapNode.create({
                     btn.type = "button";
                     btn.className = PRESET_IDLE;
                     btn.title = `너비 ${value}`;
-                    btn.textContent = value.replace("%", "");
+                    btn.textContent = value;
                     /*
                      * ⚠️ `mousedown` 에서 기본 동작을 막는다. 안 막으면 브라우저가 여기서 텍스트 선택을
                      * 시작하고, 곧바로 `setAttrs` 가 NodeView 를 다시 그리면서 그 선택이 **헤더 전체**로

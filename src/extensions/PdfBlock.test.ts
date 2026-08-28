@@ -149,7 +149,7 @@ describe('PdfBlock extension', () => {
 			expect(overlay.querySelector('input.pdf-name')).toBeTruthy();
 			expect(
 				[...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)
-			).toEqual(['50', '75', '100']);
+			).toEqual(['50%', '75%', '100%']);
 			expect(overlay.querySelector('.pdf-ctl-danger')).toBeTruthy();
 		});
 
@@ -181,7 +181,7 @@ describe('PdfBlock extension', () => {
 				'<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="75%"></div>'
 			);
 			const active = overlay.querySelector('.pdf-preset.is-active');
-			expect(active?.textContent).toBe('75');
+			expect(active?.textContent).toBe('75%');
 			expect(active?.getAttribute('aria-pressed')).toBe('true');
 		});
 
@@ -209,6 +209,29 @@ describe('PdfBlock extension', () => {
 		 * 가려 리사이즈가 통째로 죽는다. 들여쓰기는 CSS 에 있으므로 여기서는 **그 CSS 가
 		 * 걸리는 클래스가 실제로 붙는지**를 지킨다.
 		 */
+		/*
+		 * ⚠️ 조작부를 누르면 브라우저가 거기서 글자 선택을 시작해 이름·프리셋이 통째로
+		 * 파랗게 칠해졌다(사용자 지적). 이름 입력칸만 예외다.
+		 */
+		it('does not let clicks select the control text', () => {
+			const css = readFileSync('src/styles/editor.css', 'utf-8');
+			const rule = css.match(/\.pdf-overlay\s*\{[^}]*\}/)?.[0] ?? '';
+			expect(rule).toContain('user-select: none');
+			const nameRule = css.match(/\.pdf-overlay \.pdf-name\s*\{[^}]*\}/)?.[0] ?? '';
+			expect(nameRule).toContain('user-select: text');
+		});
+
+		/*
+		 * ⚠️ `.pdf-ctl` 과 `.pdf-nav` 는 특이도가 같아 **순서가 승부를 가른다.** 앞에 두면
+		 * `.pdf-ctl { background: transparent }` 가 이겨 넘김 버튼의 판이 사라진다.
+		 */
+		it('declares the nav plate after the generic control reset', () => {
+			const css = readFileSync('src/styles/editor.css', 'utf-8');
+			expect(css.indexOf('.pdf-overlay .pdf-nav {')).toBeGreaterThan(
+				css.indexOf('.pdf-overlay .pdf-ctl,')
+			);
+		});
+
 		it('keeps the page arrows away from the resize handle', () => {
 			const { overlay } = mount();
 			// 아직 문서를 못 읽었으므로 붙어 있지 않다 — 한 장짜리에 누를 수 없는

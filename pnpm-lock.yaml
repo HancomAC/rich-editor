@@ -11,6 +11,9 @@ importers:
       '@tiptap/core':
         specifier: ^3.20.4
         version: 3.22.0(@tiptap/pm@3.22.0)
+      '@tiptap/extension-blockquote':
+        specifier: ^3.22.2
+        version: 3.30.5(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0)
       '@tiptap/extension-bubble-menu':
         specifier: ^3.20.4
         version: 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0)
@@ -86,9 +89,6 @@ importers:
       '@tiptap/extension-underline':
         specifier: ^3.20.4
         version: 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))
-      '@tiptap/extension-youtube':
-        specifier: ^3.21.0
-        version: 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))
       '@tiptap/pm':
         specifier: ^3.20.4
         version: 3.22.0
@@ -102,7 +102,7 @@ importers:
         specifier: ^11.11.1
         version: 11.11.1
       hls.js:
-        specifier: ^1.5.0
+        specifier: ^1.6.16
         version: 1.6.16
       katex:
         specifier: ^0.16.45
@@ -583,10 +583,11 @@ packages:
     peerDependencies:
       '@tiptap/pm': ^3.22.0
 
-  '@tiptap/extension-blockquote@3.22.0':
-    resolution: {integrity: sha512-WF7K1jtEhkhCZFOoei3QrUHMsM6i9eqXw1IuL6cAX3+CBpqVg89KbP/cJp05dYKU0SO0LJkn87biKVqcnAcN7A==}
+  '@tiptap/extension-blockquote@3.30.5':
+    resolution: {integrity: sha512-8pf1ZDrl6XlVPUee/2YlWZPFSF7yqsJEX6WLW41x06MT1dapG3Qudcns0znj6kYsX8JXTJ+Mhegy4z19bvTtRg==}
     peerDependencies:
-      '@tiptap/core': ^3.22.0
+      '@tiptap/core': 3.30.5
+      '@tiptap/pm': 3.30.5
 
   '@tiptap/extension-bold@3.22.0':
     resolution: {integrity: sha512-mPG1FzOy2DVaJHHuX/eQPIuYie0kqG07M04nElBY8QlV0oYB4/kd0Aubz+m9czqHx/F9u/L98kmMFhCh2DWk2w==}
@@ -820,11 +821,6 @@ packages:
 
   '@tiptap/extension-underline@3.22.0':
     resolution: {integrity: sha512-AxQOnXQwYmZNjagkEoCZZqbpJbLVmBcu1ivJ9dE0SAQsr1wRUp7mAg+g1SqhbMAvrXvv7yhhNevSdQKmXsnFyA==}
-    peerDependencies:
-      '@tiptap/core': ^3.22.0
-
-  '@tiptap/extension-youtube@3.22.0':
-    resolution: {integrity: sha512-8e4hGPeMCNSprTvOj6BWNwAaOlMmPKe/x8+ejdGBsTYr6/LnZ1K7NR231t7p9qkV6UAbaw6l+gLLHkdaUqDMKw==}
     peerDependencies:
       '@tiptap/core': ^3.22.0
 
@@ -1226,6 +1222,7 @@ packages:
 
   lucide-svelte@0.477.0:
     resolution: {integrity: sha512-w/zj6/CXTtTizIeo8SuWGYu0u45CJ7cD2AtNzIObVHZrWXNgaIIX/2cI25wybjSmYHIi4pub2TLv/kNPKiB3ww==}
+    deprecated: Package deprecated. Please use @lucide/svelte instead.
     peerDependencies:
       svelte: ^3 || ^4 || ^5.0.0-next.42
 
@@ -2032,9 +2029,10 @@ snapshots:
     dependencies:
       '@tiptap/pm': 3.22.0
 
-  '@tiptap/extension-blockquote@3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))':
+  '@tiptap/extension-blockquote@3.30.5(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0)':
     dependencies:
       '@tiptap/core': 3.22.0(@tiptap/pm@3.22.0)
+      '@tiptap/pm': 3.22.0
 
   '@tiptap/extension-bold@3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))':
     dependencies:
@@ -2230,10 +2228,6 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.22.0(@tiptap/pm@3.22.0)
 
-  '@tiptap/extension-youtube@3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))':
-    dependencies:
-      '@tiptap/core': 3.22.0(@tiptap/pm@3.22.0)
-
   '@tiptap/extensions@3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0)':
     dependencies:
       '@tiptap/core': 3.22.0(@tiptap/pm@3.22.0)
@@ -2263,7 +2257,7 @@ snapshots:
   '@tiptap/starter-kit@3.22.0':
     dependencies:
       '@tiptap/core': 3.22.0(@tiptap/pm@3.22.0)
-      '@tiptap/extension-blockquote': 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))
+      '@tiptap/extension-blockquote': 3.30.5(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0)
       '@tiptap/extension-bold': 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))
       '@tiptap/extension-bullet-list': 3.22.0(@tiptap/extension-list@3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))(@tiptap/pm@3.22.0))
       '@tiptap/extension-code': 3.22.0(@tiptap/core@3.22.0(@tiptap/pm@3.22.0))
