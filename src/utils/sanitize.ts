@@ -6,6 +6,14 @@ const ALLOWED_TAGS = new Set([
   "blockquote", "pre", "code", "img", "figure", "figcaption",
   "table", "colgroup", "col", "thead", "tbody", "tr", "th", "td",
   "span", "div", "hr", "sub", "sup",
+  /*
+   * ⚠️ **토글(접기)이 여기 빠져 있었다.** 저장본에서 토글은 네이티브
+   * `<details><summary>제목</summary><div>본문</div></details>` 로 내려가는데, 두 태그가
+   * 허용 목록에 없어서 살균을 거치면 **토글이 통째로 지워졌다.** 정올은 문항 목록에서
+   * 저장 HTML 을 `{@html}` 로 먼저 그리면서 이 함수를 태우므로(그쪽 `TipTap.svelte` 주석),
+   * 토글이 든 문항은 정적 렌더에서 내용이 사라졌다가 에디터가 서면 되돌아오는 상태였다.
+   */
+  "details", "summary",
   "tiptap-midibus",
   "math-inline", "math-display",
 ]);
@@ -33,11 +41,17 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
     "data-file-size",
     "data-mbus-src",
     "data-mbus-width",
+    // 유튜브·Vimeo 등 바깥 영상(`VideoEmbed`). mbus 와 **다른 이름**을 쓴다.
+    "data-video-src",
+    "data-video-width",
     "data-card-title",
     "data-card-background",
     "data-card-height",
     "style",
   ]),
+  // 토글은 열린 채 저장될 수 있고(`persist`), 제목 단계는 `data-level` 로 들어간다.
+  details: new Set(["open", "data-type"]),
+  summary: new Set(["data-level"]),
   pre: new Set(["class"]),
   code: new Set(["class"]),
   "tiptap-midibus": new Set(["id", "start", "uuid", "width", "height"]),
