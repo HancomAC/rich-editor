@@ -18,6 +18,7 @@
   } from "lucide-svelte";
   import { onMount } from "svelte";
   import { cn } from "../utils/cn";
+  import { splitCellPreservingHeaders } from "../utils/splitCell";
 
   const PRESET_COLORS = [
     { label: "없음", value: "" },
@@ -94,11 +95,29 @@
     visible = true;
   }
 
+  /*
+   * ⚠️ **버튼의 활성 여부가 갱신되게 하는 장치.**
+   *
+   * `editor` 는 TipTap 이 만든 평범한 객체라 `$state` 가 아니다. 그래서 `editor.can()` 을
+   * 그냥 부르면 Svelte 가 의존성을 못 보고 **처음 값에 굳는다** — 셀을 여러 개 골라도
+   * `mergeCells()` 가능 여부가 다시 계산되지 않아 **`셀 병합`·`셀 분할` 이 영영 비활성**
+   * 이었다(사용자 지적: "표에서 셀병합 분할이 안되네?").
+   *
+   * 고정 툴바가 같은 이유로 이미 쓰고 있는 방식이다 — 트랜잭션마다 카운터를 올리고
+   * 활성 여부를 읽는 자리에서 그 카운터를 함께 읽는다(쉼표 연산자).
+   */
+  let tick = $state(0);
+  const canDo = (fn: (c: ReturnType<Editor["can"]>) => boolean) =>
+    (tick, fn(editor.can()));
+
   onMount(() => {
+    const bump = () => tick++;
+    editor.on("transaction", bump);
     editor.on("selectionUpdate", updatePosition);
     editor.on("update", updatePosition);
 
     return () => {
+      editor.off("transaction", bump);
       editor.off("selectionUpdate", updatePosition);
       editor.off("update", updatePosition);
     };
@@ -121,21 +140,25 @@
   <div
     bind:this={menuEl}
     class="absolute hce-table-bubble"
+    onmousedown={(e) => e.preventDefault()}
+    role="toolbar"
+    tabindex="-1"
+    aria-label="표 편집"
     style="top: {pos.top}px; left: {pos.left}px; width: {pos.width}px"
   >
     <div
-      class="flex items-center justify-center gap-0.5 px-1.5 py-1 hce-menu-surface rounded-full shadow-xl w-fit mx-auto"
+      class="flex items-center justify-center gap-0.5 px-1.5 py-1 bg-popover border border-border rounded-full shadow-xl w-fit mx-auto"
     >
       <!-- Row/Col buttons -->
       <div class="hce-table-btn-wrap">
         <button
           type="button"
           onclick={() => editor.chain().focus().addRowBefore().run()}
-          disabled={!editor.can().addRowBefore()}
+          disabled={!canDo((c) => c.addRowBefore())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().addRowBefore() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.addRowBefore()) && "opacity-30 pointer-events-none",
           )}
         >
           <ArrowUpToLine size={iconSize} />
@@ -147,11 +170,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().addRowAfter().run()}
-          disabled={!editor.can().addRowAfter()}
+          disabled={!canDo((c) => c.addRowAfter())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().addRowAfter() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.addRowAfter()) && "opacity-30 pointer-events-none",
           )}
         >
           <ArrowDownToLine size={iconSize} />
@@ -163,11 +186,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().addColumnBefore().run()}
-          disabled={!editor.can().addColumnBefore()}
+          disabled={!canDo((c) => c.addColumnBefore())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().addColumnBefore() &&
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.addColumnBefore()) &&
               "opacity-30 pointer-events-none",
           )}
         >
@@ -180,11 +203,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().addColumnAfter().run()}
-          disabled={!editor.can().addColumnAfter()}
+          disabled={!canDo((c) => c.addColumnAfter())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().addColumnAfter() &&
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.addColumnAfter()) &&
               "opacity-30 pointer-events-none",
           )}
         >
@@ -193,17 +216,17 @@
         <span class="hce-table-btn-tooltip">열 오른쪽에 추가</span>
       </div>
 
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
 
       <div class="hce-table-btn-wrap">
         <button
           type="button"
           onclick={() => editor.chain().focus().toggleHeaderRow().run()}
-          disabled={!editor.can().toggleHeaderRow()}
+          disabled={!canDo((c) => c.toggleHeaderRow())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().toggleHeaderRow() &&
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.toggleHeaderRow()) &&
               "opacity-30 pointer-events-none",
           )}
         >
@@ -216,11 +239,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().toggleHeaderColumn().run()}
-          disabled={!editor.can().toggleHeaderColumn()}
+          disabled={!canDo((c) => c.toggleHeaderColumn())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().toggleHeaderColumn() &&
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.toggleHeaderColumn()) &&
               "opacity-30 pointer-events-none",
           )}
         >
@@ -233,11 +256,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().mergeCells().run()}
-          disabled={!editor.can().mergeCells()}
+          disabled={!canDo((c) => c.mergeCells())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().mergeCells() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.mergeCells()) && "opacity-30 pointer-events-none",
           )}
         >
           <Combine size={iconSize} />
@@ -248,12 +271,12 @@
       <div class="hce-table-btn-wrap">
         <button
           type="button"
-          onclick={() => editor.chain().focus().splitCell().run()}
-          disabled={!editor.can().splitCell()}
+          onclick={() => splitCellPreservingHeaders(editor)}
+          disabled={!canDo((c) => c.splitCell())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-white hover:bg-white/10",
-            !editor.can().splitCell() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
+            !canDo((c) => c.splitCell()) && "opacity-30 pointer-events-none",
           )}
         >
           <SplitSquareHorizontal size={iconSize} />
@@ -261,18 +284,18 @@
         <span class="hce-table-btn-tooltip">셀 분할</span>
       </div>
 
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
 
       <!-- Line height -->
       <div class="relative">
-        <div class="hce-table-btn-wrap">
+        <div class="hce-table-btn-wrap" class:hce-tooltip-off={showLineHeight}>
           <button
             type="button"
             onclick={() => {
               showLineHeight = !showLineHeight;
               showColors = false;
             }}
-            class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
+            class="p-1.5 rounded-full transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             <UnfoldVertical size={iconSize} />
           </button>
@@ -280,13 +303,13 @@
         </div>
         {#if showLineHeight}
           <div
-            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hce-menu-surface rounded-lg shadow-xl border border-white/10 py-1"
+            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover border border-border rounded-lg shadow-xl py-1"
             style="min-width: 100px"
           >
             {#each LINE_HEIGHTS as lh}
               <button
                 type="button"
-                class="w-full text-left px-3 py-1.5 text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                class="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 onclick={() => {
                   const { tr } = editor.state;
                   const { tableNode, tablePos } = findTableNode();
@@ -325,7 +348,7 @@
       <div class="hce-table-btn-wrap">
         <button
           type="button"
-          class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
+          class="p-1.5 rounded-full transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
           onclick={() => {
             const { tableNode, tablePos } = findTableNode();
             if (!tableNode || tablePos < 0) return;
@@ -369,14 +392,14 @@
 
       <!-- Background color -->
       <div class="relative">
-        <div class="hce-table-btn-wrap">
+        <div class="hce-table-btn-wrap" class:hce-tooltip-off={showColors}>
           <button
             type="button"
             onclick={() => {
               showColors = !showColors;
               showLineHeight = false;
             }}
-            class="p-1.5 rounded-full transition-colors text-white/70 hover:text-white hover:bg-white/10"
+            class="p-1.5 rounded-full transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             <Paintbrush size={iconSize} />
           </button>
@@ -384,11 +407,11 @@
         </div>
         {#if showColors}
           <div
-            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hce-menu-surface rounded-lg shadow-xl border border-white/10 p-2"
+            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover border border-border rounded-lg shadow-xl p-2"
             style="min-width: 160px"
           >
             <p
-              class="text-xs font-medium text-white/60 mb-1.5 px-1"
+              class="text-xs font-medium text-muted-foreground mb-1.5 px-1"
             >
               배경색
             </p>
@@ -397,7 +420,7 @@
                 <button
                   type="button"
                   title={c.label}
-                  class="w-full h-7 rounded-md border border-white/20 transition-transform hover:scale-110"
+                  class="w-full h-7 rounded-md border border-border transition-transform hover:scale-110"
                   style="background: {c.value ||
                     'transparent'}; {!c.value
                     ? 'background-image: linear-gradient(135deg, transparent 45%, #ef4444 45%, #ef4444 55%, transparent 55%)'
@@ -417,18 +440,18 @@
         {/if}
       </div>
 
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
 
       <!-- Delete buttons -->
       <div class="hce-table-btn-wrap">
         <button
           type="button"
           onclick={() => editor.chain().focus().deleteRow().run()}
-          disabled={!editor.can().deleteRow()}
+          disabled={!canDo((c) => c.deleteRow())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-red-300 hover:bg-white/10",
-            !editor.can().deleteRow() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-red-300 hover:bg-muted",
+            !canDo((c) => c.deleteRow()) && "opacity-30 pointer-events-none",
           )}
         >
           <RowsIcon size={iconSize} />
@@ -440,11 +463,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().deleteColumn().run()}
-          disabled={!editor.can().deleteColumn()}
+          disabled={!canDo((c) => c.deleteColumn())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-red-300 hover:bg-white/10",
-            !editor.can().deleteColumn() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-red-300 hover:bg-muted",
+            !canDo((c) => c.deleteColumn()) && "opacity-30 pointer-events-none",
           )}
         >
           <ColumnsIcon size={iconSize} />
@@ -456,11 +479,11 @@
         <button
           type="button"
           onclick={() => editor.chain().focus().deleteTable().run()}
-          disabled={!editor.can().deleteTable()}
+          disabled={!canDo((c) => c.deleteTable())}
           class={cn(
             "p-1.5 rounded-full transition-colors",
-            "text-white/70 hover:text-red-300 hover:bg-white/10",
-            !editor.can().deleteTable() && "opacity-30 pointer-events-none",
+            "text-muted-foreground hover:text-red-300 hover:bg-muted",
+            !canDo((c) => c.deleteTable()) && "opacity-30 pointer-events-none",
           )}
         >
           <Trash2 size={iconSize} />

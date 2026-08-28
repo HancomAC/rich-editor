@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Editor } from "@tiptap/core";
   import { BubbleMenuPlugin } from "@tiptap/extension-bubble-menu";
-  import { PluginKey } from "@tiptap/pm/state";
+  import { PluginKey, NodeSelection } from "@tiptap/pm/state";
+  import { CellSelection } from "@tiptap/pm/tables";
   import { onMount } from "svelte";
 
   const bubbleToolbarKey = new PluginKey("bubbleToolbar");
@@ -11,6 +12,7 @@
     Underline as UnderlineIcon,
     Strikethrough,
     Highlighter,
+    Code,
     LinkIcon,
     Heading1,
     Heading2,
@@ -148,10 +150,42 @@
       shouldShow: ({ editor: e, state }) => {
         const { from, to } = state.selection;
         if (from === to) return false;
+        /*
+         * ⚠️ **덩어리를 고른 것(NodeSelection)에는 뜨지 않는다.**
+         *
+         * 이미지·파일 첨부·PDF·카드 같은 노드를 클릭하면 `from !== to` 가 되어 "글자를
+         * 골랐다"와 구별되지 않는다. 그러면 굵게·기울임처럼 **글자에만 걸리는 서식** 메뉴가
+         * 그림 위에 떠서, 눌러도 아무 일이 없는 버튼만 보여 준다.
+         *
+         * 예전에는 `isActive("image")` 로 이미지 하나만 막았는데, 그건 노드가 늘 때마다
+         * 빠뜨리게 되는 방식이다(실제로 파일 첨부에서 떴다). 종류를 세지 말고 **선택의
+         * 종류**로 가른다.
+         */
+        if (state.selection instanceof NodeSelection) return false;
+        /*
+         * ⚠️ **셀을 고른 것(CellSelection)에도 뜨지 않는다.**
+         *
+         * 표에서 셀을 끌어 고르면 "글자를 골랐다"와 구별이 안 돼 서식 버블이 떴는데,
+         * 그게 **표 메뉴의 병합·분할 버튼을 가렸다**(사용자 지적). 그 상태에서 손이 가는
+         * 건 서식이 아니라 표 도구다.
+         *
+         * ⚠️ z 순서로 풀지 않는다 — 버블을 아래로 내리면 이번엔 셀 안에서 글자를 골랐을 때
+         * 버블이 표 메뉴에 가린다(그게 원래 신고였다). **겹치는 상황 자체를 없애는** 쪽이 맞다.
+         * 셀 하나 안에서 글자를 고르는 건 여전히 `TextSelection` 이라 버블이 정상으로 뜬다.
+         */
+        if (state.selection instanceof CellSelection) return false;
         if (e.isActive("codeBlock")) return false;
-        if (e.isActive("image")) return false;
         return true;
       },
+      /*
+       * ⚠️ **기본값 250ms 는 눈에 띄게 느리다**(사용자 지적). 플러그인은 선택이 비어 있지
+       * 않으면 **무조건** 이 디바운스를 태우므로(`update()` 의 `hasValidSelection` 분기),
+       * 글자를 다 골라 놓고도 4분의 1초를 기다리게 된다.
+       *
+       * 그렇다고 `0` 으로 두면 드래그하는 **내내** 위치를 다시 잡아 버블이 따라다닌다.
+       * 100ms 면 끌기가 끝난 직후로 느껴지면서 그 재계산은 여전히 묶인다.
+       */
+      updateDelay: 100,
       /*
        * ⚠️ `tippyOptions` 는 **TipTap 2 시절 이름이라 v3 에서는 통째로 무시된다.**
        * v3 의 BubbleMenu 는 tippy 가 아니라 floating-ui 기반이고, 받는 키가 `options`
@@ -175,26 +209,36 @@
     };
   });
 
+  /*
+   * 블록 타입 선택기는 **고정 툴바가 없을 때만** 버블에 넣는다.
+   *
+   * 고정 툴바(`full`·`standard`)에는 이미 같은 선택기가 늘 보이는 자리에 있어서, 버블에도
+   * 넣으면 같은 것이 두 벌 뜨고 버블이 그만큼 길어진다. 글자를 끌어 골랐을 때 손이 가는 건
+   * 대개 **서식**이지 블록 바꾸기가 아니다.
+   *
+   * `minimal`(댓글 등)에는 고정 툴바가 없어 버블이 유일한 메뉴이므로 그대로 남는다.
+   */
   const hasBlockMenu = $derived(
-    has('h1') ||
-      has('h2') ||
-      has('h3') ||
-      has('bullet-list') ||
-      has('ordered-list') ||
-      has('checklist') ||
-      has('blockquote'),
+    !has('fixed-toolbar') &&
+      (has('h1') ||
+        has('h2') ||
+        has('h3') ||
+        has('bullet-list') ||
+        has('ordered-list') ||
+        has('checklist') ||
+        has('blockquote')),
   );
 </script>
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
-  <div class="flex items-center gap-0.5 px-1.5 py-1 hce-menu-surface rounded-full shadow-xl">
+  <div class="flex items-center gap-0.5 px-1.5 py-1 bg-popover border border-border rounded-full shadow-xl">
     {#if hasBlockMenu}
       <!-- Block type selector -->
       <div class="relative" bind:this={blockMenuEl}>
         <button
           type="button"
           onclick={() => (showBlockMenu = !showBlockMenu)}
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Type size={12} />
           {getCurrentBlockLabel()}
@@ -202,7 +246,7 @@
         </button>
         {#if showBlockMenu}
           <div
-            class="absolute bottom-full left-0 mb-1 hce-menu-surface rounded-lg shadow-xl border border-white/10 py-1"
+            class="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl py-1"
             style="min-width: 140px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"
@@ -214,7 +258,7 @@
                 "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                 isParagraphActive()
                   ? "hce-active"
-                  : "text-white/70 hover:text-white hover:bg-white/10",
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
               onclick={() => {
                 editor.chain().focus().setParagraph().run();
@@ -232,7 +276,7 @@
                     "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                     isActive("heading", { level })
                       ? "hce-active"
-                      : "text-white/70 hover:text-white hover:bg-white/10",
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted",
                   )}
                   onclick={() => {
                     editor
@@ -254,7 +298,7 @@
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                   isActive("bulletList")
                     ? "hce-active"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
                 onclick={() => {
                   editor.chain().focus().toggleBulletList().run();
@@ -271,7 +315,7 @@
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                   isActive("orderedList")
                     ? "hce-active"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
                 onclick={() => {
                   editor.chain().focus().toggleOrderedList().run();
@@ -288,7 +332,7 @@
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                   isActive("taskList")
                     ? "hce-active"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
                 onclick={() => {
                   editor.chain().focus().toggleTaskList().run();
@@ -305,7 +349,7 @@
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                   isActive("blockquote")
                     ? "hce-active"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
                 onclick={() => {
                   editor.chain().focus().toggleBlockquote().run();
@@ -319,7 +363,7 @@
         {/if}
       </div>
 
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
     {/if}
 
     <!-- Format buttons -->
@@ -327,13 +371,12 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
-      title="굵게"
       aria-label="굵게"
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("bold")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       )}
     >
       <Bold size={iconSize} />
@@ -343,13 +386,12 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
-      title="기울임"
       aria-label="기울임"
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("italic")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       )}
     >
       <Italic size={iconSize} />
@@ -359,13 +401,12 @@
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleUnderline().run()}
-        title="밑줄"
         aria-label="밑줄"
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("underline")
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
+            ? "hce-active"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted",
         )}
       >
         <UnderlineIcon size={iconSize} />
@@ -375,16 +416,32 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
-      title="취소선"
       aria-label="취소선"
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("strike")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       )}
     >
       <Strikethrough size={iconSize} />
+    </button>
+    {/if}
+
+    {#if has('code')}
+    <!-- 인라인 코드(`<code>`). 고정 툴바와 같은 자리(취소선 다음)에 둔다. -->
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleCode().run()}
+      aria-label="코드"
+      class={cn(
+        "p-1.5 rounded-full transition-colors",
+        isActive("code")
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
+      )}
+    >
+      <Code size={iconSize} />
     </button>
     {/if}
 
@@ -397,13 +454,12 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleMathInline().run()}
-      title="인라인 수식"
       aria-label="인라인 수식"
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("math_inline")
-          ? "bg-white/20 text-white"
-          : "text-white/70 hover:text-white hover:bg-white/10",
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       )}
     >
       <Sigma size={iconSize} />
@@ -411,20 +467,19 @@
     {/if}
 
     {#if has('highlight') || has('text-color')}
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
     {/if}
 
     {#if has('highlight')}
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleHighlight().run()}
-        title="하이라이트"
         aria-label="하이라이트"
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("highlight")
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
+            ? "hce-active"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted",
         )}
       >
         <Highlighter size={iconSize} />
@@ -435,20 +490,19 @@
         <button
           type="button"
           onclick={() => (showColors = !showColors)}
-          title="글자색"
           aria-label="글자색"
           class={cn(
             "p-1.5 rounded-full transition-colors",
             editor.getAttributes("textStyle").color
-              ? "bg-white/20 text-white"
-              : "text-white/70 hover:text-white hover:bg-white/10",
+              ? "hce-active"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted",
           )}
         >
           <Palette size={iconSize} />
         </button>
         {#if showColors}
           <div
-            class="absolute bottom-full left-0 mb-1 hce-menu-surface rounded-lg shadow-xl border border-white/10 p-2"
+            class="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl p-2"
             style="min-width: 160px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"
@@ -459,7 +513,7 @@
                 <button
                   type="button"
                   title={c.label}
-                  class="h-7 rounded-md border border-white/20 transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
+                  class="h-7 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
                   style="color: {c.value || '#000'}; background: #fff"
                   onclick={() => {
                     if (c.value) {
@@ -475,12 +529,12 @@
               {/each}
             </div>
             <label
-              class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-white/70 cursor-pointer hover:text-white"
+              class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
             >
               <span>직접 선택</span>
               <input
                 type="color"
-                class="h-6 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0"
+                class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
                 value={(editor.getAttributes("textStyle").color as string) || "#000000"}
                 onclick={(e) => e.stopPropagation()}
                 oninput={(e) => {
@@ -495,17 +549,16 @@
     {/if}
 
     {#if has('link')}
-      <div class="w-px h-5 bg-white/20 mx-0.5"></div>
+      <div class="w-px h-5 bg-border mx-0.5"></div>
       <button
         type="button"
         onclick={addLink}
-        title="링크"
         aria-label="링크"
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("link")
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/10",
+            ? "hce-active"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted",
         )}
       >
         <LinkIcon size={iconSize} />

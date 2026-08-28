@@ -5,10 +5,18 @@ type $$ComponentProps = {
     editor: Editor;
     features: Set<ToolbarFeature>;
     onPdfClick: () => void;
+    /**
+     * 이미지 넣기. **툴바는 무엇을 넣을지 정하지 않는다** — 업로드/링크 탭 모달을 띄울지
+     * URL 만 물을지는 에디터가 정한다(`TipTapEditor` 의 `pickImage`).
+     * 예전엔 여기서 `onPromptImage` 를 직접 불러 URL 만 받았고, 그래서 툴바로는
+     * 내 컴퓨터의 그림을 넣을 방법이 없었다.
+     */
+    onImageClick: () => void;
     onFileClick?: () => void;
     onPromptLink?: PromptHandler;
-    onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 영상 URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    onPromptVideo?: PromptHandler;
     /**
      * 툴바 **오른쪽 끝**에 호스트가 끼워 넣는 조각(예: HTML ↔ 에디터 토글).
      *

@@ -4,24 +4,7 @@
   import { TableCell } from "@tiptap/extension-table-cell";
   import { Extension } from "@tiptap/core";
   import { TextSelection } from "@tiptap/pm/state";
-  import { common, createLowlight } from "lowlight";
-  import cpp from "highlight.js/lib/languages/cpp";
-  import python from "highlight.js/lib/languages/python";
-
-  /*
-   * 문법 하이라이터는 **모듈에 한 벌만** 둔다.
-   *
-   * `common` 은 언어 37종이고, 예전엔 이 등록이 인스턴스 스크립트에 있어 에디터를 세울
-   * 때마다 통째로 다시 돌았다. 정올 기출 퀴즈처럼 한 화면에 에디터가 26~27개 서는
-   * 곳에서는 그게 1000번 가까이 반복된다.
-   *
-   * lowlight 는 문법을 담아 두는 레지스트리일 뿐 편집기별 상태를 갖지 않으므로 공유해도
-   * 안전하다. (측정해 보면 이 항목 자체는 27개 기준 13ms 수준이라 큰 몫은 아니다 —
-   * 다만 공짜로 없앨 수 있는 반복이라 남겨 둘 이유가 없다.)
-   */
-  const lowlight = createLowlight(common);
-  lowlight.register("cpp", cpp);
-  lowlight.register("python", python);
+  import { lowlight } from "../utils/lowlight";
 
   /*
    * 읽기 전용용 표 확장도 **한 벌만** 만든다.
@@ -128,8 +111,13 @@
   import Typography from "@tiptap/extension-typography";
   import CharacterCount from "@tiptap/extension-character-count";
   import { TableRow } from "@tiptap/extension-table-row";
-  import { DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+  import { DetailsContent } from "@tiptap/extension-details";
   import { FixedDetails } from "../extensions/FixedDetails";
+  import {
+    NotionBlockquote,
+    LeveledDetailsSummary,
+    NotionToggleInputRule,
+  } from "../extensions/NotionInputRules";
   import FileHandler from "@tiptap/extension-file-handler";
   import type { AnyExtension } from "@tiptap/core";
   import { PdfBlock } from "../extensions/PdfBlock";
@@ -139,6 +127,7 @@
   import { Indent } from "../extensions/Indent";
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
+  import { VideoEmbed } from "../extensions/VideoEmbed";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
   import FixedToolbar from "./FixedToolbar.svelte";
@@ -146,6 +135,8 @@
   import SlashCommandMenu from "./SlashCommandMenu.svelte";
   import TableBubbleMenu from "./TableBubbleMenu.svelte";
   import MathModal from "./MathModal.svelte";
+  import MediaPickerModal from "./MediaPickerModal.svelte";
+  import InputModal from "./InputModal.svelte";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
@@ -160,6 +151,7 @@
     onPromptLink,
     onPromptImage,
     onPromptMbus,
+    onPromptVideo,
     onPromptCardBackground,
     onPromptMath,
     toolbarEnd,
@@ -177,6 +169,8 @@
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 영상(유튜브·Vimeo 등) URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    onPromptVideo?: PromptHandler;
     /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
     onPromptCardBackground?: PromptHandler;
     /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */
@@ -238,6 +232,93 @@
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
   let fileInputEl: HTMLInputElement | undefined = $state();
+
+  /*
+   * ── 이미지·파일 고르기 모달 ──────────────────────────────────────────────
+   * **에디터가 갖는다.** 툴바에서도 슬래시 메뉴에서도 같은 것이 열려야 하고, 실제로 넣는 데
+   * 필요한 것(`onUploadFile`, 노드 만드는 법)이 전부 여기 있기 때문이다. 툴바에 두면
+   * 슬래시 메뉴가 자기 것을 또 만들어야 한다.
+   *
+   * ⚠️ **업로드 함수를 준 호스트에게만 연다.** 못 올리는 곳에서 `업로드` 탭을 보여 주면
+   * 눌러도 아무 일이 없다. 그런 곳은 예전처럼 URL 입력만 받는다(아래 `pickImage`).
+   */
+  let mediaPicker = $state<"image" | "file" | null>(null);
+
+  /** URL 에서 파일 이름을 뽑는다. 링크로 첨부할 때 표시할 이름이 필요하다. */
+  function fileNameFromUrl(raw: string): string {
+    try {
+      const path = new URL(raw, "http://x").pathname;
+      const last = decodeURIComponent(path.split("/").filter(Boolean).pop() || "");
+      return last || "파일";
+    } catch {
+      return "파일";
+    }
+  }
+
+  function pickImage() {
+    if (onUploadFile) {
+      mediaPicker = "image";
+      return;
+    }
+    // 못 올리는 호스트 — 예전 경로(호스트 프롬프트 → 없으면 내장 입력창) 그대로.
+    if (onPromptImage) {
+      onPromptImage("").then((url) => {
+        if (url) editor?.chain().focus().setImage({ src: url }).run();
+      });
+      return;
+    }
+    imageUrlPrompt = true;
+  }
+
+  function pickFile() {
+    if (!onUploadFile) return;
+    mediaPicker = "file";
+  }
+
+  /** 업로드 없이 URL 만 받던 시절의 내장 입력창. 위 폴백에서만 쓴다. */
+  let imageUrlPrompt = $state(false);
+
+  /*
+   * 모달이 돌려주는 네 가지 결말. 모달을 닫는 것도 여기서 한다 —
+   * 모달은 "무엇을 골랐는지"만 알리고 그 뒤는 모른다.
+   *
+   * ⚠️ 업로드는 **실패해도 모달을 닫는다.** 열어 둔 채로 두면 `업로드 중...` 오버레이가
+   * 모달 뒤에 깔려 무슨 일이 일어나는지 안 보인다. 실패는 아래 `catch` 가 알린다.
+   */
+  function insertImageFile(file: File) {
+    mediaPicker = null;
+    if (!editor || !onUploadFile) return;
+    uploading = true;
+    onUploadFile(file)
+      .then((url) => {
+        editor!.chain().focus().setImage({ src: url }).run();
+      })
+      .catch(() => {
+        alert("이미지 업로드에 실패했습니다.");
+      })
+      .finally(() => {
+        uploading = false;
+      });
+  }
+
+  function insertImageUrl(url: string) {
+    mediaPicker = null;
+    editor?.chain().focus().setImage({ src: url }).run();
+  }
+
+  function insertFileUpload(file: File) {
+    mediaPicker = null;
+    uploadFile(file);
+  }
+
+  function insertFileUrl(url: string) {
+    mediaPicker = null;
+    editor
+      ?.chain()
+      .focus()
+      .setFileAttachment({ src: url, name: fileNameFromUrl(url) })
+      .run();
+  }
   let lastEmittedHtml = content;  // onChange로 내보낸 마지막 HTML (외부→내부 변경만 감지용)
   let tableObserver: MutationObserver | undefined;
 
@@ -428,12 +509,23 @@
          *
          * `codeBlock: false` 와 같은 꼴 — **StarterKit 에서는 끄고 자기 것을 단다** — 로 맞춘다.
          */
+        /*
+         * `blockquote: false` 인 이유는 위 셋과 같다 — **끄고 자기 것을 단다.**
+         * StarterKit 의 인용문은 `> ` 로 만들어지는데, 노션에 맞춰 `> ` 는 토글에 내주고
+         * 인용문은 `" ` 로 옮겼다(`NotionBlockquote`). 입력 규칙은 `configure` 로 바꿀 수
+         * 없어서 확장을 갈아 끼우는 것 말고는 방법이 없다.
+         *
+         * ⚠️ 두 규칙이 같은 `> ` 를 노리게 두면 안 된다. 어느 쪽이 이길지는 확장 등록
+         * 순서에 달리게 되어, 같은 키를 쳤는데 인용문이 나올 때와 토글이 나올 때가 갈린다.
+         */
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
           codeBlock: false,
+          blockquote: false,
           link: false,
           underline: false,
         }),
+        NotionBlockquote,
         ...(extraExtensions.some((ext) => (ext as any).name === 'codeBlock')
           ? []
           : [CodeBlockLowlight.configure({
@@ -500,6 +592,7 @@
           ...(fileDownloadBaseUrl ? { downloadBaseUrl: fileDownloadBaseUrl } : {}),
         }),
         MbusVideo,
+        VideoEmbed,
         CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
         /*
          * ⚠️ **수학은 여기서 등록한다.** 예전엔 `MathInline`/`MathDisplay` 를 내보내기만 하고
@@ -522,7 +615,9 @@
         Indent,
         FixedDetails,
         DetailsContent,
-        DetailsSummary,
+        /* 토글 제목(`# > `)을 위해 `level` 을 붙인 판본. 옛 문서는 level 0 으로 읽힌다. */
+        LeveledDetailsSummary,
+        NotionToggleInputRule,
         ...extraExtensions,
         ...(onUploadFile
           ? [
@@ -702,11 +797,12 @@
 			{editor}
 			{features}
 			{onPromptLink}
-			{onPromptImage}
 			{onPromptMbus}
+			{onPromptVideo}
 			{toolbarEnd}
 			onPdfClick={() => pdfInputEl?.click()}
-			onFileClick={onUploadFile ? () => fileInputEl?.click() : undefined}
+			onImageClick={pickImage}
+			onFileClick={onUploadFile ? pickFile : undefined}
 		/>
 	{/if}
 
@@ -745,15 +841,16 @@
 					{editor}
 					{features}
 					{onPromptLink}
-					{onPromptImage}
 					{onPromptMbus}
+					{onPromptVideo}
 					query={slashQuery}
 					onClose={closeSlashMenu}
+					onImagePick={pickImage}
 					onPdfUpload={onUploadFile && features.has('pdf')
 						? () => pdfInputEl?.click()
 						: undefined}
 					onFileUpload={onUploadFile && features.has('file')
-						? () => fileInputEl?.click()
+						? pickFile
 						: undefined}
 				/>
 			</div>
@@ -764,6 +861,48 @@
 			`features` 로 막지 않는다 — `$…$` 입력 규칙과 붙여넣기 변환은 feature 와 무관하게
 			항상 살아 있어서, 그렇게 만든 수식을 고치려면 이 모달이 필요하다.
 		-->
+		<!--
+			이미지·파일 고르기. 둘이 **같은 모달**을 쓰고 문구만 다르다
+			(`MediaPickerModal` 주석 참고).
+		-->
+		{#if mediaPicker === 'image'}
+			<MediaPickerModal
+				title="이미지 추가"
+				accept="image/*"
+				uploadLabel="파일 업로드"
+				linkPlaceholder="이미지 링크 붙여넣기"
+				linkConfirmLabel="이미지 임베드"
+				linkHint="웹에 있는 모든 이미지와 호환됨"
+				onUpload={insertImageFile}
+				onLink={insertImageUrl}
+				onCancel={() => (mediaPicker = null)}
+			/>
+		{/if}
+		{#if mediaPicker === 'file'}
+			<MediaPickerModal
+				title="파일 추가"
+				uploadLabel="파일을 선택하세요"
+				linkPlaceholder="파일 링크 붙여넣기"
+				linkConfirmLabel="파일 임베드"
+				onUpload={insertFileUpload}
+				onLink={insertFileUrl}
+				onCancel={() => (mediaPicker = null)}
+			/>
+		{/if}
+
+		<!-- 업로드를 못 하는 호스트용 폴백(URL 만 받는다). 위 `pickImage` 참고. -->
+		{#if imageUrlPrompt}
+			<InputModal
+				title="이미지 URL 입력"
+				placeholder="https://example.com/image.png"
+				onConfirm={(url) => {
+					imageUrlPrompt = false;
+					editor?.chain().focus().setImage({ src: url }).run();
+				}}
+				onCancel={() => (imageUrlPrompt = false)}
+			/>
+		{/if}
+
 		{#if mathPrompt}
 			<MathModal
 				latex={mathPrompt.latex}

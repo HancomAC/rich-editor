@@ -23,6 +23,7 @@ export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";
 export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
+export { lowlight, CODE_LANGUAGES } from "./utils/lowlight";
 export type { TipTapEditorProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, PdfViewerProps, SlashMenuItem, } from "./types";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
 //# sourceMappingURL=index.d.ts.map

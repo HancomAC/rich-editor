@@ -95,7 +95,7 @@
       </button>
       <button
         type="button"
-        class="px-3.5 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        class="px-3.5 py-1.5 text-sm rounded-md hce-btn-primary hover:opacity-90 transition-opacity"
         onclick={handleSubmit}
       >
         확인

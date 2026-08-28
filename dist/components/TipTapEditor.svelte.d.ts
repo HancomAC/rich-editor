@@ -13,6 +13,8 @@ type $$ComponentProps = {
     onPromptLink?: PromptHandler;
     onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 영상(유튜브·Vimeo 등) URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    onPromptVideo?: PromptHandler;
     /** 카드 배경 고르기. 미제공 시 window.prompt 폴백 */
     onPromptCardBackground?: PromptHandler;
     /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */

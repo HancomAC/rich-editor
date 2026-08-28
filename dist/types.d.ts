@@ -13,7 +13,7 @@ export type PromptHandler = (defaultValue: string) => Promise<string | null>;
 /** 툴바 모드 */
 export type ToolbarMode = 'minimal' | 'standard' | 'full';
 /** 개별 툴바 기능 ID */
-export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'superscript' | 'subscript' | 'code' | 'text-color' | 'align-left' | 'align-center' | 'align-right' | 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet-list' | 'ordered-list' | 'checklist' | 'blockquote' | 'horizontal-rule' | 'toggle' | 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'card' | 'columns-2' | 'columns-3' | 'table' | 'code-block' | 'math' | 'undo' | 'redo' | 'fixed-toolbar' | 'bubble-toolbar' | 'slash-menu' | 'table-menu' | 'character-count' | 'upload-overlay';
+export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'superscript' | 'subscript' | 'code' | 'text-color' | 'align-left' | 'align-center' | 'align-right' | 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet-list' | 'ordered-list' | 'checklist' | 'blockquote' | 'horizontal-rule' | 'toggle' | 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'video' | 'card' | 'columns-2' | 'columns-3' | 'table' | 'code-block' | 'math' | 'undo' | 'redo' | 'fixed-toolbar' | 'bubble-toolbar' | 'slash-menu' | 'table-menu' | 'character-count' | 'upload-overlay';
 /**
  * 모드별 기본 feature 프리셋.
  *
@@ -25,6 +25,12 @@ export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highl
  * ⚠️ `'math'` 는 **세 프리셋 모두**에 있다. 온라인저지라 댓글에도 `$O(n \log n)$` 이
  * 예사로 나오고, 무엇보다 `$…$` 입력 규칙과 붙여넣기 변환은 feature 와 무관하게 항상
  * 걸려 있어서(확장 자체가 그렇다) 여기서만 빼면 "쳐서 만들면 되는데 메뉴엔 없는" 상태가 된다.
+ *
+ * ⚠️ `'bubble-toolbar'` 도 이제 **세 프리셋 모두**에 있다. 예전엔 `minimal` 에만 있어서,
+ * 고정 툴바를 쓰는 곳(정올·코드패스의 기본인 `full`)에서는 **글자를 끌어 골라도 아무것도
+ * 안 떴다**(사용자 요청으로 켬). 고정 툴바와 겹쳐 보이지만 하는 일이 다르다 —
+ * 고정 툴바는 늘 같은 자리에 있고, 버블은 **고른 글자 바로 위**에 와서 손이 덜 움직인다.
+ * 버블은 선택이 비어 있으면 뜨지 않으므로(`shouldShow`) 평소에는 방해하지 않는다.
  */
 export declare const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]>;
 /** features 배열 → Set 변환. features가 있으면 그걸 쓰고 없으면 toolbar 모드 프리셋 */
@@ -39,7 +45,13 @@ export interface TipTapEditorProps {
     onResolveFile?: FileResolver;
     /** 링크 URL 프롬프트. 미제공 시 내장 InputModal (FixedToolbar) / window.prompt (BubbleToolbar) 폴백 */
     onPromptLink?: PromptHandler;
-    /** 이미지 URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    /**
+     * 이미지 URL 프롬프트.
+     *
+     * ⚠️ **`onUploadFile` 을 함께 주면 이건 쓰이지 않는다.** 올릴 수 있는 호스트에게는
+     * 업로드/링크 탭이 있는 내장 모달을 띄우기 때문이다(URL 만 받으면 내 컴퓨터의 그림을
+     * 넣을 방법이 없다). 업로드를 못 하는 호스트에서만 폴백으로 쓰인다.
+     */
     onPromptImage?: PromptHandler;
     /** LaTeX 수식 프롬프트. 미제공 시 내장 MathModal(미리보기 포함) 폴백 */
     onPromptMath?: MathPrompt;
