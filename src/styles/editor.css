@@ -800,6 +800,29 @@
 }
 
 /*
+ * ⚠️ **버블은 처음 뜰 때 화면 왼쪽 끝으로 튀어 나갔다** — 색 이전에 이게 "잘 안 보인다"의
+ * 진짜 원인이었다(실측: 첫 표시 `left: -437.5px` → 뷰포트 x=0, 사이드바 위. 그 뒤 위치가
+ * 한 번 더 갱신되면 `left: 81.8px` 로 제자리를 찾았다).
+ *
+ * 원인은 **측정 시점의 폭**이다. 이 컨테이너는 평소 블록 요소라 에디터 폭 전체(1426px)를
+ * 차지하는데, floating-ui 가 **`width: max-content` 를 인라인으로 붙이기 전에** 크기를
+ * 재면 "폭 1426짜리 판"으로 계산한다. 그 폭은 어디에도 안 들어가므로 `shift()` 가 화면
+ * 왼쪽으로 밀어붙인다. 재계산이 한 번 더 돌아야 실제 폭(278px)으로 제자리를 잡는다.
+ *
+ * 그래서 **폭과 배치를 CSS 로 못 박는다** — 언제 재든 항상 실제 판 크기로 재게. 인라인
+ * 스타일이 같은 값을 다시 써도 무해하다.
+ *
+ * 표 메뉴(`.hce-table-bubble`)는 해당 없다 — 그쪽은 floating-ui 가 아니라 자기가 표 폭을
+ * 재서 `width: <표폭>px` 를 인라인으로 박고 안쪽 판을 `mx-auto` 로 가운데 둔다.
+ */
+.bubble-toolbar-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+}
+
+/*
  * ⚠️ **서식 버블은 표 메뉴보다 한 칸 위다.**
  *
  * 둘이 같은 값이면 DOM 순서가 승부를 가르는데, 에디터가 표 메뉴를 **나중에** 그리므로
@@ -832,6 +855,33 @@
 
 .hce-menu-surface {
   background-color: var(--hce-menu-surface, #333333);
+}
+
+/*
+ * ── 떠 있는 판(버블·표 메뉴) ──────────────────────────────────────────────
+ * ⚠️ `--popover` 만으로는 **본문과 같은 색이라 묻힌다**(사용자 지적: 잘 안 보인다).
+ * 판을 본문에서 한 톤 띄운다 — 라이트에서는 살짝 어둡게, 다크에서는 살짝 밝게.
+ * `--foreground` 를 섞으므로 **어느 테마에서든 "본문에서 떨어져 나온" 방향**이 된다
+ * (다크에서 어둡히면 배경에 잠기고, 라이트에서 밝히면 흰 위에 흰 판이 된다).
+ *
+ * 그림자도 함께 키운다. 색 차이만으로는 4% 남짓이라, 떠 있다는 신호는 그림자가 준다.
+ */
+.hce-floating-panel {
+  background-color: color-mix(
+    in srgb,
+    var(--foreground) 8%,
+    var(--popover, var(--background, #fff))
+  );
+  /*
+   * ⚠️ `border` 유틸리티(Tailwind)로는 **테두리가 아예 안 그려진다.** 그 클래스는
+   * `border-width` 만 주고 `border-style: solid` 는 preflight 가 대는데, 이 패키지는
+   * preflight 를 끈다. 실측 `border: 0px none` — 지금까지 버블에 테두리가 없었다.
+   * 그래서 여기서는 shorthand 로 style 까지 직접 적는다.
+   */
+  border: 1px solid color-mix(in srgb, var(--foreground) 18%, var(--border));
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--foreground) 16%, transparent),
+    0 2px 6px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
 /* ── Floating + 버튼 ── */

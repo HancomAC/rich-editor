@@ -231,7 +231,7 @@
 </script>
 
 <div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
-  <div class="flex items-center gap-0.5 px-1.5 py-1 bg-popover border border-border rounded-full shadow-xl">
+  <div class="flex items-center gap-0.5 px-1.5 py-1 rounded-full hce-floating-panel">
     {#if hasBlockMenu}
       <!-- Block type selector -->
       <div class="relative" bind:this={blockMenuEl}>

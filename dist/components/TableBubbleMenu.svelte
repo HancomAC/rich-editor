@@ -147,7 +147,7 @@
     style="top: {pos.top}px; left: {pos.left}px; width: {pos.width}px"
   >
     <div
-      class="flex items-center justify-center gap-0.5 px-1.5 py-1 bg-popover border border-border rounded-full shadow-xl w-fit mx-auto"
+      class="flex items-center justify-center gap-0.5 px-1.5 py-1 rounded-full hce-floating-panel w-fit mx-auto"
     >
       <!-- Row/Col buttons -->
       <div class="hce-table-btn-wrap">
