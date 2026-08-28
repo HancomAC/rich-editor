@@ -97,6 +97,9 @@ export const PdfBlock = TiptapNode.create({
       let currentNode = node;
       let detachResize: (() => void) | null = null;
 
+      const icon = (paths: string) =>
+        `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+
       const dom = document.createElement("div");
       dom.classList.add("my-2");
       dom.contentEditable = "false";
@@ -108,11 +111,9 @@ export const PdfBlock = TiptapNode.create({
       dom.style.maxWidth = "100%";
       if (node.attrs.width) dom.style.width = node.attrs.width;
 
-      const wrapper = document.createElement("div");
-      wrapper.className =
-        "border rounded-lg overflow-hidden bg-muted/30 transition-shadow";
-      wrapper.style.borderColor = "var(--border)";
-      dom.appendChild(wrapper);
+      const frame = document.createElement("div");
+      frame.className = "pdf-frame";
+      dom.appendChild(frame);
 
       // 리사이즈 핸들 (편집 가능 모드에서만)
       if (editor.isEditable) {
@@ -126,14 +127,23 @@ export const PdfBlock = TiptapNode.create({
         });
       }
 
-      // Header
-      const header = document.createElement("div");
-      // ⚠️ `justify-between` 이 아니라 spacer 로 민다. 이름칸이 넓어져도 오른쪽 버튼이
-      //    밀려나지 않는다.
-      header.className =
-        "flex items-center gap-2 px-3 py-1 border-b border-border select-none";
-      header.style.background = "var(--muted)";
-      wrapper.appendChild(header);
+      /*
+       * 조작부는 판 **안에** 떠 있다. 통째로 `data-pdf-control` 이라 `stopEvent` 가
+       * ProseMirror 를 막아 준다 — 버튼·입력칸이 선택/타이핑에 가로채이지 않는다.
+       * 빈 영역은 `pointer-events: none` 이라 그 위로 드래그·클릭이 그대로 통과한다.
+       */
+      const overlay = document.createElement("div");
+      overlay.className = "pdf-overlay";
+      overlay.setAttribute("data-pdf-control", "");
+      // 판에는 캔버스·상태문구 **뒤에** 붙인다(아래) — 여기서는 만들어 채우기만 한다.
+
+      const startCluster = document.createElement("div");
+      startCluster.className = "pdf-cluster pdf-cluster-start";
+      overlay.appendChild(startCluster);
+
+      const endCluster = document.createElement("div");
+      endCluster.className = "pdf-cluster pdf-cluster-end";
+      overlay.appendChild(endCluster);
 
       const cleanName = (raw: string | null | undefined) =>
         (raw || "").replace(/[?#].*$/, "").trim() || "PDF";
@@ -192,20 +202,16 @@ export const PdfBlock = TiptapNode.create({
         // 그 자리에서 이름을 고쳐 쓴다. 확정은 blur / Enter, 되돌리기는 Escape.
         nameInput = document.createElement("input");
         nameInput.type = "text";
-        nameInput.className =
-          // ⚠️ `select-text` — 헤더가 `select-none` 이라 이 칸까지 선택이 막힌다. 이름을
-          //    드래그해 고쳐 쓰려면 여기만 되돌려야 한다.
-          /*
-           * ⚠️ 평소에도 **입력칸으로 보여야 한다**(사용자 지적). 예전엔 테두리·면이 투명이라
-           *    hover 하기 전에는 그냥 글자였고, 고칠 수 있다는 걸 알 방법이 없었다.
-           *    헤더 면(`--muted`) 위에 `--background` 면 + 1px 테두리를 두면 한눈에 칸으로 읽힌다.
-           */
-          "pdf-name-input select-text text-xs text-muted-foreground min-w-0 bg-background rounded px-1.5 py-0.5 border border-border hover:border-ring focus:border-ring focus:text-foreground outline-none transition-colors";
+        /*
+         * ⚠️ 평소에도 **입력칸으로 보여야 한다**(사용자 지적). 예전엔 테두리·면이 투명이라
+         *    hover 하기 전에는 그냥 글자였고, 고칠 수 있다는 걸 알 방법이 없었다.
+         *    조작부가 뜬 동안에는 면 + 1px 테두리로 한눈에 칸으로 읽힌다.
+         */
+        nameInput.className = "pdf-name";
         nameInput.style.maxWidth = "220px";
         nameInput.contentEditable = "false";
         nameInput.draggable = false;
-        // ProseMirror 가 이 칸의 키/포인터를 가져가지 않도록 하는 표식(`stopEvent`).
-        nameInput.setAttribute("data-pdf-control", "");
+        nameInput.placeholder = "표시 이름";
         nameInput.title = "표시 이름 (비우면 파일명)";
         nameInput.setAttribute("aria-label", "PDF 표시 이름");
         nameInput.value = displayName();
@@ -240,38 +246,43 @@ export const PdfBlock = TiptapNode.create({
         });
         nameInput.addEventListener("mousedown", (e) => e.stopPropagation());
         nameInput.addEventListener("blur", commitLabel);
-        header.appendChild(nameInput);
+        startCluster.appendChild(nameInput);
       } else {
+        /*
+         * 읽기 모드에도 이름은 남긴다 — 조작부가 뜬 동안만 보이므로 상시 소음은 아니고,
+         * 자료가 여러 개 박힌 글에서 "이게 뭐였지"를 짚어 준다. 이게 없으면 `label`
+         * 속성 자체가 편집 화면에서만 보이는 무의미한 값이 된다.
+         */
         nameSpan = document.createElement("span");
-        nameSpan.className =
-          "text-xs text-muted-foreground truncate select-none min-w-0";
+        nameSpan.className = "pdf-page";
+        nameSpan.style.cursor = "default";
         nameSpan.style.maxWidth = "220px";
+        nameSpan.style.overflow = "hidden";
+        nameSpan.style.textOverflow = "ellipsis";
+        nameSpan.style.whiteSpace = "nowrap";
         nameSpan.style.userSelect = "none";
         nameSpan.textContent = displayName();
-        header.appendChild(nameSpan);
+        startCluster.appendChild(nameSpan);
       }
 
-      const spacer = document.createElement("div");
-      spacer.className = "flex-1";
-      header.appendChild(spacer);
-
       // 너비 프리셋 (편집 가능 모드에서만)
-      const PRESET_BASE =
-        "px-1.5 py-0.5 rounded text-xs leading-none tabular-nums transition-colors select-none";
-      const PRESET_IDLE = `${PRESET_BASE} text-muted-foreground hover:bg-background pdf-width-preset`;
-      const PRESET_ACTIVE = `${PRESET_BASE} bg-primary text-primary-foreground pdf-width-preset is-active`;
+      const PRESET_IDLE = "pdf-preset";
+      const PRESET_ACTIVE = "pdf-preset is-active";
       const presetButtons: { value: string; el: HTMLButtonElement }[] = [];
 
       if (editor.isEditable) {
-        const presetGroup = document.createElement("div");
-        presetGroup.className = "flex items-center gap-0.5";
+        /*
+         * ⚠️ 프리셋은 **문서에 저장되는 폭**이지 확대가 아니다. 옆의 다운로드·새 탭과
+         * 성격이 달라(저장됨 vs 그때뿐) 구분선으로 갈라 둔다 — 안 그러면 "100% 누르면
+         * 확대되겠지" 로 읽힌다.
+         */
         // ⚠️ 25% 는 뺐다 — 그 폭이면 PDF 글자를 읽을 수 없어 고를 이유가 없다(사용자 결정).
         for (const value of ["50%", "75%", "100%"]) {
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = PRESET_IDLE;
           btn.title = `너비 ${value}`;
-          btn.textContent = value;
+          btn.textContent = value.replace("%", "");
           /*
            * ⚠️ `mousedown` 에서 기본 동작을 막는다. 안 막으면 브라우저가 여기서 텍스트 선택을
            * 시작하고, 곧바로 `setAttrs` 가 NodeView 를 다시 그리면서 그 선택이 **헤더 전체**로
@@ -287,10 +298,12 @@ export const PdfBlock = TiptapNode.create({
             e.stopPropagation();
             setAttrs({ width: value });
           });
-          presetGroup.appendChild(btn);
+          endCluster.appendChild(btn);
           presetButtons.push({ value, el: btn });
         }
-        header.appendChild(presetGroup);
+        const divider = document.createElement("div");
+        divider.className = "pdf-divider";
+        endCluster.appendChild(divider);
       }
 
       /** 현재 `width` 와 같은 프리셋을 눌린 상태로 만든다. */
@@ -302,18 +315,14 @@ export const PdfBlock = TiptapNode.create({
       };
       syncPresets((node.attrs.width as string | null) ?? null);
 
-      const btnGroup = document.createElement("div");
-      btnGroup.className = "flex items-center gap-1";
-      header.appendChild(btnGroup);
-
       const downloadLink = document.createElement("a");
       downloadLink.rel = "noopener noreferrer";
       downloadLink.setAttribute("download", cleanName(node.attrs.name));
-      downloadLink.className =
-        "p-1 rounded hover:bg-muted transition-colors text-muted-foreground cursor-pointer";
+      downloadLink.className = "pdf-ctl";
       downloadLink.title = "\uB2E4\uC6B4\uB85C\uB4DC";
-      downloadLink.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      downloadLink.innerHTML = icon(
+        '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'
+      );
       downloadLink.addEventListener("click", async (e) => {
         if (!downloadLink.href) return;
         e.preventDefault();
@@ -335,73 +344,192 @@ export const PdfBlock = TiptapNode.create({
           window.open(downloadLink.href, "_blank", "noopener,noreferrer");
         }
       });
-      btnGroup.appendChild(downloadLink);
+      endCluster.appendChild(downloadLink);
 
+      /*
+       * \uC804\uCCB4\uD654\uBA74 \uB300\uC2E0 **\uC0C8 \uD0ED**\uC774\uB2E4(\uC0AC\uC6A9\uC790 \uACB0\uC815). \uBE0C\uB77C\uC6B0\uC800 \uAE30\uBCF8 PDF \uBDF0\uC5B4\uAC00 \uCC3D \uC804\uCCB4\uB97C \uC4F0\uACE0
+       * \uAC80\uC0C9\u00B7\uC778\uC1C4\u00B7\uD655\uB300\uAE4C\uC9C0 \uC5B9\uD600 \uC624\uBBC0\uB85C, \uC6B0\uB9AC\uAC00 \uB9CC\uB4E0 \uC804\uCCB4\uD654\uBA74\uBCF4\uB2E4 \uC77D\uAE30\uC5D0 \uB0AB\uB2E4.
+       */
       const openLink = document.createElement("a");
       openLink.target = "_blank";
       openLink.rel = "noopener noreferrer";
-      openLink.className =
-        "p-1 rounded hover:bg-muted transition-colors text-muted-foreground";
+      openLink.className = "pdf-ctl";
       openLink.title = "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30";
-      openLink.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
-      btnGroup.appendChild(openLink);
+      openLink.innerHTML = icon(
+        '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+      );
+      endCluster.appendChild(openLink);
 
       if (editor.isEditable) {
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
-        deleteBtn.className =
-          "p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive";
+        deleteBtn.className = "pdf-ctl pdf-ctl-danger";
         deleteBtn.title = "\uC0AD\uC81C";
-        deleteBtn.innerHTML =
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+        deleteBtn.innerHTML = icon(
+          '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'
+        );
         deleteBtn.addEventListener("click", () => {
           const pos = getPos();
           if (pos != null) {
             editor.commands.deleteRange({
               from: pos,
-              to: pos + node.nodeSize,
+              to: pos + currentNode.nodeSize,
             });
           }
         });
-        btnGroup.appendChild(deleteBtn);
+        endCluster.appendChild(deleteBtn);
       }
 
-      // Content area
-      const contentArea = document.createElement("div");
-      contentArea.className = "flex items-center justify-center";
-      wrapper.appendChild(contentArea);
-
       const canvas = document.createElement("canvas");
-      canvas.className = "shadow-sm";
-      contentArea.appendChild(canvas);
+      frame.appendChild(canvas);
 
-      const loadingDiv = document.createElement("div");
-      loadingDiv.className = "flex items-center justify-center p-8";
-      loadingDiv.innerHTML =
-        '<p class="text-sm text-muted-foreground animate-pulse">PDF \uB85C\uB529 \uC911...</p>';
-      contentArea.appendChild(loadingDiv);
+      const statusDiv = document.createElement("div");
+      statusDiv.className = "pdf-status";
+      statusDiv.textContent = "PDF \uB85C\uB529 \uC911...";
+      frame.appendChild(statusDiv);
       canvas.style.display = "none";
 
-      let navDiv: HTMLDivElement | null = null;
+      // \uC870\uC791\uBD80\uB294 \uB9C8\uC9C0\uB9C9 \u2014 `position:absolute` \uB77C \uC21C\uC11C\uC640 \uBB34\uAD00\uD558\uAC8C \uC704\uC5D0 \uADF8\uB824\uC9C0\uC9C0\uB9CC,
+      // \uB0B4\uC6A9 \uB2E4\uC74C\uC5D0 \uC624\uB294 \uAC8C \uBCF4\uC870\uAE30\uC220\uC5D0\uAC8C\uB3C4 \uB9DE\uB294 \uC21C\uC11C\uB2E4.
+      frame.appendChild(overlay);
+
+      /* \u2500\u2500 \uD398\uC774\uC9C0 \uC774\uB3D9 \u2014 \uC88C\uC6B0 \uD654\uC0B4\uD45C + \uC544\uB798 \uAC00\uC6B4\uB370 \uCABD\uC218 \u2500\u2500 */
+      const prevBtn = document.createElement("button");
+      prevBtn.type = "button";
+      prevBtn.className = "pdf-ctl pdf-nav pdf-nav-prev pdf-cluster";
+      prevBtn.title = "\uC774\uC804 \uD398\uC774\uC9C0";
+      prevBtn.setAttribute("aria-label", "\uC774\uC804 \uD398\uC774\uC9C0");
+      prevBtn.innerHTML = icon('<path d="m15 18-6-6 6-6"/>');
+
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "pdf-ctl pdf-nav pdf-nav-next pdf-cluster";
+      nextBtn.title = "\uB2E4\uC74C \uD398\uC774\uC9C0";
+      nextBtn.setAttribute("aria-label", "\uB2E4\uC74C \uD398\uC774\uC9C0");
+      nextBtn.innerHTML = icon('<path d="m9 18 6-6-6-6"/>');
+
+      /*
+       * \uD310\uC774 \uD654\uBA74\uBCF4\uB2E4 \uAE38 \uB54C \uC77D\uAE30 \uC870\uC791\uBD80\uAC00 \uB530\uB77C\uC624\uAC8C \uD558\uB294 \uB808\uC77C. `position: sticky` \uB77C
+       * \uD310\uC744 \uC9C0\uB098\uB294 \uB3D9\uC548 \uD56D\uC0C1 \uBCF4\uC774\uB294 \uC601\uC5ED\uC5D0 \uBA38\uBB34\uB978\uB2E4. \uD310\uC774 \uD654\uBA74\uBCF4\uB2E4 \uC9E7\uC73C\uBA74
+       * `max-height: 100%` \uAC00 \uB808\uC77C\uC744 \uD310 \uD06C\uAE30\uB85C \uC904\uC5EC \uC608\uC804\uACFC \uAC19\uC774 \uD310 \uAC00\uC6B4\uB370\u00b7\uBC11\uC5D0 \uB193\uC778\uB2E4.
+       */
+      const navRail = document.createElement("div");
+      navRail.className = "pdf-nav-rail";
+
+      const pageCluster = document.createElement("div");
+      pageCluster.className = "pdf-cluster pdf-cluster-page";
+
+      const pageBtn = document.createElement("button");
+      pageBtn.type = "button";
+      pageBtn.className = "pdf-page";
+      pageBtn.title = "\uCABD \uBC88\uD638\uB85C \uC774\uB3D9";
+      pageCluster.appendChild(pageBtn);
+
+      /*
+       * \uCABD\uC218\uB97C \uB20C\uB7EC **\uBC88\uD638\uB85C \uAC74\uB108\uB6F4\uB2E4.** \uC774\uAC8C \uC5C6\uC73C\uBA74 30\uCABD\uC9DC\uB9AC \uC790\uB8CC\uC5D0\uC11C \uB4A4\uB85C \uAC00\uB824\uBA74
+       * \uD654\uC0B4\uD45C\uB97C 30\uBC88 \uB20C\uB7EC\uC57C \uD55C\uB2E4 \u2014 \uD398\uC774\uC9C0 \uB118\uAE40 \uBAA8\uB378\uC758 \uAC00\uC7A5 \uC544\uD508 \uC9C0\uC810\uC774\uB2E4.
+       */
+      const pageInput = document.createElement("input");
+      pageInput.type = "text";
+      pageInput.inputMode = "numeric";
+      pageInput.className = "pdf-page-input";
+      pageInput.setAttribute("aria-label", "\uCABD \uBC88\uD638");
+      pageInput.style.display = "none";
+      pageCluster.appendChild(pageInput);
+
       let currentPage = 1;
       let totalPages = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let pdfDoc: any = null;
       let rendering = false;
+      let renderQueued = false;
 
-      async function renderPage() {
-        if (!pdfDoc || rendering || destroyed) return;
+      /** 쪽수 표시와 화살표 비활성 상태를 현재 페이지에 맞춘다. */
+      const syncPageUi = () => {
+        pageBtn.textContent = `${currentPage} / ${totalPages}`;
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+      };
+
+      const goToPage = (next: number) => {
+        const clamped = Math.min(totalPages, Math.max(1, next));
+        if (clamped === currentPage) return;
+        currentPage = clamped;
+        syncPageUi();
+        renderPage();
+      };
+
+      prevBtn.addEventListener("click", () => goToPage(currentPage - 1));
+      nextBtn.addEventListener("click", () => goToPage(currentPage + 1));
+
+      const closePageInput = () => {
+        pageInput.style.display = "none";
+        pageBtn.style.display = "";
+      };
+      pageBtn.addEventListener("click", () => {
+        pageInput.value = String(currentPage);
+        pageBtn.style.display = "none";
+        pageInput.style.display = "";
+        pageInput.focus();
+        pageInput.select();
+      });
+      pageInput.addEventListener("keydown", (e) => {
+        // tiptap 이 단축키를 가로채면 숫자가 안 들어간다(이름칸과 같은 이유).
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const parsed = Number.parseInt(pageInput.value, 10);
+          if (Number.isFinite(parsed)) goToPage(parsed);
+          closePageInput();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closePageInput();
+        }
+      });
+      pageInput.addEventListener("blur", closePageInput);
+
+      /*
+       * 화살표 키는 **조작부 안에 포커스가 있을 때만** 받는다. 블록 전체에서 가로채면
+       * 편집 중 이 블록을 지나 위아래로 빠져나가는 길이 막힌다(atom 노드라 화살표가
+       * ProseMirror 의 탈출 경로다). 넘김 버튼을 한 번 누르면 그때부터 키가 듣는다.
+       */
+      overlay.addEventListener("keydown", (e) => {
+        if (e.target instanceof HTMLInputElement) return;
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        e.stopPropagation();
+        goToPage(currentPage + (e.key === "ArrowLeft" ? -1 : 1));
+      });
+
+      /*
+       * ⚠️ **그리는 중에 들어온 요청을 버리면 안 된다.** 예전엔 `if (rendering) return` 으로
+       * 그냥 흘려보냈는데, 폭 프리셋이나 창 크기 변경이 **직전 렌더가 끝나기 전에** 오면
+       * 그 요청이 통째로 사라져 캔버스가 옛 크기에 머문다(다음 렌더까지 아무도 다시
+       * 부르지 않는다). 겹치면 한 번 예약해 뒀다가 끝나고 이어서 그린다.
+       * pdf.js 는 같은 캔버스에 렌더가 겹치면 던지므로 **직렬화 자체는 유지**한다.
+       */
+      async function renderPage(): Promise<void> {
+        if (!pdfDoc || destroyed) return;
+        if (rendering) {
+          renderQueued = true;
+          return;
+        }
         rendering = true;
         try {
           const pageObj = await pdfDoc.getPage(currentPage);
           if (destroyed) return;
           const unscaledViewport = pageObj.getViewport({ scale: 1 });
-          const availableWidth = contentArea.clientWidth;
-          if (availableWidth <= 0) {
-            rendering = false;
-            return;
-          }
+          const availableWidth = frame.clientWidth;
+          if (availableWidth <= 0) return;
+          /*
+           * 폭에만 맞춘다 — **높이는 제한하지 않는다.**
+           *
+           * ⚠️ 한때 `min(폭맞춤, 0.78vh)` 로 한 장이 화면에 들어가게 했다가 되돌렸다.
+           * A4 는 세로가 길어서 웬만한 창에서는 **높이 쪽이 항상 먼저 걸리고**, 그러면
+           * 폭 프리셋 50%/75%/100% 가 **전부 같은 크기로 그려진다**(실측: 50% 도 100% 도
+           * 캔버스 673px). 저자가 고른 폭이 무의미해지는 건 얻는 것보다 잃는 게 크다.
+           * 판이 화면보다 길 때 조작부가 따라오게 하는 건 CSS(`.pdf-nav-rail`)가 맡는다.
+           */
           const scale = availableWidth / unscaledViewport.width;
           const viewport = pageObj.getViewport({ scale });
           const dpr = window.devicePixelRatio || 1;
@@ -410,10 +538,7 @@ export const PdfBlock = TiptapNode.create({
           canvas.style.width = `${viewport.width}px`;
           canvas.style.height = `${viewport.height}px`;
           const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            rendering = false;
-            return;
-          }
+          if (!ctx) return;
           ctx.resetTransform();
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.scale(dpr, dpr);
@@ -421,10 +546,9 @@ export const PdfBlock = TiptapNode.create({
         } finally {
           rendering = false;
         }
-        if (navDiv) {
-          const pageSpan = navDiv.querySelector(".page-counter");
-          if (pageSpan)
-            pageSpan.textContent = `${currentPage} / ${totalPages}`;
+        if (renderQueued && !destroyed) {
+          renderQueued = false;
+          await renderPage();
         }
       }
 
@@ -437,64 +561,31 @@ export const PdfBlock = TiptapNode.create({
           if (destroyed) return;
           totalPages = pdfDoc.numPages;
 
-          loadingDiv.style.display = "none";
+          statusDiv.style.display = "none";
           canvas.style.display = "";
 
+          // \uD55C \uC7A5\uC9DC\uB9AC\uC5D4 \uB118\uAE40 \uC870\uC791\uC744 \uC544\uC608 \uBD99\uC774\uC9C0 \uC54A\uB294\uB2E4 \u2014 \uB204\uB97C \uC218 \uC5C6\uB294 \uBC84\uD2BC\uC740 \uC18C\uC74C\uC774\uB2E4.
           if (totalPages > 1) {
-            navDiv = document.createElement("div");
-            navDiv.className =
-              "flex items-center justify-center gap-4 px-3 py-1 border-t border-border";
-            navDiv.style.background = "var(--muted)";
-            const prevBtn = document.createElement("button");
-            prevBtn.type = "button";
-            prevBtn.className =
-              "p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-30 text-foreground";
-            prevBtn.innerHTML =
-              '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
-            prevBtn.addEventListener("click", () => {
-              if (currentPage > 1) {
-                currentPage--;
-                prevBtn.disabled = currentPage <= 1;
-                nextBtn.disabled = currentPage >= totalPages;
-                renderPage();
-              }
-            });
-            navDiv.appendChild(prevBtn);
-
-            const pageSpan = document.createElement("span");
-            pageSpan.className = "text-sm tabular-nums page-counter select-none";
-            pageSpan.style.userSelect = "none";
-            pageSpan.textContent = `1 / ${totalPages}`;
-            navDiv.appendChild(pageSpan);
-
-            const nextBtn = document.createElement("button");
-            nextBtn.type = "button";
-            nextBtn.className =
-              "p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-30 text-foreground";
-            nextBtn.innerHTML =
-              '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
-            nextBtn.addEventListener("click", () => {
-              if (currentPage < totalPages) {
-                currentPage++;
-                prevBtn.disabled = currentPage <= 1;
-                nextBtn.disabled = currentPage >= totalPages;
-                renderPage();
-              }
-            });
-            navDiv.appendChild(nextBtn);
-            wrapper.appendChild(navDiv);
+            navRail.appendChild(prevBtn);
+            navRail.appendChild(nextBtn);
+            navRail.appendChild(pageCluster);
+            overlay.appendChild(navRail);
+            syncPageUi();
           }
 
           renderPage();
 
+          /*
+           * \u26A0\uFE0F \uAD00\uCC30 \uB300\uC0C1\uC740 `dom` \uC774\uC9C0 \uD310\uC774 \uC544\uB2C8\uB2E4. \uD310\uC744 \uBCF4\uBA74 \uCE94\uBC84\uC2A4 \uB192\uC774\uAC00 \uBC14\uB014 \uB54C\uB9C8\uB2E4
+           * \uB2E4\uC2DC \uBD88\uB824 \uB418\uBA39\uC784\uC774 \uC0DD\uAE34\uB2E4 \u2014 \uD3ED\uC740 `dom` \uC5D0\uC11C\uB9CC \uBC14\uB010\uB2E4.
+           */
           resizeObserver = new ResizeObserver(() => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(renderPage, 100);
           });
-          resizeObserver.observe(contentArea);
+          resizeObserver.observe(dom);
         } catch {
-          loadingDiv.innerHTML =
-            '<p class="text-sm text-muted-foreground">PDF\uB97C \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.</p>';
+          statusDiv.textContent = "PDF\uB97C \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.";
         }
       }
 

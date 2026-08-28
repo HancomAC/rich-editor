@@ -363,6 +363,271 @@
   border-radius: 8px;
 }
 
+/* ── PDF 임베드 — 위아래 바를 없애고 판 위에 얹는다 ──────────────────────
+ *
+ * 예전엔 머리말 바(파일명·프리셋·버튼)와 꼬리말 바(페이지 넘김)가 **항상** 있었다.
+ * 본문에 자료가 여러 개 박히면 그 회색 띠들이 글을 계속 썰었고, **읽기 모드에서는
+ * 머리말이 파일명 하나 보여 주는 것 말고 하는 일이 없었다.** 그래서 전부 걷어내고
+ * 판 위에 떠 있는 조작부로 옮긴다.
+ */
+/*
+ * ⚠️ **`overflow: hidden` 을 주면 안 된다.** 모서리를 둥글리려고 그렇게 뒀더니
+ * `overflow` 가 스크롤 컨테이너를 만들어 **안쪽 `position: sticky` 가 통째로 죽었다**
+ * (실측: 레일 top 이 판 top 을 그대로 따라다녔다 — 붙지 않는다).
+ * 둥글리기는 판과 캔버스에 각각 `border-radius` 로 준다.
+ */
+.pdf-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--muted);
+}
+.pdf-frame canvas {
+  display: block;
+  max-width: 100%;
+  border-radius: 7px;
+}
+
+/*
+ * 조작부는 **호버에서만** 뜬다. 단 세 가지 예외가 있어야 쓸 수 있다:
+ *   · `:focus-within` — 키보드로 들어온 사람에게 안 보이면 조작이 불가능하다.
+ *   · 노드 선택 — 편집 중 블록을 고르면 지금 뭘 할 수 있는지 보여야 한다.
+ *   · ⚠️ `hover: none` — **터치 기기엔 호버가 없다.** 이 줄이 없으면 태블릿에서
+ *     페이지를 넘길 방법이 아예 사라진다(정올은 학생이 태블릿으로 본다).
+ */
+.pdf-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.pdf-frame:hover .pdf-overlay,
+.pdf-overlay:focus-within,
+[data-type='pdfBlock'].ProseMirror-selectednode .pdf-overlay {
+  opacity: 1;
+}
+@media (hover: none) {
+  .pdf-overlay {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdf-overlay {
+    transition: none;
+  }
+}
+
+/*
+ * ⚠️ **판 색에 앱 테마 토큰을 쓰면 안 된다.** 이 조작부는 PDF 페이지 **위에** 얹히는데,
+ * 그 페이지가 늘 흰 바탕인 게 아니다(어두운 슬라이드·스캔본·도표). 아래에 뭐가 오든
+ * 읽히도록 자기 크롬 — 어두운 반투명 + blur — 을 쓴다.
+ */
+.pdf-cluster {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgb(24 24 27 / 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
+  color: #fff;
+  pointer-events: auto;
+  max-width: calc(100% - 16px);
+}
+.pdf-cluster-start {
+  top: 8px;
+  left: 8px;
+  min-width: 0;
+}
+.pdf-cluster-end {
+  top: 8px;
+  right: 8px;
+}
+.pdf-cluster-page {
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/*
+ * ⚠️ **긴 판에서는 읽기 조작부가 화면 밖으로 나간다.** A4 를 본문 폭에 맞추면 세로가
+ * 1.41 배라 판이 1949px 이 됐다(실측, 뷰포트 1221px). 넘김 화살표를 판 한가운데,
+ * 쪽수를 판 맨 아래 두면 **읽는 내내 둘 다 화면 밖**이다.
+ *
+ * 그래서 읽기 조작부만 `sticky` 레일에 태운다 — 판을 지나는 동안 **보이는 영역**에
+ * 머무른다. 판이 화면보다 짧으면 `max-height: 100%` 가 레일을 판 크기로 줄여
+ * 예전처럼 판 가운데·밑에 놓인다(추가 분기 없이 같은 규칙으로 처리된다).
+ *
+ * ⚠️ 대신 **높이로 축소하는 방법은 쓰지 않았다.** 그러면 폭 프리셋 50%/75%/100% 가
+ * 전부 같은 크기로 그려져(실측 673px 동일) 저자가 고른 폭이 무의미해진다.
+ */
+.pdf-nav-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  max-height: 100%;
+  pointer-events: none;
+}
+
+/*
+ * ⚠️ **좌우 넘김 버튼은 가장자리에 붙이면 안 된다.** 폭 조절 손잡이가 `right: -12px` 에
+ * `width: 14px` 인 **높이 전체를 덮는 세로 띠**라(안쪽 2px 을 먹는다), 버튼을 끝에 두면
+ * 손잡이를 가려 **폭 조절이 통째로 죽는다.** 12px 들이면 겹치지 않는다.
+ */
+.pdf-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+.pdf-nav-prev {
+  left: 12px;
+}
+.pdf-nav-next {
+  right: 12px;
+}
+
+/*
+ * 특이도 메모: 공통 리셋이 `.hce-editor-wrapper button`(0,1,1)이라 클래스 하나로는 진다.
+ * `.pdf-overlay .pdf-ctl`(0,2,0)로 두 개를 맞춰야 배경·테두리가 먹는다.
+ * preflight 가 꺼져 있어 `font` 도 상속시켜 줘야 UA 기본 글꼴로 안 떨어진다.
+ */
+.pdf-overlay .pdf-ctl,
+.pdf-overlay .pdf-preset,
+.pdf-overlay .pdf-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 0.88);
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.pdf-overlay .pdf-ctl {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+.pdf-overlay .pdf-ctl:hover,
+.pdf-overlay .pdf-preset:hover,
+.pdf-overlay .pdf-page:hover {
+  background: rgb(255 255 255 / 0.18);
+  color: #fff;
+}
+.pdf-overlay .pdf-ctl:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+.pdf-overlay .pdf-ctl-danger:hover {
+  background: rgb(248 113 113 / 0.3);
+  color: #fff;
+}
+.pdf-overlay .pdf-ctl:focus-visible,
+.pdf-overlay .pdf-preset:focus-visible,
+.pdf-overlay .pdf-page:focus-visible,
+.pdf-overlay .pdf-name:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.pdf-overlay .pdf-preset {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.pdf-overlay .pdf-preset.is-active {
+  background: #fff;
+  color: #18181b;
+}
+.pdf-overlay .pdf-preset.is-active:hover {
+  background: #fff;
+  color: #18181b;
+}
+
+.pdf-overlay .pdf-page {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 판을 두 갈래로 나누는 선 — 왼쪽은 문서 속성(저장됨), 오른쪽은 파일 동작. */
+.pdf-divider {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: rgb(255 255 255 / 0.22);
+}
+
+.pdf-overlay .pdf-name,
+.pdf-overlay .pdf-page-input {
+  box-sizing: border-box;
+  background: rgb(255 255 255 / 0.12);
+  border: 1px solid rgb(255 255 255 / 0.24);
+  color: #fff;
+  border-radius: 999px;
+  font-family: inherit;
+  outline: none;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s;
+}
+.pdf-overlay .pdf-name {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11px;
+  min-width: 0;
+}
+.pdf-overlay .pdf-page-input {
+  height: 24px;
+  width: 52px;
+  padding: 0 6px;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-overlay .pdf-name::placeholder {
+  color: rgb(255 255 255 / 0.55);
+}
+.pdf-overlay .pdf-name:hover,
+.pdf-overlay .pdf-name:focus,
+.pdf-overlay .pdf-page-input:focus {
+  background: rgb(255 255 255 / 0.2);
+  border-color: rgb(255 255 255 / 0.5);
+}
+
+/* 로딩·오류는 바가 없어졌으므로 판 안에서 자리를 차지한다. */
+.pdf-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
 /* ── 링크 ── */
 .tiptap a {
   color: var(--primary);
