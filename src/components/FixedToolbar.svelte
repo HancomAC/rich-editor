@@ -9,7 +9,6 @@
     AlignLeft,
     AlignCenter,
     AlignRight,
-    LinkIcon,
     Heading1,
     Heading2,
     Heading3,
@@ -31,12 +30,13 @@
     Columns3,
     SquareDashed,
     Tv,
+    Youtube,
     Plus,
     Pilcrow,
-    Palette,
     Sigma,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
+  import { insertTableSized } from "../utils/table";
   import InputModal from "./InputModal.svelte";
   import type { ToolbarFeature, PromptHandler } from "../types";
 
@@ -44,19 +44,28 @@
     editor,
     features,
     onPdfClick,
+    onImageClick,
     onFileClick,
     onPromptLink,
-    onPromptImage,
     onPromptMbus,
+    onPromptVideo,
     toolbarEnd,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
     onPdfClick: () => void;
+    /**
+     * 이미지 넣기. **툴바는 무엇을 넣을지 정하지 않는다** — 업로드/링크 탭 모달을 띄울지
+     * URL 만 물을지는 에디터가 정한다(`TipTapEditor` 의 `pickImage`).
+     * 예전엔 여기서 `onPromptImage` 를 직접 불러 URL 만 받았고, 그래서 툴바로는
+     * 내 컴퓨터의 그림을 넣을 방법이 없었다.
+     */
+    onImageClick: () => void;
     onFileClick?: () => void;
     onPromptLink?: PromptHandler;
-    onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /** 영상 URL 프롬프트. 미제공 시 내장 InputModal 폴백 */
+    onPromptVideo?: PromptHandler;
     /**
      * 툴바 **오른쪽 끝**에 호스트가 끼워 넣는 조각(예: HTML ↔ 에디터 토글).
      *
@@ -99,8 +108,6 @@
    */
   const canDo = (fn: (c: ReturnType<Editor["can"]>) => boolean) =>
     (tick, fn(editor.can()));
-  const attrOf = (name: string, key: string) =>
-    (tick, editor.getAttributes(name)[key] as string | undefined);
 
   const has = (f: ToolbarFeature) => features.has(f);
 
@@ -108,61 +115,22 @@
 
   let blockMenuOpen = $state(false);
   let insertMenuOpen = $state(false);
-  let colorMenuOpen = $state(false);
-  let modalState: { type: "link" | "image" | "mbus" } | null = $state(null);
+  let modalState: { type: "mbus" | "video" } | null = $state(null);
   let blockMenuEl: HTMLDivElement | undefined = $state();
   let insertMenuEl: HTMLDivElement | undefined = $state();
-  let colorMenuEl: HTMLDivElement | undefined = $state();
-
-  /*
-   * ⚠️ **`검정(#000000)` 은 뺐다.** `기본`(×, 색 지정 해제)과 눈으로 구별이 안 되는데
-   * (본문 기본색이 거의 검정이다) 두 가지가 다 있으면 헷갈린다 — 사용자가 짚은 부분이다.
-   *
-   * 남기는 쪽은 **`기본`** 이다. `검정` 만 남기면 본문 기본색으로 **되돌릴 방법이 없어지고**,
-   * 저장된 HTML 에 `#000000` 이 눌러앉는다. 그 글은 다크 모드에서 검정 글자가 되어
-   * 안 보인다(코드패스가 `sanitizeBodyColors` 로 이 자국을 걷어내고 있는 이유다).
-   *
-   * `브랜드` 는 앱마다 다르므로 값을 고정하지 않고 `--primary` 를 읽는다 —
-   * 정올과 코드패스가 각자 자기 색을 얻는다. 저장은 계산된 실제 색으로 한다
-   * (`var(--primary)` 를 그대로 저장하면 앱 밖에서 렌더할 때 색이 사라진다).
-   *
-   * ⚠️ **아홉 개로 맞춰 둔다.** 팔레트가 `grid-cols-3` 라 여덟 개면 마지막 줄에 빈 칸이
-   * 남아 덜 만든 것처럼 보인다(사용자 지적). `기본` + 색 여덟이 3×3 을 정확히 채운다.
-   * 색은 색상환을 고르게 훑도록 골랐다 — 빨강·주황·노랑·초록·파랑에 브랜드(남보라)와
-   * 그 사이를 메우는 분홍, 그리고 무채색 회색. 여기서 더 늘리려면 12개(3×4)로 가야 한다.
-   */
-  const TEXT_COLORS: { label: string; value: string; cssVar?: string }[] = [
-    { label: "기본", value: "" },
-    { label: "브랜드", value: "", cssVar: "--primary" },
-    { label: "회색", value: "#6b7280" },
-    { label: "빨강", value: "#dc2626" },
-    { label: "주황", value: "#ea580c" },
-    { label: "노랑", value: "#ca8a04" },
-    { label: "초록", value: "#16a34a" },
-    { label: "파랑", value: "#2563eb" },
-    { label: "분홍", value: "#db2777" }
-  ];
-
-  /** `--primary` 같은 CSS 변수를 그 자리에서 실제 색 문자열로 바꾼다. */
-  function resolveCssVar(el: HTMLElement, name: string): string {
-    return getComputedStyle(el).getPropertyValue(name).trim();
-  }
 
   $effect(() => {
-    if (!blockMenuOpen && !insertMenuOpen && !colorMenuOpen) return;
+    if (!blockMenuOpen && !insertMenuOpen) return;
     function handleClick(e: MouseEvent) {
       if (blockMenuEl && !blockMenuEl.contains(e.target as Node))
         blockMenuOpen = false;
       if (insertMenuEl && !insertMenuEl.contains(e.target as Node))
         insertMenuOpen = false;
-      if (colorMenuEl && !colorMenuEl.contains(e.target as Node))
-        colorMenuOpen = false;
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         blockMenuOpen = false;
         insertMenuOpen = false;
-        colorMenuOpen = false;
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -173,38 +141,20 @@
     };
   });
 
-  async function addLink() {
+  function addImage() {
     insertMenuOpen = false;
-    if (onPromptLink) {
-      const previous = isActive("link")
-        ? (editor.getAttributes("link").href as string) || ""
-        : "";
-      const url = await onPromptLink(previous);
-      if (url === null) return;
-      if (url === "") {
-        editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      } else {
-        editor
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .setLink({ href: url })
-          .run();
-      }
-      return;
-    }
-    modalState = { type: "link" };
+    onImageClick();
   }
 
-  async function addImage() {
+  async function addVideo() {
     insertMenuOpen = false;
-    if (onPromptImage) {
-      const url = await onPromptImage("");
+    if (onPromptVideo) {
+      const url = await onPromptVideo("");
       if (!url) return;
-      editor.chain().focus().setImage({ src: url }).run();
+      editor.chain().focus().setVideoEmbed({ src: url }).run();
       return;
     }
-    modalState = { type: "image" };
+    modalState = { type: "video" };
   }
 
   async function addMbus() {
@@ -226,7 +176,13 @@
     if (isActive("orderedList")) return "번호 목록";
     if (isActive("taskList")) return "체크리스트";
     if (isActive("blockquote")) return "인용문";
-    if (isActive("details")) return "토글";
+    if (isActive("details")) {
+      // 토글 제목이면 단계까지 보여 준다 — 그냥 "토글" 이면 무엇을 고른 건지 안 보인다.
+      for (const lv of [1, 2, 3]) {
+        if (isActive("detailsSummary", { level: lv })) return `토글 제목 ${lv}`;
+      }
+      return "토글";
+    }
     return "본문";
   });
 
@@ -240,12 +196,13 @@
     insertMenuOpen = false;
   }
 
+  /* ⚠️ `link` 는 여기 없다 — 인라인 서식 그룹으로 옮겼다(위 주석 참고). */
   const hasInsertItems = $derived(
     has("image") ||
-      has("link") ||
       has("pdf") ||
       has("file") ||
       has("mbus") ||
+      has("video") ||
       has("table") ||
       has("columns-2") ||
       has("columns-3") ||
@@ -278,7 +235,6 @@
       type="button"
       onclick={() => editor.chain().focus().undo().run()}
       disabled={!canDo((c) => c.undo())}
-      data-tooltip="실행 취소"
       aria-label="실행 취소"
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -293,7 +249,6 @@
       type="button"
       onclick={() => editor.chain().focus().redo().run()}
       disabled={!canDo((c) => c.redo())}
-      data-tooltip="다시 실행"
       aria-label="다시 실행"
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -313,7 +268,6 @@
       <button
         type="button"
         onclick={() => (blockMenuOpen = !blockMenuOpen)}
-        data-tooltip="블록 타입"
         aria-label="블록 타입"
         class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground min-w-[96px]"
       >
@@ -323,7 +277,7 @@
       {#if blockMenuOpen}
         <div
           class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
-          style="min-width: 200px"
+          style="min-width: 236px"
           onmousedown={(e) => e.preventDefault()}
           role="menu"
           tabindex="-1"
@@ -359,6 +313,7 @@
               )}
           >
             <Heading1 size={14} /> 제목 1
+            <span class="hce-menu-shortcut"># </span>
           </button>
           {/if}
           {#if has('h2')}
@@ -374,6 +329,7 @@
               )}
           >
             <Heading2 size={14} /> 제목 2
+            <span class="hce-menu-shortcut">## </span>
           </button>
           {/if}
           {#if has('h3')}
@@ -389,6 +345,7 @@
               )}
           >
             <Heading3 size={14} /> 제목 3
+            <span class="hce-menu-shortcut">### </span>
           </button>
           {/if}
           {#if has('bullet-list') || has('ordered-list') || has('checklist')}
@@ -405,6 +362,7 @@
               runBlock(() => editor.chain().focus().toggleBulletList().run())}
           >
             <List size={14} /> 글머리 목록
+            <span class="hce-menu-shortcut">- </span>
           </button>
           {/if}
           {#if has('ordered-list')}
@@ -418,6 +376,7 @@
               runBlock(() => editor.chain().focus().toggleOrderedList().run())}
           >
             <ListOrdered size={14} /> 번호 목록
+            <span class="hce-menu-shortcut">1. </span>
           </button>
           {/if}
           {#if has('checklist')}
@@ -431,6 +390,7 @@
               runBlock(() => editor.chain().focus().toggleTaskList().run())}
           >
             <CheckSquare size={14} /> 체크리스트
+            <span class="hce-menu-shortcut">[] </span>
           </button>
           {/if}
           {#if has('blockquote') || has('toggle')}
@@ -447,6 +407,7 @@
               runBlock(() => editor.chain().focus().toggleBlockquote().run())}
           >
             <Quote size={14} /> 인용문
+            <span class="hce-menu-shortcut">" </span>
           </button>
           {/if}
           {#if has('toggle')}
@@ -460,7 +421,34 @@
               runBlock(() => editor.chain().focus().setDetails().run())}
           >
             <ChevronRight size={14} /> 토글
+            <span class="hce-menu-shortcut">> </span>
           </button>
+          <!--
+            토글 제목 — 접히는 제목. 만드는 일은 입력 규칙(`# > `)과 **같은 커맨드**가 한다.
+            제목 바로 아래에 두는 게 맞지만 이 메뉴는 `본문 → 제목 → 목록 → 블록` 순이라,
+            토글 옆에 붙여 **접히는 것끼리** 모은다.
+          -->
+          {#each [1, 2, 3] as level}
+            {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
+            <button
+              type="button"
+              class={cn(
+                "w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted",
+                isActive("detailsSummary", { level }) && "hce-active",
+              )}
+              onclick={() =>
+                runBlock(() =>
+                  editor
+                    .chain()
+                    .focus()
+                    .setToggleHeading(level as 1 | 2 | 3)
+                    .run(),
+                )}
+            >
+              <Icon size={14} /> 토글 제목 {level}
+              <span class="hce-menu-shortcut">{'#'.repeat(level)} &gt; </span>
+            </button>
+          {/each}
           {/if}
         </div>
       {/if}
@@ -469,13 +457,19 @@
   {/if}
 
   {#if has('bold') || has('italic') || has('underline') || has('strike')}
-  <!-- Inline marks (core 4) -->
+  <!--
+    인라인 서식. **글자에 붙는 것은 전부 여기 모은다** — 굵게·기울임·밑줄·취소선에
+    `코드`(`<code>`)와 `링크`가 더해진다.
+
+    ⚠️ `링크` 는 원래 `삽입` 드롭다운에 있었다. 하지만 링크는 표·PDF 처럼 **새 덩어리를
+    끼워 넣는 것**이 아니라 **선택한 글자에 씌우는 서식**이라, 쓰려면 글자를 골라 둔 상태에서
+    메뉴를 두 번 여는 꼴이었다(사용자 요청으로 이동). 삽입 쪽에는 이제 없다.
+  -->
   <div class="hce-toolbar-group">
     {#if has('bold')}
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
-      data-tooltip="굵게"
       aria-label="굵게"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -491,7 +485,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
-      data-tooltip="기울임"
       aria-label="기울임"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -507,7 +500,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleUnderline().run()}
-      data-tooltip="밑줄"
       aria-label="밑줄"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -523,7 +515,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
-      data-tooltip="취소선"
       aria-label="취소선"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -535,104 +526,17 @@
       <Strikethrough size={iconSize} />
     </button>
     {/if}
-    {#if has('math')}
     <!--
-      선택한 텍스트를 인라인 수식으로 감싸고, 이미 수식인 자리에서 누르면 원문으로 되돌린다
-      (구세대 `setMath.js` 와 같은 토글). 선택이 없으면 감쌀 게 없으니 프롬프트로 새로 넣는다.
+      ⚠️ **`코드`·`링크`·`수식`·`글자색` 은 여기 없다 — 버블 툴바에 있다**(사용자 결정).
 
-      ⚠️ **`run()` 의 반환값으로 갈라지면 안 된다.** `chain().focus().toggleMathInline().run()`
-      은 감싸기가 실제로 성공해도 false 를 돌려주는 경우가 있어(체인의 다른 단계가 false 를
-      섞는다), 감싸 놓고 프롬프트까지 같이 여는 걸 브라우저에서 확인했다.
-      **무엇을 할지는 실행 전에 상태로 정한다.**
+      이 넷은 **글자를 골라 놓고** 쓰는 것이라, 고르는 순간 뜨는 버블이 손에 더 가깝다.
+      고정 툴바에도 두면 같은 버튼이 두 벌이 되고 인라인 그룹만 여덟 칸을 먹는다.
+      남긴 `굵게·기울임·밑줄·취소선` 은 **선택 없이 켜 두고 이어 치는** 쓰임이 있어서
+      늘 보이는 자리가 필요하다.
+
+      ⚠️ 빈 선택에서 **인라인 수식을 새로 넣던 길**은 이 버튼이 유일했으므로,
+         `삽입` 드롭다운으로 옮겨 두었다(아래 `인라인 수식`).
     -->
-    <button
-      type="button"
-      onclick={() => {
-        if (editor.state.selection.empty && !editor.isActive('math_inline')) {
-          editor.chain().focus().promptMathInline().run();
-        } else {
-          editor.chain().focus().toggleMathInline().run();
-        }
-      }}
-      data-tooltip="인라인 수식"
-      aria-label="인라인 수식"
-      class={cn(
-        "p-1.5 rounded-md transition-colors",
-        isActive("math_inline")
-          ? "hce-active"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <Sigma size={iconSize} />
-    </button>
-    {/if}
-    {#if has('text-color')}
-    <div bind:this={colorMenuEl} class="relative">
-      <button
-        type="button"
-        onclick={() => (colorMenuOpen = !colorMenuOpen)}
-        data-tooltip="글자색"
-        aria-label="글자색"
-        class={cn(
-          "flex items-center gap-0.5 p-1.5 rounded-md transition-colors",
-          attrOf('textStyle', 'color')
-            ? "hce-active"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        )}
-      >
-        <Palette size={iconSize} />
-        <ChevronDown size={12} />
-      </button>
-      {#if colorMenuOpen}
-        <div
-          class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 p-2"
-          style="min-width: 180px"
-          onmousedown={(e) => e.preventDefault()}
-          role="menu"
-          tabindex="-1"
-        >
-          <div class="grid grid-cols-3 gap-1.5">
-            {#each TEXT_COLORS as c}
-              <button
-                type="button"
-                title={c.label}
-                class="h-8 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold bg-background"
-                style="color: {c.cssVar ? `var(${c.cssVar})` : c.value || '#6b7280'}"
-                onclick={(e) => {
-                  const color = c.cssVar
-                    ? resolveCssVar(e.currentTarget as HTMLElement, c.cssVar)
-                    : c.value;
-                  if (color) {
-                    editor.chain().focus().setColor(color).run();
-                  } else {
-                    editor.chain().focus().unsetColor().run();
-                  }
-                  colorMenuOpen = false;
-                }}
-              >
-                {c.cssVar || c.value ? "A" : "×"}
-              </button>
-            {/each}
-          </div>
-          <label
-            class="mt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
-          >
-            <span>직접 선택</span>
-            <input
-              type="color"
-              class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-              value={attrOf('textStyle', 'color') || '#000000'}
-              onclick={(e) => e.stopPropagation()}
-              oninput={(e) => {
-                const v = (e.target as HTMLInputElement).value;
-                editor.chain().focus().setColor(v).run();
-              }}
-            />
-          </label>
-        </div>
-      {/if}
-    </div>
-    {/if}
   </div>
   {/if}
 
@@ -643,7 +547,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('left').run()}
-      data-tooltip="왼쪽 정렬"
       aria-label="왼쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -659,7 +562,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('center').run()}
-      data-tooltip="가운데 정렬"
       aria-label="가운데 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -675,7 +577,6 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('right').run()}
-      data-tooltip="오른쪽 정렬"
       aria-label="오른쪽 정렬"
       class={cn(
         "p-1.5 rounded-md transition-colors",
@@ -697,7 +598,6 @@
       <button
         type="button"
         onclick={() => (insertMenuOpen = !insertMenuOpen)}
-        data-tooltip="삽입"
         aria-label="삽입"
         class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
       >
@@ -708,7 +608,7 @@
       {#if insertMenuOpen}
         <div
           class="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 py-1"
-          style="min-width: 220px"
+          style="min-width: 236px"
         >
           {#if has('code-block')}
           <button
@@ -718,6 +618,7 @@
               runInsert(() => editor.chain().focus().setCodeBlock().run())}
           >
             <Code2 size={14} /> 코드 블록
+            <span class="hce-menu-shortcut">```</span>
           </button>
           {/if}
           {#if has('math')}
@@ -728,6 +629,22 @@
               runInsert(() => editor.chain().focus().promptMathDisplay().run())}
           >
             <Sigma size={14} /> 수식 블록
+            <span class="hce-menu-shortcut">$$</span>
+          </button>
+          <!--
+            ⚠️ **빈 선택에서 인라인 수식을 새로 넣는 유일한 길**이다.
+            예전엔 인라인 그룹의 `Σ` 버튼이 그 일을 했는데(선택이 없으면 프롬프트를 열었다)
+            그 버튼을 버블로 옮기면서 길이 끊겼다 — 버블은 뭔가 골라야만 뜨기 때문이다.
+            (`$…$` 를 쳐서 만드는 입력 규칙은 그대로 살아 있다.)
+          -->
+          <button
+            type="button"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() =>
+              runInsert(() => editor.chain().focus().promptMathInline().run())}
+          >
+            <Sigma size={14} /> 인라인 수식
+            <span class="hce-menu-shortcut">$ $</span>
           </button>
           {/if}
           {#if has('pdf')}
@@ -745,7 +662,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() => runInsert(onFileClick!)}
           >
-            <Paperclip size={14} /> 파일 첨부
+            <Paperclip size={14} /> 파일
           </button>
           {/if}
           {#if has('table')}
@@ -754,11 +671,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() =>
               runInsert(() =>
-                editor
-                  .chain()
-                  .focus()
-                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                  .run(),
+                insertTableSized(editor, { rows: 3, cols: 3, withHeaderRow: true }),
               )}
           >
             <TableIcon size={14} /> 표 (3x3)
@@ -778,6 +691,7 @@
               )}
           >
             <Minus size={14} /> 구분선
+            <span class="hce-menu-shortcut">---</span>
           </button>
           {/if}
           {#if has('columns-2')}
@@ -810,7 +724,7 @@
           </button>
           {/if}
 
-          {#if has('image') || has('link') || has('mbus')}
+          {#if has('image') || has('mbus') || has('video')}
           <div class="h-px bg-border my-1"></div>
           {/if}
           {#if has('image')}
@@ -822,13 +736,17 @@
             <ImageIcon size={14} /> 이미지
           </button>
           {/if}
-          {#if has('link')}
+          {#if has('video')}
+          <!--
+            유튜브·Vimeo 등 바깥 영상. 붙여넣은 주소를 임베드용으로 바꿔 주므로
+            `watch?v=…` 를 그대로 넣어도 된다(`extensions/VideoEmbed.ts`).
+          -->
           <button
             type="button"
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
-            onclick={addLink}
+            onclick={addVideo}
           >
-            <LinkIcon size={14} /> 링크
+            <Youtube size={14} /> 영상
           </button>
           {/if}
           {#if has('mbus')}
@@ -847,29 +765,13 @@
   {/if}
 
   <!-- Modals -->
-  {#if modalState?.type === "link"}
+  <!-- (이미지 모달은 없다 — 에디터가 업로드/링크 탭 모달을 띄운다. `onImageClick` 참고.) -->
+  {#if modalState?.type === "video"}
     <InputModal
-      title="링크 URL 입력"
-      placeholder="https://example.com"
-      defaultValue={isActive("link") ? editor.getAttributes("link").href || "" : ""}
+      title="영상 URL"
+      placeholder="https://www.youtube.com/watch?v=..."
       onConfirm={(url) => {
-        editor
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .setLink({ href: url })
-          .run();
-        modalState = null;
-      }}
-      onCancel={() => (modalState = null)}
-    />
-  {/if}
-  {#if modalState?.type === "image"}
-    <InputModal
-      title="이미지 URL 입력"
-      placeholder="https://example.com/image.png"
-      onConfirm={(url) => {
-        editor.chain().focus().setImage({ src: url }).run();
+        editor.chain().focus().setVideoEmbed({ src: url }).run();
         modalState = null;
       }}
       onCancel={() => (modalState = null)}
@@ -942,5 +844,25 @@
 
   .hce-toolbar-group :global(button) {
     flex-shrink: 0;
+  }
+
+  /*
+   * 메뉴 항목 오른쪽의 입력 규칙 표시(사용자 요청). 메뉴를 한 번 쓰고 나면 다음부터는
+   * 쳐서 만들게 되는 게 목적이라, 눈에 띄되 이름을 가리지 않을 만큼만 흐리게 둔다.
+   *
+   * ⚠️ **드롭다운은 툴바 밖(`.bg-popover`)에 그려지므로 `:global` 이 필요하다.**
+   * ⚠️ `margin-left: auto` 로 오른쪽 끝에 붙이고 `flex-shrink: 0` 으로 지킨다 —
+   * 안 그러면 이름이 길 때 `# >` 쪽이 먼저 찌그러진다.
+   */
+  :global(.hce-menu-shortcut) {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding-left: 10px;
+    font-size: 11px;
+    font-weight: 400;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted-foreground);
+    opacity: 0.75;
+    white-space: pre;
   }
 </style>

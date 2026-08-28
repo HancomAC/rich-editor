@@ -20,9 +20,11 @@
     Columns3,
     Type,
     Tv,
+    Youtube,
     SquareDashed,
     Sigma,
   } from "lucide-svelte";
+  import { insertTableSized } from "../utils/table";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
 
@@ -39,6 +41,7 @@
     h2: "기본",
     h3: "기본",
     mbus: "미디어",
+    video: "미디어",
     card: "블록",
     "bullet-list": "리스트",
     "ordered-list": "리스트",
@@ -59,6 +62,14 @@
     label: string;
     keywords: string;
     icon: Component<{ size?: number }>;
+    /** 항목 오른쪽에 작게 보여 줄 입력 규칙. 없으면 안 그린다. */
+    shortcut?: string;
+    /**
+     * 이 항목이 들어갈 섹션. 없으면 `SECTION_MAP` 이 feature 로 정한다.
+     * ⚠️ 토글 제목처럼 **같은 feature 인데 다른 자리**에 놓아야 하는 것 때문에 필요하다
+     * (셋 다 `toggle` 이지만 토글은 리스트, 토글 제목은 제목 옆이 맞다).
+     */
+    section?: string;
     command: (editor: Editor) => void;
   }[] = [
     {
@@ -73,6 +84,7 @@
       label: "제목 1",
       keywords: "heading h1 제목",
       icon: Heading1,
+      shortcut: "# ",
       command: (editor) =>
         editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
@@ -81,6 +93,7 @@
       label: "제목 2",
       keywords: "heading h2 제목",
       icon: Heading2,
+      shortcut: "## ",
       command: (editor) =>
         editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
@@ -89,6 +102,7 @@
       label: "제목 3",
       keywords: "heading h3 제목",
       icon: Heading3,
+      shortcut: "### ",
       command: (editor) =>
         editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
@@ -97,6 +111,7 @@
       label: "글머리 목록",
       keywords: "bullet list 목록 리스트",
       icon: List,
+      shortcut: "- ",
       command: (editor) => editor.chain().focus().toggleBulletList().run(),
     },
     {
@@ -104,6 +119,7 @@
       label: "번호 목록",
       keywords: "ordered number list 번호 리스트",
       icon: ListOrdered,
+      shortcut: "1. ",
       command: (editor) => editor.chain().focus().toggleOrderedList().run(),
     },
     {
@@ -111,6 +127,7 @@
       label: "체크리스트",
       keywords: "checklist task todo 체크 할일",
       icon: CheckSquare,
+      shortcut: "[] ",
       command: (editor) => editor.chain().focus().toggleTaskList().run(),
     },
     {
@@ -118,6 +135,7 @@
       label: "인용문",
       keywords: "quote blockquote 인용",
       icon: Quote,
+      shortcut: "\" ",
       command: (editor) => editor.chain().focus().toggleBlockquote().run(),
     },
     {
@@ -125,6 +143,7 @@
       label: "구분선",
       keywords: "divider hr horizontal rule 구분",
       icon: Minus,
+      shortcut: "---",
       command: (editor) => editor.chain().focus().setHorizontalRule().run(),
     },
     {
@@ -132,6 +151,7 @@
       label: "코드",
       keywords: "code 코드 블록 cpp c++ python 파이썬",
       icon: Code2,
+      shortcut: "```",
       command: (editor) =>
         editor.chain().focus().setCodeBlock().run(),
     },
@@ -140,6 +160,7 @@
       label: "수식",
       keywords: "math latex tex 수식 공식 수학 katex 시그마 분수",
       icon: Sigma,
+      shortcut: "$$",
       // 슬래시 메뉴는 `/수식` 을 지우면서 커맨드를 부른다. 프롬프트는 그 뒤에 열려야
       // 지운 자리에 결과가 들어간다 — `promptMathDisplay` 가 비동기라 순서가 맞는다.
       command: (editor) => editor.chain().focus().promptMathDisplay().run(),
@@ -149,7 +170,40 @@
       label: "토글",
       keywords: "toggle details 접기 펼치기 토글",
       icon: ChevronRight,
-      command: (editor) => editor.chain().focus().setDetails().run(),
+      shortcut: "> ",
+      command: (editor) => editor.chain().focus().setToggleHeading(0).run(),
+    },
+    /*
+     * 토글 제목 — 접히는 제목. 입력 규칙(`# > `)으로도 만들 수 있지만 그것만 있으면
+     * **메뉴에는 없는 기능**이 된다(사용자 요청으로 추가).
+     * 만드는 일은 입력 규칙과 **같은 커맨드**가 한다(`setToggleHeading`).
+     */
+    {
+      feature: "toggle",
+      label: "토글 제목 1",
+      section: "기본",
+      keywords: "toggle heading 접기 제목 토글제목 h1",
+      icon: Heading1,
+      shortcut: "# > ",
+      command: (editor) => editor.chain().focus().setToggleHeading(1).run(),
+    },
+    {
+      feature: "toggle",
+      label: "토글 제목 2",
+      section: "기본",
+      keywords: "toggle heading 접기 제목 토글제목 h2",
+      icon: Heading2,
+      shortcut: "## > ",
+      command: (editor) => editor.chain().focus().setToggleHeading(2).run(),
+    },
+    {
+      feature: "toggle",
+      label: "토글 제목 3",
+      section: "기본",
+      keywords: "toggle heading 접기 제목 토글제목 h3",
+      icon: Heading3,
+      shortcut: "### > ",
+      command: (editor) => editor.chain().focus().setToggleHeading(3).run(),
     },
     {
       feature: "table",
@@ -157,11 +211,7 @@
       keywords: "table 표 테이블",
       icon: TableIcon,
       command: (editor) =>
-        editor
-          .chain()
-          .focus()
-          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-          .run(),
+        insertTableSized(editor, { rows: 3, cols: 3, withHeaderRow: true }),
     },
     {
       feature: "columns-2",
@@ -185,6 +235,17 @@
       command: (editor) => {
         const url = window.prompt("이미지 URL을 입력하세요");
         if (url) editor.chain().focus().setImage({ src: url }).run();
+      },
+    },
+    {
+      feature: "video",
+      label: "영상",
+      keywords: "video 영상 유튜브 youtube vimeo 동영상",
+      icon: Youtube,
+      command: (editor) => {
+        // 붙여넣은 주소는 `setVideoEmbed` 가 임베드용으로 바꿔 준다.
+        const url = window.prompt("영상 URL을 입력하세요 (유튜브·Vimeo 등)");
+        if (url) editor.chain().focus().setVideoEmbed({ src: url }).run();
       },
     },
     {
@@ -231,9 +292,10 @@
     onClose,
     onPdfUpload,
     onFileUpload,
+    onImagePick,
     onPromptLink,
-    onPromptImage,
     onPromptMbus,
+    onPromptVideo,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -241,9 +303,18 @@
     onClose: () => void;
     onPdfUpload?: () => void;
     onFileUpload?: () => void;
+    /**
+     * 이미지 넣기 — 툴바의 `이미지` 와 **같은 모달**을 연다(에디터가 띄운다).
+     * 없으면 아래 항목의 기본 동작(`window.prompt`)으로 떨어진다.
+     */
+    onImagePick?: () => void;
     onPromptLink?: PromptHandler;
-    onPromptImage?: PromptHandler;
     onPromptMbus?: PromptHandler;
+    /**
+     * 영상 URL 프롬프트. 없으면 아래 항목의 `window.prompt` 로 떨어지는데, 그건 브라우저
+     * 기본 대화상자라 화면이 멈추고 앱과 모양이 따로 논다(사용자 지적).
+     */
+    onPromptVideo?: PromptHandler;
   } = $props();
 
   async function runItem(item: (typeof SLASH_MENU_ITEMS_DATA)[number]) {
@@ -258,9 +329,13 @@
           .run();
       return;
     }
-    if (item.feature === "image" && onPromptImage) {
-      const url = await onPromptImage("");
-      if (url) editor.chain().focus().setImage({ src: url }).run();
+    if (item.feature === "image" && onImagePick) {
+      onImagePick();
+      return;
+    }
+    if (item.feature === "video" && onPromptVideo) {
+      const url = await onPromptVideo("");
+      if (url) editor.chain().focus().setVideoEmbed({ src: url }).run();
       return;
     }
     if (item.feature === "mbus" && onPromptMbus) {
@@ -377,7 +452,7 @@
   >
     {#each SECTION_ORDER as section}
       {@const sectionItems = filtered.filter(
-        (it) => (SECTION_MAP[it.feature] ?? '기본') === section,
+        (it) => (it.section ?? SECTION_MAP[it.feature] ?? '기본') === section,
       )}
       {#if sectionItems.length > 0}
         <p class="slash-section">{section}</p>
@@ -403,6 +478,14 @@
               <item.icon size={SI} />
             </span>
             <span class="slash-label">{item.label}</span>
+            {#if item.shortcut}
+              <!--
+                쳐서 만드는 법을 항목 옆에 적어 둔다(사용자 요청). 메뉴를 한 번 쓰고 나면
+                다음부터는 메뉴를 안 열게 되는 게 목적이라, 눈에 띄되 이름을 가리지 않을
+                만큼만 흐리게 둔다.
+              -->
+              <span class="slash-shortcut">{item.shortcut}</span>
+            {/if}
           </button>
         {/each}
       {/if}
@@ -412,7 +495,8 @@
 
 <style>
   .slash-menu {
-    width: 200px;
+    /* 단축키 표시가 오른쪽에 붙으면서 200px 로는 이름이 잘렸다. */
+    width: 244px;
     max-height: 280px;
   }
 
@@ -488,5 +572,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /*
+   * 오른쪽 끝에 붙는 입력 규칙 표시.
+   * ⚠️ `flex-shrink: 0` — 이름이 길어지면 이쪽이 먼저 찌그러져 `# >` 가 `#…` 이 된다.
+   * 줄이는 쪽은 위 `.slash-label`(말줄임 처리가 되어 있다)이어야 한다.
+   */
+  .slash-shortcut {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 11px;
+    font-weight: 400;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted-foreground);
+    opacity: 0.75;
+    white-space: pre;
   }
 </style>
