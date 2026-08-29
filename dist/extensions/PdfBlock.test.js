@@ -1,8 +1,33 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { PdfBlock } from './PdfBlock';
+/**
+ * pdf.js 를 세워 둔다. 배율 프리셋은 **페이지 원본 폭**을 알아야 값을 계산하므로,
+ * 문서를 못 읽으면 그 경로 자체를 테스트할 수 없다. 기본은 A4 세로 3쪽이고,
+ * 방향에 따른 차이를 보려고 `PAGE` 를 바꿀 수 있게 뒀다(`vi.hoisted` — `vi.mock` 이
+ * 파일 맨 위로 끌어올려져서 보통 `const` 는 아직 초기화 전이다).
+ */
+const PAGE = vi.hoisted(() => ({ w: 595.28, h: 841.89 }));
+const A4_WIDTH = 595.28;
+const A4_LANDSCAPE_WIDTH = 841.89;
+vi.mock('../utils/pdf', () => ({
+    getPdfJs: async () => ({
+        getDocument: () => ({
+            promise: Promise.resolve({
+                numPages: 3,
+                getPage: async () => ({
+                    getViewport: ({ scale }) => ({
+                        width: PAGE.w * scale,
+                        height: PAGE.h * scale
+                    }),
+                    render: () => ({ promise: Promise.resolve() })
+                })
+            })
+        })
+    })
+}));
 describe('PdfBlock extension', () => {
     let editor;
     function createEditor(content = '<p></p>') {
@@ -105,10 +130,31 @@ describe('PdfBlock extension', () => {
             const kinds = [...frame.children].map((c) => c.tagName === 'CANVAS' ? 'canvas' : c.className);
             expect(kinds).toEqual(['canvas', 'pdf-status', 'pdf-overlay']);
         });
-        it('gives editors the width presets and delete', () => {
+        /** 프리셋이 눌릴 수 있을 때까지 — 원본 폭을 읽어야 활성화된다. */
+        async function mountLoaded(html = PDF_HTML, editable = true) {
+            const m = mount(html, editable);
+            for (let i = 0; i < 50; i++) {
+                const b = m.overlay.querySelector('.pdf-preset');
+                if (b && !b.disabled)
+                    break;
+                await new Promise((r) => setTimeout(r, 5));
+            }
+            return m;
+        }
+        it('gives editors the zoom presets and delete', () => {
             const { overlay } = mount();
-            expect([...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)).toEqual(['25%', '50%', '75%', '100%']);
+            expect([...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)).toEqual(['50%', '75%', '100%', '150%']);
             expect(overlay.querySelector('.pdf-ctl-danger')).toBeTruthy();
+        });
+        /*
+         * ⚠️ 배율은 **페이지 원본 폭에서 계산**하므로 문서를 읽기 전에는 누를 값이 없다.
+         * 활성인 채로 두면 클릭이 조용히 아무 일도 안 하는 버튼이 된다.
+         */
+        it('keeps the presets disabled until the page size is known', async () => {
+            const { overlay } = mount();
+            expect([...overlay.querySelectorAll('.pdf-preset')].every((b) => b.disabled)).toBe(true);
+            await mountLoaded();
+            expect([...editor.view.dom.querySelectorAll('.pdf-preset')].every((b) => !b.disabled)).toBe(true);
         });
         it('hides authoring controls from readers but keeps the file actions', () => {
             const { overlay } = mount(PDF_HTML, false);
@@ -132,21 +178,91 @@ describe('PdfBlock extension', () => {
                 editor.destroy();
             }
         });
-        it('marks the width preset that matches the current width', () => {
-            const { overlay } = mount('<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="75%"></div>');
+        /*
+         * 저장값은 **칼럼 대비 비율이 아니라 px** 이다. 같은 칩이 어느 화면에서든 같은
+         * 글자 크기를 주려면 페이지 원본 크기에서 계산해야 한다.
+         */
+        it('stores an absolute width computed from the page size', async () => {
+            const { overlay } = await mountLoaded();
+            const click = (label) => [...overlay.querySelectorAll('.pdf-preset')].find((b) => b.textContent === label).click();
+            const width = () => editor
+                .getJSON()
+                .content?.find((n) => n.type === 'pdfBlock')
+                ?.attrs?.width;
+            click('100%');
+            expect(width()).toBe(`${Math.round(A4_WIDTH)}px`);
+            click('50%');
+            expect(width()).toBe(`${Math.round(A4_WIDTH * 0.5)}px`);
+            click('150%');
+            expect(width()).toBe(`${Math.round(A4_WIDTH * 1.5)}px`);
+        });
+        /*
+         * ⚠️ 폭이 바뀌면 **캔버스도 그 폭으로 다시 그려져야** 한다. 예전엔 이걸
+         * `ResizeObserver` 에만 맡겨 뒀는데, 그러면 크기를 이미 아는 경로(프리셋 클릭)까지
+         * 관찰자를 한 바퀴 돌아야 한다. 실제로 블록만 595px 로 줄고 캔버스는 1376px 로
+         * 남는 반쪽 동작이 나왔다.
+         *
+         * 브라우저에서는 이 증상이 **자동화 탭이 `hidden` 이라 관찰자 콜백이 아예 안 오는
+         * 것**과 구분되지 않았다. 그래서 렌더가 즉시 끝나는 여기서 판정한다.
+         */
+        it('redraws the canvas on a width change without waiting for an observer', async () => {
+            const { overlay } = await mountLoaded();
+            const frame = editor.view.dom.querySelector('.pdf-frame');
+            const canvas = frame.querySelector('canvas');
+            // happy-dom 에는 레이아웃이 없다 — 판이 보고할 폭을 직접 정해 준다.
+            let available = 1378;
+            Object.defineProperty(frame, 'clientWidth', { get: () => available });
+            const click = (label) => [...overlay.querySelectorAll('.pdf-preset')].find((b) => b.textContent === label).click();
+            available = Math.round(A4_WIDTH * 0.5);
+            click('50%');
+            await new Promise((r) => setTimeout(r, 20));
+            expect(Number.parseFloat(canvas.style.width)).toBeCloseTo(available, 0);
+            available = Math.round(A4_WIDTH * 1.5);
+            click('150%');
+            await new Promise((r) => setTimeout(r, 20));
+            expect(Number.parseFloat(canvas.style.width)).toBeCloseTo(available, 0);
+        });
+        /*
+         * 배율의 요점 — **같은 칩이 방향에 따라 다른 폭을 준다.** 글자 크기가 같아야 하므로
+         * 맞는 결과다. 폭 기준이던 시절엔 세로형이 부당하게 커 보였다(같은 50% 인데 세로형
+         * 높이는 가로형의 두 배였다).
+         */
+        it('gives portrait and landscape different widths at the same zoom', async () => {
+            const at100 = async () => {
+                const { overlay } = await mountLoaded();
+                [...overlay.querySelectorAll('.pdf-preset')].find((b) => b.textContent === '100%').click();
+                const w = editor
+                    .getJSON()
+                    .content?.find((n) => n.type === 'pdfBlock')
+                    ?.attrs?.width;
+                editor.destroy();
+                return w;
+            };
+            PAGE.w = A4_WIDTH;
+            PAGE.h = A4_LANDSCAPE_WIDTH;
+            expect(await at100()).toBe(`${Math.round(A4_WIDTH)}px`);
+            PAGE.w = A4_LANDSCAPE_WIDTH;
+            PAGE.h = A4_WIDTH;
+            expect(await at100()).toBe(`${Math.round(A4_LANDSCAPE_WIDTH)}px`);
+            PAGE.w = A4_WIDTH;
+            PAGE.h = A4_LANDSCAPE_WIDTH;
+        });
+        it('marks the preset matching the stored width', async () => {
+            const { overlay } = await mountLoaded(`<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="${Math.round(A4_WIDTH * 0.75)}px"></div>`);
             const active = overlay.querySelector('.pdf-preset.is-active');
             expect(active?.textContent).toBe('75%');
             expect(active?.getAttribute('aria-pressed')).toBe('true');
         });
-        it('writes the width attribute when a preset is clicked', () => {
-            const { overlay } = mount();
-            // 라벨로 찾는다 — 순서가 바뀌어도 무엇을 눌렀는지가 흔들리지 않게.
-            const preset = [...overlay.querySelectorAll('.pdf-preset')].find((b) => b.textContent === '50%');
-            preset.click();
-            const pdfNode = editor
-                .getJSON()
-                .content?.find((n) => n.type === 'pdfBlock');
-            expect(pdfNode?.attrs?.width).toBe('50%');
+        /*
+         * ⚠️ 옛 문서는 `"50%"` 를 들고 있다. 어느 칩과도 안 맞는 게 맞고 — 값을 손대면
+         * 열었다 저장하는 것만으로 저자가 정한 크기가 바뀐다. 렌더는 그대로 돼야 한다.
+         */
+        it('leaves a legacy percentage alone', async () => {
+            const { overlay } = await mountLoaded('<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="50%"></div>');
+            expect(overlay.querySelector('.pdf-preset.is-active')).toBeNull();
+            expect(editor.getHTML()).toContain('data-pdf-width="50%"');
+            expect(editor.view.dom.querySelector('[data-type="pdfBlock"]')
+                .style.width).toBe('50%');
         });
         it('removes the block when delete is clicked', () => {
             const { overlay } = mount();

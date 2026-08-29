@@ -151,45 +151,58 @@ export const PdfBlock = TiptapNode.create({
                     ...patch,
                 }));
             };
-            // 너비 프리셋 (편집 가능 모드에서만)
+            /*
+             * ── 배율 프리셋 ────────────────────────────────────────────────────
+             *
+             * ⚠️ 이 칩들은 한때 **칼럼 대비 비율**(`width: 50%`)을 썼다. 그게 틀린 축이었다.
+             * 저자가 고르는 건 "칼럼의 절반"이 아니라 "이 정도 크기로 보였으면"인데, 칼럼 폭은
+             * 화면마다 다르다 — 문제 편집 화면은 1378px 이지만 코딩 패널 안에서는 훨씬 좁고,
+             * 거기서 같은 50% 는 절반 이하로 줄어든다. 저장된 값이 **보는 곳마다 다른 크기**가
+             * 된다는 뜻이다. (손잡이 드래그는 원래부터 px 로 저장하고 있었으니 한 문서 안에
+             * 두 체계가 섞여 있기도 했다.)
+             *
+             * 기준은 **PDF 본문 글자가 화면에서 몇 px 로 그려지느냐**다 — 그게 곧 읽히느냐다.
+             * pdf.js 는 배율 1 에서 1 PDF 단위 = 1 CSS px 이라 그대로 환산된다:
+             *
+             *   배율   A4 세로 폭   10pt 본문   쓸모
+             *   50%    298px        5px         썸네일(읽기 불가)
+             *   75%    446px        7.5px       도표 파악 · 가로형 슬라이드는 읽힘
+             *   100%   595px        10px        읽을 수 있음(작음) — 기준점
+             *   150%   893px        15px        편하게 읽음
+             *
+             * 배율은 **페이지 원본 크기 기준**이라 방향·용지 크기를 알아서 반영한다. 같은 칩이
+             * 세로형에는 595px, 가로형에는 842px 을 준다 — 글자 크기가 같으니 맞는 결과다.
+             * (폭 기준이던 시절 세로형이 부당하게 커 보이던 것이 이래서였다.)
+             *
+             * ⚠️ `폭맞춤`(칼럼 채우기)은 **일부러 뺐다.** 1378px 칼럼에서 세로형에 걸면 배율
+             * 231%, 높이 1950px 로 화면 밖으로 나간다 — 저자 의도가 아니라 우연히 나오는 값이다.
+             */
             const PRESET_IDLE = "pdf-preset";
             const PRESET_ACTIVE = "pdf-preset is-active";
+            const ZOOMS = [0.5, 0.75, 1, 1.5];
             const presetButtons = [];
+            /** 페이지 원본 폭(CSS px). PDF 를 읽기 전에는 모른다. */
+            let naturalWidth = 0;
+            /** 배율 → 저장할 px. 원본 폭을 아직 모르면 `null`. */
+            const zoomToWidth = (zoom) => naturalWidth > 0 ? `${Math.round(naturalWidth * zoom)}px` : null;
             if (editor.isEditable) {
                 /*
-                 * ⚠️ 프리셋은 **문서에 저장되는 폭**이지 확대가 아니다. 옆의 다운로드·새 탭과
-                 * 성격이 달라(저장됨 vs 그때뿐) 구분선으로 갈라 둔다 — 안 그러면 "100% 누르면
-                 * 확대되겠지" 로 읽힌다.
+                 * ⚠️ 프리셋은 **문서에 저장되는 크기**이지 보기 상태가 아니다. 옆의 다운로드·새 탭과
+                 * 성격이 달라(저장됨 vs 그때뿐) 구분선으로 갈라 둔다.
                  */
-                /*
-                 * 사다리를 고른 근거 — **폭 프리셋이지만 정작 걸리는 건 높이**다.
-                 * 페이지 높이 = 폭 × 비율이고, A4 는 세로형 1.41 / 가로형 0.71 이다.
-                 * 정올 실측(본문 칼럼 1378px, 뷰포트 1221px, 상단 고정물 113px → 쓸 높이 1108px):
-                 *
-                 *   폭     세로형 높이      가로형 높이
-                 *   100%   1950 (화면 밖)   974  (들어감)
-                 *   75%    1462 (화면 밖)   730  (들어감)
-                 *   50%    975  (딱 맞음)   487
-                 *   25%    487             243
-                 *
-                 * 즉 **세로형의 50% 가 가로형의 100% 와 같은 화면 높이**다 — 두 방향을 한 사다리로
-                 * 덮으려면 "절반" 단이 반드시 있어야 한다.
-                 *
-                 * 25% 는 한때 "글자를 못 읽어 고를 이유가 없다"고 뺐다가 되살렸다. 그 판단은
-                 * **읽는 단만 상정한 것**이었다. 25% 는 읽는 단이 아니라 **썸네일 단**이다 —
-                 * 세로형에서 487px 이면 문단 사이에 끼워도 글 흐름을 안 끊고, 자세히 볼 땐
-                 * `새 탭에서 열기` 가 받는다.
-                 */
-                for (const value of ["25%", "50%", "75%", "100%"]) {
+                for (const zoom of ZOOMS) {
+                    const label = `${zoom * 100}%`;
                     const btn = document.createElement("button");
                     btn.type = "button";
                     btn.className = PRESET_IDLE;
-                    btn.title = `너비 ${value}`;
-                    btn.textContent = value;
+                    btn.title = `페이지 원본 크기의 ${label}`;
+                    btn.textContent = label;
+                    // 원본 폭을 알기 전(로딩 중)에는 누를 수 없다 — 계산할 근거가 없다.
+                    btn.disabled = true;
                     /*
                      * ⚠️ `mousedown` 에서 기본 동작을 막는다. 안 막으면 브라우저가 여기서 텍스트 선택을
-                     * 시작하고, 곧바로 `setAttrs` 가 NodeView 를 다시 그리면서 그 선택이 **헤더 전체**로
-                     * 번져 파일명·버튼이 통째로 파랗게 칠해졌다(사용자 지적).
+                     * 시작하고, 곧바로 `setAttrs` 가 NodeView 를 다시 그리면서 그 선택이 **조작부 전체**로
+                     * 번져 칩·버튼이 통째로 파랗게 칠해졌다(사용자 지적).
                      * 클릭 자체는 `click` 에서 처리하므로 동작에는 영향이 없다.
                      */
                     btn.addEventListener("mousedown", (e) => {
@@ -199,20 +212,32 @@ export const PdfBlock = TiptapNode.create({
                     btn.addEventListener("click", (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setAttrs({ width: value });
+                        const next = zoomToWidth(zoom);
+                        if (next)
+                            setAttrs({ width: next });
                     });
                     endCluster.appendChild(btn);
-                    presetButtons.push({ value, el: btn });
+                    presetButtons.push({ zoom, el: btn });
                 }
                 const divider = document.createElement("div");
                 divider.className = "pdf-divider";
                 endCluster.appendChild(divider);
             }
-            /** 현재 `width` 와 같은 프리셋을 눌린 상태로 만든다. */
+            /**
+             * 현재 `width` 와 같은 프리셋을 눌린 상태로 만든다.
+             *
+             * ⚠️ 문자열 비교로는 안 된다. 저장값이 `"893px"` 처럼 계산된 px 라 반올림 오차가
+             * 있고, 손잡이로 끌면 아무 px 이나 들어온다. 1px 여유로 견준다.
+             * 옛 문서의 `"50%"` 같은 값은 어느 칩과도 안 맞는다 — **그대로 두는 게 맞다.**
+             * 저자가 다시 고를 때까지 예전 크기로 렌더되고, 스키마는 건드리지 않는다.
+             */
             const syncPresets = (width) => {
-                for (const { value, el } of presetButtons) {
-                    el.className = width === value ? PRESET_ACTIVE : PRESET_IDLE;
-                    el.setAttribute("aria-pressed", width === value ? "true" : "false");
+                const px = width?.endsWith("px") ? Number.parseFloat(width) : NaN;
+                for (const { zoom, el } of presetButtons) {
+                    const target = naturalWidth > 0 ? naturalWidth * zoom : NaN;
+                    const on = Number.isFinite(px) && Math.abs(px - target) <= 1;
+                    el.className = on ? PRESET_ACTIVE : PRESET_IDLE;
+                    el.setAttribute("aria-pressed", on ? "true" : "false");
                 }
             };
             syncPresets(node.attrs.width ?? null);
@@ -450,6 +475,19 @@ export const PdfBlock = TiptapNode.create({
                     if (destroyed)
                         return;
                     totalPages = pdfDoc.numPages;
+                    /*
+                     * 배율 프리셋의 기준점 — **1쪽의 원본 폭**. pdf.js 는 배율 1 에서
+                     * 1 PDF 단위 = 1 CSS px 이므로 이 값이 곧 "원본 크기"다.
+                     * 쪽마다 크기가 다른 문서가 있지만, 저자가 블록 크기를 고르는 기준은 하나여야
+                     * 하므로 1쪽으로 고정한다(넘길 때마다 블록이 들썩이면 안 된다).
+                     */
+                    const firstPage = await pdfDoc.getPage(1);
+                    if (destroyed)
+                        return;
+                    naturalWidth = firstPage.getViewport({ scale: 1 }).width;
+                    for (const { el } of presetButtons)
+                        el.disabled = false;
+                    syncPresets(currentNode.attrs.width ?? null);
                     statusDiv.style.display = "none";
                     canvas.style.display = "";
                     // \uD55C \uC7A5\uC9DC\uB9AC\uC5D4 \uB118\uAE40 \uC870\uC791\uC744 \uC544\uC608 \uBD99\uC774\uC9C0 \uC54A\uB294\uB2E4 \u2014 \uB204\uB97C \uC218 \uC5C6\uB294 \uBC84\uD2BC\uC740 \uC18C\uC74C\uC774\uB2E4.
@@ -518,11 +556,24 @@ export const PdfBlock = TiptapNode.create({
                     if (updatedNode.type.name !== "pdfBlock")
                         return false;
                     const newWidth = updatedNode.attrs.width;
-                    if (newWidth !== currentNode.attrs.width) {
+                    const changed = newWidth !== currentNode.attrs.width;
+                    if (changed)
                         dom.style.width = newWidth || "";
-                    }
                     currentNode = updatedNode;
                     syncPresets(newWidth ?? null);
+                    /*
+                     * ⚠️ **크기가 바뀌면 여기서 직접 다시 그린다.** 예전엔 `ResizeObserver` 가
+                     * 알아서 잡아 주길 기대했는데, 그건 크기를 **누가 바꿨는지 모를 때**를 위한
+                     * 장치다. 프리셋 클릭·드래그 커밋은 새 폭을 이미 알고 들어오는 경로이므로
+                     * 관찰자를 한 바퀴 돌 이유가 없다.
+                     *
+                     * 실제로 이것 때문에 프리셋이 조용히 반쪽만 동작했다 — 블록 폭은 595px 로
+                     * 줄었는데 캔버스는 1376px 그대로였다. (자동화 탭은 `visibilityState: hidden`
+                     * 이라 `ResizeObserver` 콜백이 아예 안 와서 오래 못 잡은 증상이기도 하다.)
+                     * `frame.clientWidth` 는 읽는 순간 레이아웃을 강제하므로 새 폭이 바로 잡힌다.
+                     */
+                    if (changed)
+                        renderPage();
                     return true;
                 },
                 // 이름 입력칸 위의 이벤트는 ProseMirror 가 가로채면 안 된다(CardBlock 과 같은 방식).
