@@ -110,6 +110,20 @@ export const PdfBlock = TiptapNode.create({
             // 초기 폭은 `applyWidth` 를 선언한 뒤에 먹인다(그 전에 부르면 TDZ 다).
             const frame = document.createElement("div");
             frame.className = "pdf-frame";
+            /*
+             * ── 방향키로 쪽을 넘기려면 **판이 포커스를 받아야 한다** ──────────────
+             *
+             * ⚠️ 처음엔 ProseMirror 의 노드 선택에 얹었는데, 그건 편집 모드 개념이다.
+             * 정작 방향키가 필요한 곳은 **읽는 화면**이고 거기엔 선택도, 선택 표시도 없다
+             * (사용자 지적). 게다가 방향키는 Gapcursor 같은 다른 확장도 잡으므로 키맵으로는
+             * 누가 먼저 가져갈지 확실하지 않다.
+             *
+             * DOM 포커스는 두 모드에서 똑같이 동작하고, 이벤트가 판 안에서 시작하므로 순서
+             * 다툼도 없다. 포커스 링이 곧 "지금 이게 키를 듣는다"는 표시가 된다.
+             */
+            frame.tabIndex = 0;
+            frame.setAttribute("role", "group");
+            frame.setAttribute("aria-label", "PDF 문서 — 좌우 방향키로 쪽 넘김");
             dom.appendChild(frame);
             // 리사이즈 핸들 (편집 가능 모드에서만)
             if (editor.isEditable) {
@@ -194,6 +208,16 @@ export const PdfBlock = TiptapNode.create({
             const PRESET_IDLE = "pdf-preset";
             const PRESET_ACTIVE = "pdf-preset is-active";
             const ZOOMS = [0.5, 0.75, 1, 1.5];
+            /*
+             * 숫자만으로는 **무엇에 대한 %인지** 알 수 없다(사용자 지적). 칼럼 대비로 읽히기
+             * 쉬운데 실제로는 페이지 원본 대비다 — 호버 설명에서 그걸 먼저 말한다.
+             */
+            const ZOOM_TIPS = {
+                0.5: "원본 크기의 50% — 썸네일. 글자는 읽기 어렵습니다",
+                0.75: "원본 크기의 75% — 그림·도표 확인용",
+                1: "원본 크기 그대로 (100%)",
+                1.5: "원본 크기의 150% — 읽기 편한 크기",
+            };
             /** 저장값이 이것이면 창 높이에 맞춰 푼다. */
             const FIT_SCREEN = "fit";
             /** 저장값이 이것이면 CSS 가 칼럼을 채운다. */
@@ -251,7 +275,8 @@ export const PdfBlock = TiptapNode.create({
                     const btn = document.createElement("button");
                     btn.type = "button";
                     btn.className = PRESET_IDLE;
-                    btn.title = `페이지 원본 크기의 ${label}`;
+                    btn.dataset.tip = ZOOM_TIPS[zoom] ?? `원본 크기의 ${label}`;
+                    btn.setAttribute("aria-label", btn.dataset.tip);
                     btn.textContent = label;
                     // 원본 폭을 알기 전(로딩 중)에는 누를 수 없다 — 계산할 근거가 없다.
                     btn.disabled = true;
@@ -282,12 +307,12 @@ export const PdfBlock = TiptapNode.create({
                 const FITS = [
                     {
                         value: FIT_WIDTH,
-                        title: "너비에 맞춤",
+                        tip: "너비에 맞춤 — 본문 너비를 가득 채웁니다",
                         paths: '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/>'
                     },
                     {
                         value: FIT_SCREEN,
-                        title: "화면에 맞춤",
+                        tip: "화면에 맞춤 — 한 쪽이 화면에 들어오는 크기",
                         paths: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
                     }
                 ];
@@ -295,8 +320,8 @@ export const PdfBlock = TiptapNode.create({
                     const btn = document.createElement("button");
                     btn.type = "button";
                     btn.className = "pdf-ctl pdf-fit";
-                    btn.title = fit.title;
-                    btn.setAttribute("aria-label", fit.title);
+                    btn.dataset.tip = fit.tip;
+                    btn.setAttribute("aria-label", fit.tip);
                     btn.innerHTML = icon(fit.paths);
                     btn.disabled = true;
                     btn.addEventListener("mousedown", (e) => {
@@ -347,7 +372,8 @@ export const PdfBlock = TiptapNode.create({
             downloadLink.rel = "noopener noreferrer";
             downloadLink.setAttribute("download", cleanName(node.attrs.name));
             downloadLink.className = "pdf-ctl";
-            downloadLink.title = "\uB2E4\uC6B4\uB85C\uB4DC";
+            downloadLink.dataset.tip = "\uB2E4\uC6B4\uB85C\uB4DC";
+            downloadLink.setAttribute("aria-label", "\uB2E4\uC6B4\uB85C\uB4DC");
             downloadLink.innerHTML = icon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>');
             downloadLink.addEventListener("click", async (e) => {
                 if (!downloadLink.href)
@@ -381,14 +407,16 @@ export const PdfBlock = TiptapNode.create({
             openLink.target = "_blank";
             openLink.rel = "noopener noreferrer";
             openLink.className = "pdf-ctl";
-            openLink.title = "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30";
+            openLink.dataset.tip = "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30 \u2014 \uBE0C\uB77C\uC6B0\uC800 \uBDF0\uC5B4\uB85C \uD06C\uAC8C \uBD05\uB2C8\uB2E4";
+            openLink.setAttribute("aria-label", "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30");
             openLink.innerHTML = icon('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
             endCluster.appendChild(openLink);
             if (editor.isEditable) {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.type = "button";
                 deleteBtn.className = "pdf-ctl pdf-ctl-danger";
-                deleteBtn.title = "\uC0AD\uC81C";
+                deleteBtn.dataset.tip = "\uC0AD\uC81C";
+                deleteBtn.setAttribute("aria-label", "\uC0AD\uC81C");
                 deleteBtn.innerHTML = icon('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>');
                 deleteBtn.addEventListener("click", () => {
                     const pos = getPos();
@@ -514,6 +542,7 @@ export const PdfBlock = TiptapNode.create({
             });
             /*
              * 블록을 클릭해 선택한 뒤의 ← → (확장의 `addKeyboardShortcuts` 가 보낸다).
+             * 편집 모드에서 포커스가 ProseMirror 에 있을 때의 경로다.
              * ⚠️ **한 장짜리면 손대지 않는다** — `preventDefault` 를 안 하면 확장이 `false` 를
              * 돌려주고, 화살표는 원래대로 블록 밖으로 빠져나가는 데 쓰인다.
              */
@@ -526,6 +555,54 @@ export const PdfBlock = TiptapNode.create({
                 e.preventDefault();
                 goToPage(currentPage + delta);
             });
+            /* 판에 포커스가 있을 때의 ← → — 읽기 화면을 포함해 두 모드 모두 여기로 온다. */
+            frame.addEventListener("keydown", (e) => {
+                // 조작부의 입력칸(쪽 번호)에서는 캐럿 이동이 우선이다.
+                if (e.target instanceof HTMLInputElement)
+                    return;
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight")
+                    return;
+                if (totalPages <= 1)
+                    return;
+                e.preventDefault();
+                e.stopPropagation();
+                goToPage(currentPage + (e.key === "ArrowLeft" ? -1 : 1));
+            });
+            /*
+             * **클릭이 곧 포커스**다 — 사용자가 기대하는 "한 번 누르고 방향키". 두 모드 모두
+             * 같은 방식이라야 동작을 설명할 수 있다.
+             *
+             * ⚠️ 조작부 버튼을 누를 때는 하지 않는다. 그 버튼들이 스스로 포커스를 가져가고,
+             * 여기서 뺏으면 연달아 누르기가 어긋난다.
+             */
+            frame.addEventListener("pointerdown", (e) => {
+                if (e.target instanceof Element && e.target.closest("[data-pdf-control]")) {
+                    return;
+                }
+                frame.focus({ preventScroll: true });
+            });
+            /*
+             * 편집 모드에서 판이 포커스를 쥐면 ProseMirror 는 포커스를 잃는다. 그러면
+             * **Backspace 로 블록을 지우는 길이 막히므로** 여기서 받아 준다.
+             * (읽기 모드에서는 지울 것이 없으니 손대지 않는다.)
+             */
+            if (editor.isEditable) {
+                frame.addEventListener("keydown", (e) => {
+                    if (e.target instanceof HTMLInputElement)
+                        return;
+                    if (e.key !== "Backspace" && e.key !== "Delete")
+                        return;
+                    e.preventDefault();
+                    const pos = getPos();
+                    if (pos == null)
+                        return;
+                    editor
+                        .chain()
+                        .focus()
+                        .deleteRange({ from: pos, to: pos + currentNode.nodeSize })
+                        .run();
+                });
+            }
             /*
              * ⚠️ **그리는 중에 들어온 요청을 버리면 안 된다.** 예전엔 `if (rendering) return` 으로
              * 그냥 흘려보냈는데, 폭 프리셋이나 창 크기 변경이 **직전 렌더가 끝나기 전에** 오면

@@ -299,11 +299,27 @@ describe('PdfBlock extension', () => {
                 .getJSON()
                 .content?.find((n) => n.type === 'pdfBlock')
                 ?.attrs?.width;
-            const fit = (title) => overlay.querySelector(`.pdf-fit[title="${title}"]`).click();
+            const fit = (name) => [...overlay.querySelectorAll('.pdf-fit')].find((b) => b.dataset.tip?.startsWith(name)).click();
             fit('너비에 맞춤');
             expect(width()).toBe('100%');
             fit('화면에 맞춤');
             expect(width()).toBe('fit');
+        });
+        /*
+         * 숫자·아이콘만으로는 무엇을 하는지 알 수 없다 — 호버 설명이 붙어 있어야 한다.
+         * (툴바 툴팁은 예전에 걷어냈으므로, 규칙이 `.pdf-overlay` 안에만 있는지도 함께 본다.)
+         */
+        it('explains the size controls on hover', async () => {
+            const { overlay } = await mountLoaded();
+            const tips = [...overlay.querySelectorAll('[data-tip]')].map((b) => b.dataset.tip ?? '');
+            expect(tips.some((t) => t.includes('원본 크기의 50%'))).toBe(true);
+            expect(tips.some((t) => t.startsWith('화면에 맞춤 —'))).toBe(true);
+            // 네이티브 툴팁과 겹치면 두 개가 뜬다.
+            expect(overlay.querySelector('.pdf-preset[title]')).toBeNull();
+            expect(overlay.querySelector('.pdf-fit[title]')).toBeNull();
+            const css = readFileSync('src/styles/editor.css', 'utf-8');
+            expect(css).toContain('.pdf-overlay [data-tip]::after');
+            expect(css).not.toContain('\n[data-tip]::after');
         });
         /* `fit` 은 CSS 로 못 쓰는 값이라 실제 폭으로 풀려 있어야 한다. */
         it('resolves fit-to-screen into a real width', async () => {
@@ -340,6 +356,32 @@ describe('PdfBlock extension', () => {
             const handled = editor.view.someProp('handleKeyDown', (f) => f(editor.view, new KeyboardEvent('keydown', { key: 'ArrowRight' })));
             expect(handled).toBeFalsy();
             PAGES.count = 3;
+        });
+        /*
+         * ⚠️ 정작 방향키가 필요한 곳은 **읽는 화면**이다. 거기엔 노드 선택도, 선택 테두리도
+         * 없으므로 키맵에 얹으면 성립하지 않는다 — 판이 포커스를 받아 직접 듣는다.
+         */
+        it('turns pages from the frame in read mode, where there is no selection', async () => {
+            const { frame, overlay } = await mountLoaded(PDF_HTML, false);
+            const counter = () => overlay.querySelector('.pdf-page')?.textContent;
+            expect(counter()).toBe('1 / 3');
+            // 읽기 화면에서는 클릭이 곧 포커스다.
+            frame.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+            expect(document.activeElement).toBe(frame);
+            const arrow = (key) => frame.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+            arrow('ArrowRight');
+            expect(counter()).toBe('2 / 3');
+            arrow('ArrowLeft');
+            expect(counter()).toBe('1 / 3');
+        });
+        /* 포커스를 받으려면 애초에 포커스 대상이어야 한다. */
+        it('makes the frame reachable by keyboard', async () => {
+            const { frame } = await mountLoaded(PDF_HTML, false);
+            expect(frame.tabIndex).toBe(0);
+            expect(frame.getAttribute('aria-label')).toContain('방향키');
+            const css = readFileSync('src/styles/editor.css', 'utf-8');
+            const rule = css.match(/\.pdf-frame:focus\s*\{[^}]*\}/)?.[0] ?? '';
+            expect(rule).toContain('var(--primary)');
         });
         it('marks the preset matching the stored width', async () => {
             const { overlay } = await mountLoaded(`<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="${Math.round(A4_WIDTH * 0.75)}px"></div>`);
