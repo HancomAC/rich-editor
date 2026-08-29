@@ -581,8 +581,15 @@ export const PdfBlock = TiptapNode.create({
                     const target = event.target;
                     return target instanceof Element && !!target.closest("[data-pdf-control]");
                 },
-                selectNode: () => { },
-                deselectNode: () => { },
+                /*
+                 * ⚠️ 여기 `selectNode`/`deselectNode` 를 빈 함수로 두면 안 된다.
+                 *
+                 * ProseMirror 는 이 훅이 **있으면** "노드뷰가 알아서 표시하겠다"로 보고
+                 * `ProseMirror-selectednode` 클래스를 **아예 붙이지 않는다.** 빈 함수라도 마찬가지라,
+                 * 선택 표시를 CSS 로 아무리 써도 매칭될 선택자가 생기지 않는다 — 편집 중 PDF 를
+                 * 클릭해도 아무 표시가 없던 이유가 이것이었다(사용자 지적).
+                 * 훅을 아예 두지 않으면 클래스 관리는 ProseMirror 가 한다.
+                 */
                 destroy: () => {
                     destroyed = true;
                     clearTimeout(resizeTimeout);
