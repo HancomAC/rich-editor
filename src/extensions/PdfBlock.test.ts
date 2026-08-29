@@ -376,6 +376,44 @@ describe('PdfBlock extension', () => {
 			expect(legacy).toContain(":not([data-type='pdfBlock'])");
 		});
 
+		/*
+		 * ⚠️ 맞춤 둘은 **고정 px 로 굳히면 안 된다.** 그러면 저자 화면에서만 맞고 좁은
+		 * 화면으로 보는 사람에겐 의미가 없다. 지시자로 저장하고 보는 쪽에서 푼다.
+		 */
+		it('stores the fit modes as directives, not a frozen pixel size', async () => {
+			const { overlay } = await mountLoaded();
+			const width = () =>
+				editor
+					.getJSON()
+					.content?.find((n: Record<string, unknown>) => n.type === 'pdfBlock')
+					?.attrs?.width;
+			const fit = (title: string) =>
+				(overlay.querySelector(`.pdf-fit[title="${title}"]`) as HTMLButtonElement).click();
+
+			fit('너비에 맞춤');
+			expect(width()).toBe('100%');
+			fit('화면에 맞춤');
+			expect(width()).toBe('fit');
+		});
+
+		/* `fit` 은 CSS 로 못 쓰는 값이라 실제 폭으로 풀려 있어야 한다. */
+		it('resolves fit-to-screen into a real width', async () => {
+			await mountLoaded(
+				'<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="fit"></div>'
+			);
+			const block = editor.view.dom.querySelector(
+				'[data-type="pdfBlock"]'
+			) as HTMLElement;
+			expect(block.style.width).not.toBe('fit');
+			expect(block.style.width).toMatch(/^\d+px$/);
+			// 한 장이 창에 들어가야 하므로 높이 기준으로 나온 폭이다.
+			const usable = Math.max(240, window.innerHeight * 0.82);
+			expect(Number.parseFloat(block.style.width)).toBeCloseTo(
+				A4_WIDTH * (usable / 841.89),
+				0
+			);
+		});
+
 		it('marks the preset matching the stored width', async () => {
 			const { overlay } = await mountLoaded(
 				`<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="${Math.round(A4_WIDTH * 0.75)}px"></div>`

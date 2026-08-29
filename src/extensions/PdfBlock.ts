@@ -109,7 +109,7 @@ export const PdfBlock = TiptapNode.create({
       dom.style.position = "relative";
       dom.style.boxSizing = "border-box";
       dom.style.maxWidth = "100%";
-      if (node.attrs.width) dom.style.width = node.attrs.width;
+      // 초기 폭은 `applyWidth` 를 선언한 뒤에 먹인다(그 전에 부르면 TDZ 다).
 
       const frame = document.createElement("div");
       frame.className = "pdf-frame";
@@ -191,19 +191,71 @@ export const PdfBlock = TiptapNode.create({
        * 세로형에는 595px, 가로형에는 842px 을 준다 — 글자 크기가 같으니 맞는 결과다.
        * (폭 기준이던 시절 세로형이 부당하게 커 보이던 것이 이래서였다.)
        *
-       * ⚠️ `폭맞춤`(칼럼 채우기)은 **일부러 뺐다.** 1378px 칼럼에서 세로형에 걸면 배율
-       * 231%, 높이 1950px 로 화면 밖으로 나간다 — 저자 의도가 아니라 우연히 나오는 값이다.
+       * 그 옆에 **맞춤 두 가지**가 따로 있다. 배율은 "글자를 이만큼 크게"이고 맞춤은
+       * "이 상자에 딱 들어가게"라 축이 다르다 — 그래서 고정 px 이 아니라 **지시자**로
+       * 저장하고, 보는 쪽에서 그때그때 푼다:
+       *
+       *   너비 맞춤  `100%` — CSS 가 알아서 칼럼을 채운다. 별도 계산이 없다.
+       *   화면 맞춤  `fit`  — 한 장이 창 높이에 들어가는 폭. 창마다 다르므로 JS 로 푼다.
+       *
+       * ⚠️ 이 둘을 **클릭 시점의 px 로 굳히면 안 된다.** 그러면 저자 화면에서만 맞고
+       * 좁은 화면으로 보는 사람에겐 아무 의미가 없다. 맞춤은 본디 보는 쪽 사정이다.
+       * (한때 칼럼 채우기를 아예 뺐던 건 그게 **기본 의미**여서였다 — 저자가 고르지도
+       * 않았는데 세로형이 배율 231%·높이 1950px 이 됐다. 이름 붙은 선택지로는 정당하다.)
        */
       const PRESET_IDLE = "pdf-preset";
       const PRESET_ACTIVE = "pdf-preset is-active";
       const ZOOMS = [0.5, 0.75, 1, 1.5];
-      const presetButtons: { zoom: number; el: HTMLButtonElement }[] = [];
+      /** 저장값이 이것이면 창 높이에 맞춰 푼다. */
+      const FIT_SCREEN = "fit";
+      /** 저장값이 이것이면 CSS 가 칼럼을 채운다. */
+      const FIT_WIDTH = "100%";
+      type Preset = { el: HTMLButtonElement; zoom?: number; value?: string };
+      const presetButtons: Preset[] = [];
 
-      /** 페이지 원본 폭(CSS px). PDF 를 읽기 전에는 모른다. */
+      /** 페이지 원본 크기(CSS px). PDF 를 읽기 전에는 모른다. */
       let naturalWidth = 0;
+      let naturalHeight = 0;
       /** 배율 → 저장할 px. 원본 폭을 아직 모르면 `null`. */
       const zoomToWidth = (zoom: number): string | null =>
         naturalWidth > 0 ? `${Math.round(naturalWidth * zoom)}px` : null;
+
+      /**
+       * 저장값을 실제 `width` 로 푼다.
+       *
+       * `fit` 만 계산이 필요하다 — 한 장이 창에 들어가려면 **높이**가 기준이므로
+       * `원본폭 × (쓸 수 있는 높이 / 원본높이)` 다. 82vh 는 위쪽 고정 크롬(정올 실측
+       * 113px)과 아래 여백을 뺀 어림값이고, 칼럼보다 넓어질 일은 `max-width: 100%` 가 막는다.
+       */
+      const applyWidth = (raw: string | null) => {
+        if (raw !== FIT_SCREEN) {
+          dom.style.width = raw || "";
+          return;
+        }
+        if (naturalWidth <= 0 || naturalHeight <= 0) {
+          dom.style.width = "";
+          return;
+        }
+        const usable = Math.max(240, window.innerHeight * 0.82);
+        dom.style.width = `${Math.round(naturalWidth * (usable / naturalHeight))}px`;
+      };
+      // `fit` 는 원본 크기를 읽은 뒤에야 풀린다 — 로드 후 다시 부른다.
+      applyWidth((node.attrs.width as string | null) ?? null);
+
+      /*
+       * 창 높이가 바뀌면 `화면에 맞춤` 만 다시 푼다. 다른 값은 창과 무관하고,
+       * 폭 변화는 `ResizeObserver` 가 이미 잡는다.
+       */
+      const onViewportResize = () => {
+        if ((currentNode.attrs.width as string | null) !== FIT_SCREEN) return;
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (destroyed) return;
+          applyWidth(FIT_SCREEN);
+          renderPage();
+        }, 100);
+      };
+      window.addEventListener("resize", onViewportResize);
 
       if (editor.isEditable) {
         /*
@@ -238,6 +290,46 @@ export const PdfBlock = TiptapNode.create({
           endCluster.appendChild(btn);
           presetButtons.push({ zoom, el: btn });
         }
+
+        /*
+         * 맞춤 둘은 **아이콘**이다. 배율 칩 넷에 글자 칩 둘을 더하면 가장 좁은 50%
+         * (세로형 298px)에서 줄이 넘친다 — 아이콘이면 칩 하나 값이면 된다.
+         */
+        const FITS: { value: string; title: string; paths: string }[] = [
+          {
+            value: FIT_WIDTH,
+            title: "너비에 맞춤",
+            paths:
+              '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/>'
+          },
+          {
+            value: FIT_SCREEN,
+            title: "화면에 맞춤",
+            paths:
+              '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
+          }
+        ];
+        for (const fit of FITS) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "pdf-ctl pdf-fit";
+          btn.title = fit.title;
+          btn.setAttribute("aria-label", fit.title);
+          btn.innerHTML = icon(fit.paths);
+          btn.disabled = true;
+          btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          });
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setAttrs({ width: fit.value });
+          });
+          endCluster.appendChild(btn);
+          presetButtons.push({ value: fit.value, el: btn });
+        }
+
         const divider = document.createElement("div");
         divider.className = "pdf-divider";
         endCluster.appendChild(divider);
@@ -246,17 +338,28 @@ export const PdfBlock = TiptapNode.create({
       /**
        * 현재 `width` 와 같은 프리셋을 눌린 상태로 만든다.
        *
-       * ⚠️ 문자열 비교로는 안 된다. 저장값이 `"893px"` 처럼 계산된 px 라 반올림 오차가
-       * 있고, 손잡이로 끌면 아무 px 이나 들어온다. 1px 여유로 견준다.
+       * ⚠️ 배율 칩은 문자열 비교로는 안 된다. 저장값이 `"893px"` 처럼 계산된 px 라 반올림
+       * 오차가 있고, 손잡이로 끌면 아무 px 이나 들어온다. 1px 여유로 견준다.
+       * 맞춤 둘은 지시자라 그냥 같은 값인지만 본다.
+       *
        * 옛 문서의 `"50%"` 같은 값은 어느 칩과도 안 맞는다 — **그대로 두는 게 맞다.**
-       * 저자가 다시 고를 때까지 예전 크기로 렌더되고, 스키마는 건드리지 않는다.
+       * (`"100%"` 만은 이제 `너비에 맞춤` 과 같은 값이라 자연스럽게 눌린 것으로 잡힌다.)
        */
       const syncPresets = (width: string | null) => {
         const px = width?.endsWith("px") ? Number.parseFloat(width) : NaN;
-        for (const { zoom, el } of presetButtons) {
-          const target = naturalWidth > 0 ? naturalWidth * zoom : NaN;
-          const on = Number.isFinite(px) && Math.abs(px - target) <= 1;
-          el.className = on ? PRESET_ACTIVE : PRESET_IDLE;
+        for (const { zoom, value, el } of presetButtons) {
+          const on =
+            value !== undefined
+              ? width === value
+              : Number.isFinite(px) &&
+                naturalWidth > 0 &&
+                Math.abs(px - naturalWidth * (zoom as number)) <= 1;
+          const base = value !== undefined ? "pdf-ctl pdf-fit" : PRESET_IDLE;
+          el.className = on
+            ? value !== undefined
+              ? `${base} is-active`
+              : PRESET_ACTIVE
+            : base;
           el.setAttribute("aria-pressed", on ? "true" : "false");
         }
       };
@@ -516,8 +619,12 @@ export const PdfBlock = TiptapNode.create({
            */
           const firstPage = await pdfDoc.getPage(1);
           if (destroyed) return;
-          naturalWidth = firstPage.getViewport({ scale: 1 }).width;
+          const vp1 = firstPage.getViewport({ scale: 1 });
+          naturalWidth = vp1.width;
+          naturalHeight = vp1.height;
           for (const { el } of presetButtons) el.disabled = false;
+          // `fit` 는 여기서 처음으로 풀린다.
+          applyWidth((currentNode.attrs.width as string | null) ?? null);
           syncPresets((currentNode.attrs.width as string | null) ?? null);
 
           statusDiv.style.display = "none";
@@ -591,7 +698,7 @@ export const PdfBlock = TiptapNode.create({
           if (updatedNode.type.name !== "pdfBlock") return false;
           const newWidth = updatedNode.attrs.width as string | null;
           const changed = newWidth !== (currentNode.attrs.width as string | null);
-          if (changed) dom.style.width = newWidth || "";
+          if (changed) applyWidth(newWidth);
           currentNode = updatedNode;
           syncPresets(newWidth ?? null);
           /*
@@ -626,6 +733,7 @@ export const PdfBlock = TiptapNode.create({
           destroyed = true;
           clearTimeout(resizeTimeout);
           resizeObserver?.disconnect();
+          window.removeEventListener("resize", onViewportResize);
           detachResize?.();
         },
       };
