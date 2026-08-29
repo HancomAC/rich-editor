@@ -247,6 +247,32 @@ describe('PdfBlock extension', () => {
             PAGE.w = A4_WIDTH;
             PAGE.h = A4_LANDSCAPE_WIDTH;
         });
+        /*
+         * ⚠️ **`selectNode`/`deselectNode` 훅을 두면 안 된다.** ProseMirror 는 그 훅이 있으면
+         * "노드뷰가 알아서 표시한다"고 보고 `ProseMirror-selectednode` 클래스를 **아예 안
+         * 붙인다.** 빈 함수여도 마찬가지라, 선택 테두리를 CSS 로 써도 매칭될 선택자가 생기지
+         * 않는다 — 편집 중 PDF 를 클릭해도 아무 표시가 없던 이유였다(사용자 지적).
+         */
+        it('lets ProseMirror mark the block as selected', async () => {
+            await mountLoaded();
+            editor.commands.setNodeSelection(0);
+            const dom = editor.view.dom.querySelector('[data-type="pdfBlock"]');
+            expect(dom?.classList.contains('ProseMirror-selectednode')).toBe(true);
+        });
+        /* 그 클래스에 실제로 브랜드색 테두리가 걸려 있어야 의미가 있다. */
+        it('rings the selected media blocks in the brand colour', () => {
+            const css = readFileSync('src/styles/editor.css', 'utf-8');
+            const rule = css.match(/\.tiptap\[contenteditable='true'\] img\.ProseMirror-selectednode[^{]*\{[^}]*\}/)?.[0] ?? '';
+            expect(rule).toContain('var(--primary)');
+            expect(rule).toContain('outline');
+            // PDF·영상도 같은 규칙에 들어 있어야 한다.
+            for (const type of ['pdfBlock', 'mbusVideo', 'videoEmbed']) {
+                expect(rule).toContain(`[data-type='${type}'].ProseMirror-selectednode`);
+            }
+            // 예전 하이라이트는 이것들을 제외해야 두 겹이 되지 않는다.
+            const legacy = css.match(/\.ProseMirror-selectednode:not\(img\)[^{]*\{/)?.[0] ?? '';
+            expect(legacy).toContain(":not([data-type='pdfBlock'])");
+        });
         it('marks the preset matching the stored width', async () => {
             const { overlay } = await mountLoaded(`<div data-pdf-src="https://example.com/doc.pdf" data-pdf-width="${Math.round(A4_WIDTH * 0.75)}px"></div>`);
             const active = overlay.querySelector('.pdf-preset.is-active');
