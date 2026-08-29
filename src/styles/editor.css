@@ -1101,7 +1101,12 @@
 .tiptap[contenteditable='true'] [data-type='pdfBlock'].ProseMirror-selectednode,
 .tiptap[contenteditable='true'] [data-type='mbusVideo'].ProseMirror-selectednode,
 .tiptap[contenteditable='true'] [data-type='videoEmbed'].ProseMirror-selectednode {
-  outline: 2px solid var(--primary);
+  /*
+   * 1px 이다. 선택은 **지금 이걸 만지고 있다**는 신호일 뿐이라 얇아도 선다 — 굵히면
+   * 내용보다 테두리가 먼저 읽힌다. 대신 `outline-offset` 으로 판에서 2px 떼어
+   * 판 자신의 테두리와 섞이지 않게 한다.
+   */
+  outline: 1px solid var(--primary);
   outline-offset: 2px;
   /* 판 자체의 라운드와 맞춘다 — 없으면 둥근 판에 각진 테두리가 둘린다. */
   border-radius: 8px;
