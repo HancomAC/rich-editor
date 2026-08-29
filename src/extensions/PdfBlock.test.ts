@@ -11,13 +11,17 @@ import { PdfBlock } from './PdfBlock';
  * 파일 맨 위로 끌어올려져서 보통 `const` 는 아직 초기화 전이다).
  */
 const PAGE = vi.hoisted(() => ({ w: 595.28, h: 841.89 }));
+// 쪽수도 테스트마다 바꿀 수 있어야 한다(화살표가 마지막 장에서 어떻게 되는지 보려면).
+const PAGES = vi.hoisted(() => ({ count: 3 }));
 const A4_WIDTH = 595.28;
 const A4_LANDSCAPE_WIDTH = 841.89;
 vi.mock('../utils/pdf', () => ({
 	getPdfJs: async () => ({
 		getDocument: () => ({
 			promise: Promise.resolve({
-				numPages: 3,
+				get numPages() {
+					return PAGES.count;
+				},
 				getPage: async () => ({
 					getViewport: ({ scale }: { scale: number }) => ({
 						width: PAGE.w * scale,
@@ -412,6 +416,42 @@ describe('PdfBlock extension', () => {
 				A4_WIDTH * (usable / 841.89),
 				0
 			);
+		});
+
+		/*
+		 * 블록을 골라 두면 ← → 로 쪽을 넘긴다. 본문을 쓰다 우연히 넘어가면 안 되므로
+		 * **선택돼 있을 때만** 듣는다.
+		 */
+		it('turns pages with the arrow keys once the block is selected', async () => {
+			const { overlay } = await mountLoaded();
+			const counter = () => overlay.querySelector('.pdf-page')?.textContent;
+			expect(counter()).toBe('1 / 3');
+
+			editor.commands.setNodeSelection(0);
+			editor.view.someProp('handleKeyDown', (f) =>
+				f(editor.view, new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+			);
+			expect(counter()).toBe('2 / 3');
+
+			editor.view.someProp('handleKeyDown', (f) =>
+				f(editor.view, new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
+			);
+			expect(counter()).toBe('1 / 3');
+		});
+
+		/*
+		 * ⚠️ 처리하지 못한 화살표는 **삼키면 안 된다.** atom 노드에서 좌우 화살표는
+		 * 블록 밖으로 빠져나가는 길이라, 한 장짜리 PDF 에서 삼키면 갇힌다.
+		 */
+		it('lets the arrow key through when there is nothing to turn to', async () => {
+			PAGES.count = 1;
+			await mountLoaded();
+			editor.commands.setNodeSelection(0);
+			const handled = editor.view.someProp('handleKeyDown', (f) =>
+				f(editor.view, new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+			);
+			expect(handled).toBeFalsy();
+			PAGES.count = 3;
 		});
 
 		it('marks the preset matching the stored width', async () => {

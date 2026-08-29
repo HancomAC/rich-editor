@@ -1,7 +1,14 @@
 import { Node as TiptapNode, mergeAttributes } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import { getPdfJs } from "../utils/pdf";
 import { attachResize } from "../utils/resize";
 import type { FileResolver } from "./FileAttachment";
+
+/**
+ * 방향키 → 쪽 넘김. 노드뷰가 쪽 상태를 쥐고 있으므로 **이벤트로 건넨다** —
+ * 확장이 노드뷰 내부를 직접 들여다보지 않게 하는 게 목적이다.
+ */
+const PAGE_EVENT = "hce-pdf-page";
 
 export const PdfBlock = TiptapNode.create({
   name: "pdfBlock",
@@ -552,6 +559,19 @@ export const PdfBlock = TiptapNode.create({
       });
 
       /*
+       * 블록을 클릭해 선택한 뒤의 ← → (확장의 `addKeyboardShortcuts` 가 보낸다).
+       * ⚠️ **한 장짜리면 손대지 않는다** — `preventDefault` 를 안 하면 확장이 `false` 를
+       * 돌려주고, 화살표는 원래대로 블록 밖으로 빠져나가는 데 쓰인다.
+       */
+      dom.addEventListener(PAGE_EVENT, (e) => {
+        if (totalPages <= 1) return;
+        const delta = (e as CustomEvent<{ delta: number }>).detail?.delta ?? 0;
+        if (!delta) return;
+        e.preventDefault();
+        goToPage(currentPage + delta);
+      });
+
+      /*
        * ⚠️ **그리는 중에 들어온 요청을 버리면 안 된다.** 예전엔 `if (rendering) return` 으로
        * 그냥 흘려보냈는데, 폭 프리셋이나 창 크기 변경이 **직전 렌더가 끝나기 전에** 오면
        * 그 요청이 통째로 사라져 캔버스가 옛 크기에 머문다(다음 렌더까지 아무도 다시
@@ -738,6 +758,33 @@ export const PdfBlock = TiptapNode.create({
         },
       };
     };
+  },
+
+  /*
+   * ← → 로 쪽을 넘긴다. **한 번 클릭해 블록이 선택된 상태**에서만 듣는다 — 그래야
+   * 본문을 쓰다가 우연히 넘어가지 않고, 선택 테두리가 곧 "지금 이게 듣는다"는 표시가 된다.
+   *
+   * ⚠️ 처리하지 못했으면 반드시 `false` 를 돌려준다. atom 노드에서 좌우 화살표는
+   * ProseMirror 가 **블록 밖으로 빠져나가는 길**로 쓰는데, 무조건 삼키면 한 장짜리
+   * PDF 에 갇힌다. 노드뷰가 실제로 넘겼을 때만(`preventDefault`) 삼킨다.
+   */
+  addKeyboardShortcuts() {
+    const step = (delta: number) => () => {
+      const { state, view } = this.editor;
+      const sel = state.selection;
+      if (!(sel instanceof NodeSelection) || sel.node.type.name !== this.name) {
+        return false;
+      }
+      const dom = view.nodeDOM(sel.from);
+      if (!(dom instanceof HTMLElement)) return false;
+      const event = new CustomEvent(PAGE_EVENT, {
+        detail: { delta },
+        cancelable: true,
+      });
+      dom.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    return { ArrowLeft: step(-1), ArrowRight: step(1) };
   },
 
   addStorage() {
