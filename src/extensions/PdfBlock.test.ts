@@ -343,6 +343,20 @@ describe('PdfBlock extension', () => {
 			expect(dom?.classList.contains('ProseMirror-selectednode')).toBe(true);
 		});
 
+		/*
+		 * ⚠️ 읽기 전용 뷰에서도 선택은 생긴다. 내용이 atom 으로 시작하면 **처음부터 그
+		 * 노드에 선택이 얹히고**, 클릭이 없으니 영영 안 풀린다. 그래서 PDF 로 시작하는
+		 * 댓글에서 조작부가 상시 떠 있었다(사용자 지적: prod 실측). 여는 조건은 편집
+		 * 모드로 못 박혀 있어야 한다.
+		 */
+		it('only opens the overlay for a selected node while editing', () => {
+			const css = readFileSync('src/styles/editor.css', 'utf-8');
+			const rule =
+				css.match(/[^}]*\.pdf-overlay\s*\{\s*opacity:\s*1;\s*\}/)?.[0] ?? '';
+			expect(rule).toContain('ProseMirror-selectednode');
+			expect(rule).toContain("contenteditable='true'");
+		});
+
 		/* 그 클래스에 실제로 브랜드색 테두리가 걸려 있어야 의미가 있다. */
 		it('rings the selected media blocks in the brand colour', () => {
 			const css = readFileSync('src/styles/editor.css', 'utf-8');
