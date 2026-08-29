@@ -107,7 +107,7 @@ describe('PdfBlock extension', () => {
         });
         it('gives editors the width presets and delete', () => {
             const { overlay } = mount();
-            expect([...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)).toEqual(['50%', '75%', '100%']);
+            expect([...overlay.querySelectorAll('.pdf-preset')].map((b) => b.textContent)).toEqual(['25%', '50%', '75%', '100%']);
             expect(overlay.querySelector('.pdf-ctl-danger')).toBeTruthy();
         });
         it('hides authoring controls from readers but keeps the file actions', () => {
@@ -140,8 +140,9 @@ describe('PdfBlock extension', () => {
         });
         it('writes the width attribute when a preset is clicked', () => {
             const { overlay } = mount();
-            const presets = [...overlay.querySelectorAll('.pdf-preset')];
-            presets[0].click();
+            // 라벨로 찾는다 — 순서가 바뀌어도 무엇을 눌렀는지가 흔들리지 않게.
+            const preset = [...overlay.querySelectorAll('.pdf-preset')].find((b) => b.textContent === '50%');
+            preset.click();
             const pdfNode = editor
                 .getJSON()
                 .content?.find((n) => n.type === 'pdfBlock');
