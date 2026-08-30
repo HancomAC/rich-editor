@@ -1,15 +1,11 @@
 <script lang="ts">
   import type { Attachment } from "svelte/attachments";
   import { createRawSnippet } from "svelte";
-  import type { AnyExtension } from "@tiptap/core";
-  import { createStaticRenderer } from "tiptap-static";
-  import { FileAttachment, type FileResolver } from "../extensions/FileAttachment";
-  import { PdfBlock } from "../extensions/PdfBlock";
-  import { MbusVideo } from "../extensions/MbusVideo";
-  import { VideoEmbed } from "../extensions/VideoEmbed";
-  import { CardBlock } from "../extensions/CardBlock";
-  import { MathInline, MathDisplay } from "../extensions/Math";
+  import { createHydrator } from "tiptap-static/hydrate";
+  import { sanitizeTiptapHTML } from "tiptap-static";
   import { transformLegacyHtml } from "../utils/sanitize";
+  import { createBuiltinStaticNodes } from "../static/builtin-nodes";
+  import { planAsExtension } from "../static/plan-extension";
   import { createStaticSanitizePolicy } from "../static/policy";
   import { isTiptapHtmlEmpty } from "../static/empty";
   import type { StaticTipTapProps } from "../types";
@@ -36,27 +32,24 @@
   };
 
   const extensions = $derived.by(() => {
-    const defaults: AnyExtension[] = [
-      PdfBlock,
-      FileAttachment.configure({
-        resolver: (onResolveFile as FileResolver | undefined) ?? null,
-        ...(fileDownloadBaseUrl ? { downloadBaseUrl: fileDownloadBaseUrl } : {}),
-      }),
-      MbusVideo,
-      VideoEmbed,
-      CardBlock,
-      MathInline,
-      MathDisplay,
-    ];
-    const customNames = new Set(extraExtensions.map((extension) => extension.name));
-    return [...defaults.filter((extension) => !customNames.has(extension.name)), ...extraExtensions];
+    return extraExtensions;
   });
+  const nodes = $derived(createBuiltinStaticNodes({
+    resolver: onResolveFile,
+    downloadBaseUrl: fileDownloadBaseUrl,
+  }));
   const policy = $derived(createStaticSanitizePolicy(sanitize));
   const source = $derived(transformLegacyHtml(content));
-  const renderer = $derived(
-    createStaticRenderer({ extensions, rawNodeViews: true, sanitize: policy }),
+  const sanitizeExtensions = $derived.by(() => {
+    const customNames = new Set(extensions.map((extension) => extension.name));
+    return [
+      ...nodes.filter((node) => !customNames.has(node.name)).map(planAsExtension),
+      ...extensions,
+    ];
+  });
+  const sanitized = $derived(
+    sanitizeTiptapHTML(source, sanitizeExtensions, policy),
   );
-  const sanitized = $derived(renderer.sanitize(source));
   const sanitizedSnippet = $derived.by(() => {
     const html = sanitized;
     return createRawSnippet(() => ({ render: () => html }));
@@ -65,12 +58,29 @@
 
   $effect(() => {
     if (!target) return;
-    const session = renderer.mount(target, source);
-    ref = session;
-    loaded = true;
+    const element = target;
+    let active = true;
+    let session: { destroy(): void } | undefined;
+    loaded = false;
+    ref = null;
+
+    if (extensions.length > 0) {
+      void import("../static/full").then(({ createFullStaticRenderer }) => {
+        if (!active) return;
+        session = createFullStaticRenderer(nodes, extensions, policy).mount(element, sanitized);
+        ref = session;
+        loaded = true;
+      });
+    } else {
+      session = createHydrator({ nodes }).mount(element, sanitized);
+      ref = session;
+      loaded = true;
+    }
+
     return () => {
-      session.destroy();
-      if (ref === session) ref = null;
+      active = false;
+      session?.destroy();
+      ref = null;
       loaded = false;
     };
   });
@@ -103,6 +113,91 @@
   .hce-static-content :global(iframe),
   .hce-static-content :global(embed) {
     max-width: 100%;
+  }
+
+  .hce-static-content :global(input[type="checkbox"]) {
+    pointer-events: none;
+  }
+
+  .hce-static-content :global(.hce-static-file) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 400px;
+    margin: 8px 0;
+    padding: 8px 14px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    background: var(--muted, #f7fafc);
+  }
+
+  .hce-static-content :global(.hce-static-file-icon) {
+    flex-shrink: 0;
+    font-size: 22px;
+  }
+
+  .hce-static-content :global(.hce-static-file-name) {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--primary, #4a7dac);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hce-static-content :global(.hce-static-file-size) {
+    flex-shrink: 0;
+    color: var(--muted-foreground, #718096);
+    font-size: 12px;
+  }
+
+  .hce-static-content :global(.hce-static-media),
+  .hce-static-content :global(.hce-static-pdf) {
+    box-sizing: border-box;
+    max-width: 100%;
+    margin: 8px 0;
+  }
+
+  .hce-static-content :global(.hce-static-media-frame) {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #0b1020;
+  }
+
+  .hce-static-content :global(.hce-static-media-frame iframe) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .hce-static-content :global(.hce-static-pdf embed) {
+    display: block;
+    width: 100%;
+    min-height: 480px;
+    margin-top: 8px;
+  }
+
+  .hce-static-content :global(.hce-card-frame) {
+    box-sizing: border-box;
+    overflow: auto;
+    border-radius: 12px;
+  }
+
+  .hce-static-content :global(.hce-card-content) {
+    padding: 20px;
+  }
+
+  .hce-static-content :global(.math-source) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   .hce-static-content :global(table) {

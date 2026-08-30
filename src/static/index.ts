@@ -1,5 +1,7 @@
 export { default as StaticTipTap } from "../components/StaticTipTap.svelte";
 export { createStaticSanitizePolicy } from "./policy";
+export { builtinStaticNodes, createBuiltinStaticNodes } from "./builtin-nodes";
+export type { BuiltinStaticNodeOptions, StaticFileResolver } from "./builtin-nodes";
 export type { StaticTipTapProps } from "../types";
 export type {
   StaticHydrationMatch,
