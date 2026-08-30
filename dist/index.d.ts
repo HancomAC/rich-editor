@@ -1,4 +1,5 @@
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
+export { default as StaticTipTap } from "./components/StaticTipTap.svelte";
 export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
 export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
 export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
@@ -22,7 +23,11 @@ export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";
 export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
+export { createStaticSanitizePolicy } from "./static/policy";
+export type { StaticHydrationMatch, StaticHydrationNodeType, StaticHydrationRule, StaticNodePlan, } from "tiptap-static/hydrate";
+export type { StaticNodeViewProps } from "tiptap-static/protocol";
+export type { StaticSanitizeOptions } from "tiptap-static";
 export { lowlight, CODE_LANGUAGES } from "./utils/lowlight";
-export type { TipTapEditorProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, SlashMenuItem, } from "./types";
+export type { TipTapEditorProps, StaticTipTapProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, SlashMenuItem, } from "./types";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
 //# sourceMappingURL=index.d.ts.map

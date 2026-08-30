@@ -1,6 +1,6 @@
 {
   "name": "@teriusu/rich-editor",
-  "version": "0.9.13",
+  "version": "0.10.0",
   "description": "TipTap 기반 Notion-style 리치 텍스트 에디터 (Svelte)",
   "type": "module",
   "svelte": "./dist/index.js",
@@ -14,6 +14,11 @@
     "./lowlight": {
       "types": "./dist/utils/lowlight.d.ts",
       "default": "./dist/utils/lowlight.js"
+    },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "svelte": "./dist/static/index.js",
+      "default": "./dist/static/index.js"
     },
     "./styles": {
       "style": "./dist/styles/editor.css",
@@ -30,7 +35,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "svelte": "^5.0.0"
+    "svelte": "^5.29.0"
   },
   "dependencies": {
     "@tiptap/core": "^3.20.4",
@@ -68,7 +73,8 @@
     "katex": "^0.16.45",
     "lowlight": "^3.3.0",
     "lucide-svelte": "^0.477.0",
-    "tailwind-merge": "^3.0.0"
+    "tailwind-merge": "^3.0.0",
+    "tiptap-static": "0.1.0"
   },
   "devDependencies": {
     "@sveltejs/package": "^2.3.0",
@@ -76,7 +82,7 @@
     "autoprefixer": "^10.4.27",
     "happy-dom": "^20.9.0",
     "postcss": "^8.5.9",
-    "svelte": "^5.0.0",
+    "svelte": "^5.29.0",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",

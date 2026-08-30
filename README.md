@@ -37,6 +37,24 @@ Tailwind CSS v4 사용 시 `@source` 추가:
 />
 ```
 
+### 읽기 전용 정적 렌더링
+
+조회 화면에서는 전체 TipTap `Editor` 대신 `StaticTipTap`을 사용할 수 있습니다. 저장 HTML은
+`tiptap-static`으로 정화되며, PDF·파일·영상·카드·수식 NodeView는 편집기 없이 복원됩니다.
+
+```svelte
+<script>
+  import { StaticTipTap } from '@teriusu/rich-editor/static';
+  import '@teriusu/rich-editor/styles';
+</script>
+
+<StaticTipTap content={post.content} placeholder="내용이 없습니다." />
+```
+
+앱 전용 TipTap 확장이 있으면 `extensions`로 넘길 수 있고, 추가 태그나 속성은 `sanitize`로
+명시적으로 허용할 수 있습니다. `iframe`, `embed`, `object` 같은 active content는 기본적으로
+허용되지 않습니다.
+
 ## Props
 
 | Prop | 타입 | 기본값 | 설명 |
