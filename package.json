@@ -15,6 +15,11 @@
       "types": "./dist/utils/lowlight.d.ts",
       "default": "./dist/utils/lowlight.js"
     },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "svelte": "./dist/static/index.js",
+      "default": "./dist/static/index.js"
+    },
     "./styles": {
       "style": "./dist/styles/editor.css",
       "default": "./dist/styles/editor.css"
@@ -68,7 +73,8 @@
     "katex": "^0.16.45",
     "lowlight": "^3.3.0",
     "lucide-svelte": "^0.477.0",
-    "tailwind-merge": "^3.0.0"
+    "tailwind-merge": "^3.0.0",
+    "tiptap-static": "0.1.0"
   },
   "devDependencies": {
     "@sveltejs/package": "^2.3.0",

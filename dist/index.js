@@ -1,5 +1,6 @@
 // 컴포넌트
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
+export { default as StaticTipTap } from "./components/StaticTipTap.svelte";
 export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
 export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
 export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
@@ -21,6 +22,7 @@ export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/s
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";
 export { cn } from "./utils/cn";
+export { createStaticSanitizePolicy } from "./static/policy";
 /*
  * 코드 하이라이터. **소비 앱도 이걸 가져다 쓴다** — 앱이 따로 `createLowlight(all)` 을
  * 부르면 언어 목록이 두 벌이 되고(번들에도 두 벌), 어느 쪽을 고쳐야 하는지 흐려진다.
