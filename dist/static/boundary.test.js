@@ -10,6 +10,7 @@ describe("static package boundary", () => {
         ]);
         expect(component).not.toContain('from "../extensions/');
         expect(component).not.toContain("createStaticRenderer");
+        expect(component).toContain('import "katex/dist/katex.css"');
         expect(builtins).not.toContain("@tiptap/core");
         expect(builtins).not.toContain("@tiptap/pm");
     });
