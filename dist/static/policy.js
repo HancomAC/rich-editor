@@ -149,6 +149,27 @@ export function createStaticSanitizePolicy(overrides = {}) {
             };
         }
     }
+    const requestedInputTransform = overrides.transformTags?.input ?? overrides.transformTags?.["*"];
+    const transformTags = {
+        ...(overrides.transformTags ?? {}),
+        input(tagName, attributes) {
+            let transformedTagName = tagName;
+            let transformedAttributes = { ...attributes };
+            if (typeof requestedInputTransform === "string") {
+                transformedTagName = requestedInputTransform;
+            }
+            else if (requestedInputTransform) {
+                const transformed = requestedInputTransform(tagName, transformedAttributes);
+                transformedTagName = transformed.tagName;
+                transformedAttributes = { ...transformed.attribs };
+            }
+            if (transformedTagName.toLowerCase() === "input" &&
+                transformedAttributes.type?.toLowerCase() === "checkbox") {
+                transformedAttributes.disabled = "disabled";
+            }
+            return { tagName: transformedTagName, attribs: transformedAttributes };
+        },
+    };
     return {
         ...overrides,
         allowedTags: overrides.allowedTags === false
@@ -157,6 +178,7 @@ export function createStaticSanitizePolicy(overrides = {}) {
         allowedAttributes: mergeAttributes(overrides.allowedAttributes),
         allowedStyles,
         attributeValidators,
+        transformTags,
         allowActiveContentTags: [...new Set(overrides.allowActiveContentTags ?? [])],
     };
 }

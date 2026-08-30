@@ -48,7 +48,7 @@ describe("createStaticSanitizePolicy", () => {
 
   it("preserves read-only task list state", () => {
     const html = sanitizeTiptapHTML(
-      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked" disabled="disabled"><span></span></label><div><p>done</p></div></li></ul>',
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked"><span></span></label><div><p>done</p></div></li></ul>',
       [],
       createStaticSanitizePolicy(),
     );
@@ -57,6 +57,31 @@ describe("createStaticSanitizePolicy", () => {
     expect(html).toContain('<li data-type="taskItem" data-checked="true">');
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('checked="checked"');
+    expect(html).toContain('disabled="disabled"');
+
+    const target = document.createElement("div");
+    target.innerHTML = html;
+    const checkbox = target.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    target.querySelector("label")?.click();
+    expect(checkbox?.checked).toBe(true);
+  });
+
+  it("composes a caller input transform before enforcing read-only checkboxes", () => {
+    const html = sanitizeTiptapHTML(
+      '<input type="checkbox" data-custom="yes">',
+      [],
+      createStaticSanitizePolicy({
+        allowedAttributes: { input: ["data-custom"] },
+        transformTags: {
+          input: (tagName, attributes) => ({
+            tagName,
+            attribs: { ...attributes, "data-custom": "transformed" },
+          }),
+        },
+      }),
+    );
+
+    expect(html).toContain('data-custom="transformed"');
     expect(html).toContain('disabled="disabled"');
   });
 });
