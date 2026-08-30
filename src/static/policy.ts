@@ -20,6 +20,7 @@ const defaultTags = [
   "code",
   "details",
   "summary",
+  "input",
 ];
 
 const defaultAttributes: Record<string, AllowedAttribute[]> = {
@@ -54,6 +55,9 @@ const defaultAttributes: Record<string, AllowedAttribute[]> = {
   mark: ["style", "data-color"],
   code: ["class"],
   pre: ["class"],
+  ul: ["data-type"],
+  li: ["data-type", "data-checked"],
+  input: ["type", "checked", "disabled"],
 };
 
 const safeStyleValue =

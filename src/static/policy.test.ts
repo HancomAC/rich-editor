@@ -45,4 +45,18 @@ describe("createStaticSanitizePolicy", () => {
 
     expect(html).not.toContain("javascript:");
   });
+
+  it("preserves read-only task list state", () => {
+    const html = sanitizeTiptapHTML(
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked" disabled="disabled"><span></span></label><div><p>done</p></div></li></ul>',
+      [],
+      createStaticSanitizePolicy(),
+    );
+
+    expect(html).toContain('<ul data-type="taskList">');
+    expect(html).toContain('<li data-type="taskItem" data-checked="true">');
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('checked="checked"');
+    expect(html).toContain('disabled="disabled"');
+  });
 });

@@ -1,1 +1,1 @@
-{"version":3,"file":"policy.d.ts","sourceRoot":"","sources":["../../src/static/policy.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAoB,qBAAqB,EAAE,MAAM,eAAe,CAAC;AAgJ7E,wBAAgB,0BAA0B,CACxC,SAAS,GAAE,qBAA0B,GACpC,qBAAqB,CA+BvB"}
+{"version":3,"file":"policy.d.ts","sourceRoot":"","sources":["../../src/static/policy.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAoB,qBAAqB,EAAE,MAAM,eAAe,CAAC;AAoJ7E,wBAAgB,0BAA0B,CACxC,SAAS,GAAE,qBAA0B,GACpC,qBAAqB,CA+BvB"}

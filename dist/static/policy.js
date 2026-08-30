@@ -17,6 +17,7 @@ const defaultTags = [
     "code",
     "details",
     "summary",
+    "input",
 ];
 const defaultAttributes = {
     "*": ["style", "class"],
@@ -50,6 +51,9 @@ const defaultAttributes = {
     mark: ["style", "data-color"],
     code: ["class"],
     pre: ["class"],
+    ul: ["data-type"],
+    li: ["data-type", "data-checked"],
+    input: ["type", "checked", "disabled"],
 };
 const safeStyleValue = /^(?!.*\\)(?!.*(?:url\s*\(|expression\s*\(|@import\b|javascript:|data:))[\s\S]+$/i;
 const defaultStyles = {
