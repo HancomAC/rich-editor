@@ -1,6 +1,7 @@
 import { defineStaticNode } from "tiptap-static/hydrate";
 import { createStaticNodeViewHook, type StaticNodeViewProps } from "tiptap-static/protocol";
 import type { StaticNodePlan } from "tiptap-static";
+import { getPdfJs } from "../utils/pdf";
 
 export type StaticFileResolver = (fileId: string) => Promise<{
   src: string;
@@ -165,8 +166,13 @@ function pdfView({ node, extension }: StaticNodeViewProps) {
   const dom = document.createElement("div");
   dom.className = "hce-static-pdf";
   dom.setAttribute("data-node-view-wrapper", "");
+  dom.tabIndex = 0;
+  dom.setAttribute("role", "group");
+  dom.setAttribute("aria-label", "PDF 문서 — 좌우 방향키로 쪽 넘김");
   if (node.attrs.width) dom.style.width = String(node.attrs.width);
 
+  const toolbar = document.createElement("div");
+  toolbar.className = "hce-static-pdf-toolbar";
   const link = document.createElement("a");
   link.target = "_blank";
   link.rel = "noopener noreferrer";
@@ -178,15 +184,120 @@ function pdfView({ node, extension }: StaticNodeViewProps) {
   if (proxySrc || directSrc) link.href = proxySrc || directSrc;
 
   const previewSrc = proxySrc || directSrc;
-  dom.append(link);
+  const previous = document.createElement("button");
+  previous.type = "button";
+  previous.textContent = "이전 쪽";
+  previous.disabled = true;
+  const pageStatus = document.createElement("span");
+  pageStatus.className = "hce-static-pdf-page";
+  pageStatus.textContent = "1 / 1";
+  const next = document.createElement("button");
+  next.type = "button";
+  next.textContent = "다음 쪽";
+  next.disabled = true;
+  toolbar.append(link, previous, pageStatus, next);
+
+  const frame = document.createElement("div");
+  frame.className = "hce-static-pdf-frame";
+  const status = document.createElement("p");
+  status.className = "hce-static-pdf-status";
+  status.textContent = previewSrc ? "PDF를 불러오는 중입니다." : "PDF 주소가 없습니다.";
+  const canvas = document.createElement("canvas");
+  canvas.hidden = true;
+  frame.append(status, canvas);
+  dom.append(toolbar, frame);
+
+  type PdfDocument = {
+    numPages: number;
+    getPage(page: number): Promise<{
+      getViewport(options: { scale: number }): { width: number; height: number };
+      render(options: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): {
+        promise: Promise<unknown>;
+      };
+    }>;
+    destroy?: () => void | Promise<void>;
+  };
+
+  let destroyed = false;
+  let documentProxy: PdfDocument | null = null;
+  let currentPage = 1;
+  let renderSequence = 0;
+
+  const syncPageControls = () => {
+    const total = documentProxy?.numPages ?? 1;
+    pageStatus.textContent = `${currentPage} / ${total}`;
+    previous.disabled = !documentProxy || currentPage <= 1;
+    next.disabled = !documentProxy || currentPage >= total;
+  };
+
+  const showError = (message: string) => {
+    if (destroyed) return;
+    status.hidden = false;
+    status.textContent = message;
+  };
+
+  const renderPage = async () => {
+    if (!documentProxy || destroyed) return;
+    const sequence = ++renderSequence;
+    const page = await documentProxy.getPage(currentPage);
+    if (destroyed || sequence !== renderSequence) return;
+    const initialViewport = page.getViewport({ scale: 1 });
+    const availableWidth = frame.clientWidth || dom.clientWidth || initialViewport.width;
+    const scale = Math.min(1, availableWidth / initialViewport.width);
+    const viewport = page.getViewport({ scale });
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context is unavailable.");
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = Math.ceil(viewport.width * pixelRatio);
+    canvas.height = Math.ceil(viewport.height * pixelRatio);
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, viewport.width, viewport.height);
+    await page.render({ canvasContext: context, viewport }).promise;
+    if (destroyed || sequence !== renderSequence) return;
+    canvas.hidden = false;
+    status.hidden = true;
+  };
+
+  const goToPage = (offset: number) => {
+    if (!documentProxy) return;
+    const target = Math.min(documentProxy.numPages, Math.max(1, currentPage + offset));
+    if (target === currentPage) return;
+    currentPage = target;
+    syncPageControls();
+    void renderPage().catch(() => showError("PDF 쪽을 표시할 수 없습니다."));
+  };
+  previous.addEventListener("click", () => goToPage(-1));
+  next.addEventListener("click", () => goToPage(1));
+  dom.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    goToPage(event.key === "ArrowLeft" ? -1 : 1);
+  });
+
   if (previewSrc) {
-    const preview = document.createElement("embed");
-    preview.type = "application/pdf";
-    preview.title = String(node.attrs.name || "PDF");
-    preview.src = previewSrc;
-    dom.append(preview);
+    void getPdfJs()
+      .then((pdfJs) => pdfJs.getDocument(previewSrc).promise as Promise<PdfDocument>)
+      .then(async (loadedDocument) => {
+        if (destroyed) {
+          await loadedDocument.destroy?.();
+          return;
+        }
+        documentProxy = loadedDocument;
+        syncPageControls();
+        await renderPage();
+      })
+      .catch(() => showError("PDF를 불러올 수 없습니다."));
   }
-  return { dom };
+  return {
+    dom,
+    destroy() {
+      destroyed = true;
+      renderSequence += 1;
+      void documentProxy?.destroy?.();
+    },
+  };
 }
 
 function mathView({ node }: StaticNodeViewProps) {
