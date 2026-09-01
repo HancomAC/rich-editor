@@ -17,9 +17,16 @@
  *   · DB·질의     (3)  hljs 에 있는 DB 계열은 이 셋이 전부다(`plsql`·`mongodb` 는 없다)
  *   · 웹·데이터   (4)  `xml` 이 HTML 을 겸한다
  *   · 셸·설정     (5)  코드 예시에 딸려 오는 명령·설정 파일
+ *   · 서식 없음   (1)  `plaintext` — 아래 참조
  *
- * 스물하나를 다 넣어도 **40KB 대(gzip)** 다 — 묶음 export 는 398KB 였다. 크기 여유가
+ * 스물둘을 다 넣어도 **40KB 대(gzip)** 다 — 묶음 export 는 398KB 였다. 크기 여유가
  * 크므로 "혹시 쓸까" 싶은 것은 빼기보다 넣는 쪽이 낫다.
+ *
+ * ⚠️ **`plaintext` 는 "색을 빼는" 언어다 — 없으면 오히려 칠해진다.** 등록되지 않은
+ *    이름은 자동 감지로 떨어지므로, 색을 빼려고 ```text 로 적은 블록에 엉뚱한 문법
+ *    색이 붙었다(예시 입출력·ASCII 그림). `plaintext` 는 `text`·`txt` 를 별칭으로
+ *    갖고 `disableAutodetect: true` 라, 등록해도 다른 언어의 감지 후보를 늘리지
+ *    않는다 — `c` 를 뺀 이유와 충돌하지 않는다.
  *
  * ⚠️ **`c` 는 일부러 없다.** C++ 문법이 C 를 사실상 포함해 색이 거의 같은데, 자동 감지
  *    후보에 넣으면 relevance 를 과하게 먹어 **Python 코드까지 `c` 로 판정**했다(실측).
@@ -52,6 +59,7 @@ import shell from "highlight.js/lib/languages/shell";
 import makefile from "highlight.js/lib/languages/makefile";
 import ini from "highlight.js/lib/languages/ini";
 import diff from "highlight.js/lib/languages/diff";
+import plaintext from "highlight.js/lib/languages/plaintext";
 
 /** 등록하는 언어 이름. 테스트가 이 목록으로 실제 등록분을 검사한다. */
 export const CODE_LANGUAGES = [
@@ -80,6 +88,8 @@ export const CODE_LANGUAGES = [
   "makefile",
   "ini",
   "diff",
+  // 서식 없음 (별칭 `text`·`txt`)
+  "plaintext",
 ] as const;
 
 export const lowlight = createLowlight();
@@ -106,4 +116,5 @@ lowlight.register({
   makefile,
   ini,
   diff,
+  plaintext,
 });
