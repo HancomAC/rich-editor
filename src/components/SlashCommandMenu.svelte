@@ -18,6 +18,7 @@
     Paperclip,
     Columns2,
     Columns3,
+    PanelTop,
     Type,
     Tv,
     Youtube,
@@ -55,6 +56,7 @@
     table: "레이아웃",
     "columns-2": "레이아웃",
     "columns-3": "레이아웃",
+    tabs: "레이아웃",
     link: "미디어",
     image: "미디어",
   };
@@ -232,6 +234,13 @@
       keywords: "column 컬럼 3단 분할",
       icon: Columns3,
       command: (editor) => editor.chain().focus().setColumns(3).run(),
+    },
+    {
+      feature: "tabs",
+      label: "탭",
+      keywords: "tab tabs 탭 탭블록 전환 분할",
+      icon: PanelTop,
+      command: (editor) => editor.chain().focus().setTabs(3).run(),
     },
     {
       feature: "image",

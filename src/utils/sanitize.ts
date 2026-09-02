@@ -47,6 +47,8 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
     "data-card-title",
     "data-card-background",
     "data-card-height",
+    // 탭 블록의 탭 이름. 빠지면 살균 때 제목만 조용히 사라져 전부 `탭 1`·`탭 2` 로 되돌아간다.
+    "data-tab-title",
     "style",
   ]),
   // 토글은 열린 채 저장될 수 있고(`persist`), 제목 단계는 `data-level` 로 들어간다.

@@ -18,6 +18,7 @@ export { CardBlock } from "./extensions/CardBlock";
 export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
+export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
 export type { MathPrompt, MathOptions } from "./extensions/Math";
 

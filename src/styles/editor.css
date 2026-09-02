@@ -1468,6 +1468,255 @@
   }
 }
 
+/* ── 탭 블록 ─────────────────────────────────────────────────────────────
+ * 한 상자 안의 내용을 탭으로 나눈다. 편집 화면과 읽기 화면이 **같은 규칙**을 쓴다.
+ *
+ * ⚠️ 선택자에 `.tiptap` 을 붙이지 않는다. 두 앱은 저장된 HTML 을 `{@html}` 로 먼저
+ *    그려 두고(살균을 거친다) 보이는 순간 그 자리에 에디터를 세우는데, 그 정적 렌더가
+ *    `.tiptap` 밖일 수 있다. 수식(`math-inline`)이 선택자를 두 벌 둔 것과 같은 이유인데
+ *    여기서는 `data-type="tabs"` 자체가 충분히 특이해서 한 벌로 둔다.
+ */
+[data-type="tabs"] {
+  margin: 1em 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+[data-type="tabs"].ProseMirror-selectednode {
+  outline: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.hce-tabs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  user-select: none;
+}
+
+.hce-tab-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 2px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  /* 끌어서 순서를 바꾸므로 칩 위에서 시작한 터치는 스크롤이 아니라 드래그다. */
+  touch-action: none;
+}
+
+.hce-tab-chip:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.hce-tab-chip.is-active {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.hce-tab-chip-label {
+  max-width: 14rem;
+  padding: 3px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.hce-tab-chip.is-active .hce-tab-chip-label {
+  font-weight: 600;
+}
+
+/*
+ * 삭제는 **그 칩에 마우스를 올렸을 때만** 보인다. 늘 보이면 칩마다 ×가 붙어 시끄럽다.
+ *
+ * ⚠️ `display: none` 이 아니라 `visibility` 다. 감췄다 보이면서 칩 폭이 늘면 **탭바 전체가
+ *    커서 밑에서 옆으로 밀린다** — 실측으로 겨냥한 `+` 가 18px 옮겨져 클릭이 빗나갔다.
+ *    자리는 늘 차지하고 보이기만 토글한다. 지울 수 없는 칩(`is-disabled`)도 같은 자리를
+ *    차지하므로 탭이 하나일 때와 여럿일 때 폭이 어긋나지 않는다.
+ */
+.hce-tab-chip-close {
+  display: inline-flex;
+  visibility: hidden;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hce-tab-chip:hover .hce-tab-chip-close:not(.is-disabled) {
+  visibility: visible;
+}
+
+.hce-tab-chip-close.is-disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.hce-tab-chip-close:hover {
+  background: color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.hce-tabs-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hce-tabs-add:hover {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+/*
+ * ── 끌어서 순서 바꾸기 ────────────────────────────────────────────────
+ * 끌고 있는 칩은 흐려지고, 놓일 자리는 칩 사이에 **세로 선 하나**로만 알린다
+ * (칩을 실제로 밀어 두면 폭이 출렁여 드롭 위치 계산이 자기 자신에 물린다).
+ *
+ * ⚠️ 끄는 동안에는 `×` 를 드러내지 않는다. `visibility` 라 폭은 그대로지만,
+ *    지나가는 칩마다 ×가 깜빡이면 어디에 놓이는지가 안 보인다.
+ */
+.hce-tabs-bar.is-dragging {
+  cursor: grabbing;
+}
+
+.hce-tab-chip.is-dragged {
+  opacity: 0.45;
+}
+
+.hce-tabs-bar.is-dragging .hce-tab-chip:hover .hce-tab-chip-close {
+  visibility: hidden;
+}
+
+.hce-tab-chip.is-drop-before::before,
+.hce-tab-chip.is-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+}
+
+.hce-tab-chip.is-drop-before::before {
+  left: -3px;
+}
+
+.hce-tab-chip.is-drop-after::after {
+  right: -3px;
+}
+
+/* 칩을 두 번 눌렀을 때 그 자리에 서는 입력칸. */
+.hce-tab-title-input {
+  box-sizing: border-box;
+  width: 8rem;
+  margin: 2px;
+  padding: 2px 6px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.hce-tabs-panels {
+  padding: 10px 12px;
+}
+
+/* 활성 표시는 NodeView 가 붙였다 뗀다(`TabsBlock.ts` 의 `applyActive`). */
+.hce-tabs-panels > [data-type="tab"] {
+  display: none;
+}
+
+.hce-tabs-panels > [data-type="tab"].hce-tab-active {
+  display: block;
+}
+
+/*
+ * ⚠️ **여기에 "클래스가 없으면 첫 탭을 보여 준다" 폴백을 두지 않는다.**
+ * 한동안 `:not(:has(> .hce-tab-active))` 로 그런 폴백을 뒀는데, 그게 진짜 버그를 덮었다 —
+ * 활성 클래스가 **어느 패널에도 안 붙은** 상태(`update()` 뒤 ProseMirror 가 자식을 다시
+ * 그려 클래스를 날린 경우)에서도 첫 탭이 보여서 겉보기엔 멀쩡했고, 그래서 "칩은 탭 4가
+ * 활성인데 화면엔 탭 1"인 어긋남이 조용히 굴러다녔다. 폴백이 없으면 그때 **아무 탭도 안
+ * 보여** 바로 눈에 띈다. 정적 렌더용 폴백은 아래 `:not(.hce-tabs-live)` 쪽에만 둔다.
+ */
+
+/*
+ * ── 정적(살균) 렌더 폴백 ──────────────────────────────────────────────
+ * 저장된 HTML 에는 탭바가 없다 — 탭바는 NodeView 가 만드는 것이라 문서에 남지 않는다.
+ * 그대로 그리면 탭이 **전부 세로로 쌓여** 에디터가 선 뒤보다 훨씬 길고, 보이는 순간
+ * 높이가 튄다. 그래서 `hce-tabs-live`(NodeView 가 붙인다)가 없으면 첫 탭만 남긴다.
+ */
+[data-type="tabs"]:not(.hce-tabs-live) > [data-type="tab"] {
+  display: none;
+}
+
+[data-type="tabs"]:not(.hce-tabs-live) > [data-type="tab"]:first-child {
+  display: block;
+  padding: 10px 12px;
+}
+
+/* 탭바 자리도 비워 둔다 — 없으면 딱 그 줄만큼 높이가 어긋난다. */
+[data-type="tabs"]:not(.hce-tabs-live)::before {
+  content: "";
+  display: block;
+  height: 2rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+/*
+ * 빈 탭 안내문.
+ *
+ * ⚠️ TipTap 의 `Placeholder` 로는 **못 한다.** 그 확장은 `includeChildren: false` 라
+ *    `tabs` 같은 비(非)텍스트블록에서 순회를 멈춘다 — 탭 안의 빈 문단에는 `is-empty` 가
+ *    아예 안 붙는다. 켜면 카드·단·토글 안의 모든 빈 문단까지 같이 바뀌므로 CSS 로 한다.
+ * 편집 중의 빈 문단은 `<p><br></p>`, 저장·살균본은 `<p></p>` 라 둘 다 잡는다.
+ * `float: left; height: 0` 은 위 플레이스홀더 규칙과 같은 수법 — 안내문이 줄 높이를 밀지 않는다.
+ */
+[data-type="tab"] > p:only-child:empty::before,
+[data-type="tab"] > p:only-child:has(> br:only-child)::before {
+  content: "빈 탭입니다. 내부를 클릭하거나 블록을 넣으세요.";
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /*
  * ── 서식 툴바에는 호버 라벨이 없다 ──────────────────────────────────────
  * 예전엔 `data-tooltip` 속성 + `::after` 로 검은 라벨을 띄웠는데, 서식 버튼은 아이콘만으로
