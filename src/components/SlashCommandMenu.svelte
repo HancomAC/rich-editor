@@ -24,6 +24,9 @@
     SquareDashed,
     Sigma,
   } from "lucide-svelte";
+  import ToggleHeading1 from "./icons/ToggleHeading1.svelte";
+  import ToggleHeading2 from "./icons/ToggleHeading2.svelte";
+  import ToggleHeading3 from "./icons/ToggleHeading3.svelte";
   import { insertTableSized } from "../utils/table";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
@@ -177,13 +180,16 @@
      * 토글 제목 — 접히는 제목. 입력 규칙(`# > `)으로도 만들 수 있지만 그것만 있으면
      * **메뉴에는 없는 기능**이 된다(사용자 요청으로 추가).
      * 만드는 일은 입력 규칙과 **같은 커맨드**가 한다(`setToggleHeading`).
+     *
+     * ⚠️ 아이콘은 `제목 N` 과 **달라야 한다.** 한동안 둘 다 lucide `HeadingN` 이라 메뉴에서
+     * 구분이 안 됐다(사용자 지적) — 삼각형이 붙은 `ToggleHeadingN` 을 쓴다.
      */
     {
       feature: "toggle",
       label: "토글 제목 1",
       section: "기본",
       keywords: "toggle heading 접기 제목 토글제목 h1",
-      icon: Heading1,
+      icon: ToggleHeading1,
       shortcut: "# > ",
       command: (editor) => editor.chain().focus().setToggleHeading(1).run(),
     },
@@ -192,7 +198,7 @@
       label: "토글 제목 2",
       section: "기본",
       keywords: "toggle heading 접기 제목 토글제목 h2",
-      icon: Heading2,
+      icon: ToggleHeading2,
       shortcut: "## > ",
       command: (editor) => editor.chain().focus().setToggleHeading(2).run(),
     },
@@ -201,7 +207,7 @@
       label: "토글 제목 3",
       section: "기본",
       keywords: "toggle heading 접기 제목 토글제목 h3",
-      icon: Heading3,
+      icon: ToggleHeading3,
       shortcut: "### > ",
       command: (editor) => editor.chain().focus().setToggleHeading(3).run(),
     },

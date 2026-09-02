@@ -37,6 +37,7 @@
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import { insertTableSized } from "../utils/table";
+  import ToggleHeadingIcon from "./icons/ToggleHeadingIcon.svelte";
   import InputModal from "./InputModal.svelte";
   import type { ToolbarFeature, PromptHandler } from "../types";
 
@@ -427,9 +428,11 @@
             토글 제목 — 접히는 제목. 만드는 일은 입력 규칙(`# > `)과 **같은 커맨드**가 한다.
             제목 바로 아래에 두는 게 맞지만 이 메뉴는 `본문 → 제목 → 목록 → 블록` 순이라,
             토글 옆에 붙여 **접히는 것끼리** 모은다.
+
+            ⚠️ 아이콘은 `제목 N` 과 **달라야 한다.** 한동안 둘 다 lucide `HeadingN` 이라 메뉴에서
+            구분이 안 됐다(사용자 지적) — 삼각형이 붙은 `ToggleHeadingIcon` 을 쓴다.
           -->
           {#each [1, 2, 3] as level}
-            {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
             <button
               type="button"
               class={cn(
@@ -445,7 +448,7 @@
                     .run(),
                 )}
             >
-              <Icon size={14} /> 토글 제목 {level}
+              <ToggleHeadingIcon size={14} level={level as 1 | 2 | 3} /> 토글 제목 {level}
               <span class="hce-menu-shortcut">{'#'.repeat(level)} &gt; </span>
             </button>
           {/each}
