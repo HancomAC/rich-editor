@@ -15,6 +15,7 @@ export { MbusVideo } from "./extensions/MbusVideo";
 export { CardBlock } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
+export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
 // 유틸리티
 export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";

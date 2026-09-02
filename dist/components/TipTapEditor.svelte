@@ -123,6 +123,7 @@
   import { PdfBlock } from "../extensions/PdfBlock";
   import { Columns } from "../extensions/Columns";
   import { Column } from "../extensions/Column";
+  import { TabsBlock, Tab } from "../extensions/TabsBlock";
   import { transformLegacyHtml } from "../utils/sanitize";
   import { Indent } from "../extensions/Indent";
   import { FileAttachment } from "../extensions/FileAttachment";
@@ -611,6 +612,12 @@
           : [MathDisplay.configure({ promptMath })]),
         Columns,
         Column,
+        /*
+         * 탭 블록도 `Columns`/`Column` 처럼 **컨테이너와 자식을 함께** 등록한다.
+         * 한쪽만 넣으면 스키마가 서지 않는다(`tabs` 의 내용이 `tab+` 다).
+         */
+        TabsBlock,
+        Tab,
         CodeBlockTopEscape,
         Indent,
         FixedDetails,

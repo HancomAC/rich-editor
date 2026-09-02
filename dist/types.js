@@ -33,7 +33,7 @@ export const TOOLBAR_PRESETS = {
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
         'link', 'image', 'pdf', 'file', 'mbus', 'video',
-        'columns-2', 'columns-3', 'table', 'code-block', 'math',
+        'columns-2', 'columns-3', 'tabs', 'table', 'code-block', 'math',
         'undo', 'redo',
         'fixed-toolbar', 'bubble-toolbar', 'slash-menu',
         'table-menu', 'character-count', 'upload-overlay'
@@ -45,7 +45,7 @@ export const TOOLBAR_PRESETS = {
         'bullet-list', 'ordered-list', 'checklist',
         'blockquote', 'horizontal-rule', 'toggle',
         'link', 'image', 'pdf', 'file', 'mbus', 'video',
-        'columns-2', 'columns-3', 'table', 'code-block', 'math',
+        'columns-2', 'columns-3', 'tabs', 'table', 'code-block', 'math',
         'fixed-toolbar', 'bubble-toolbar', 'slash-menu', 'table-menu'
     ],
     minimal: [

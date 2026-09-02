@@ -13,7 +13,7 @@ export type PromptHandler = (defaultValue: string) => Promise<string | null>;
 /** 툴바 모드 */
 export type ToolbarMode = 'minimal' | 'standard' | 'full';
 /** 개별 툴바 기능 ID */
-export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'superscript' | 'subscript' | 'code' | 'text-color' | 'align-left' | 'align-center' | 'align-right' | 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet-list' | 'ordered-list' | 'checklist' | 'blockquote' | 'horizontal-rule' | 'toggle' | 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'video' | 'card' | 'columns-2' | 'columns-3' | 'table' | 'code-block' | 'math' | 'undo' | 'redo' | 'fixed-toolbar' | 'bubble-toolbar' | 'slash-menu' | 'table-menu' | 'character-count' | 'upload-overlay';
+export type ToolbarFeature = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'superscript' | 'subscript' | 'code' | 'text-color' | 'align-left' | 'align-center' | 'align-right' | 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet-list' | 'ordered-list' | 'checklist' | 'blockquote' | 'horizontal-rule' | 'toggle' | 'link' | 'image' | 'pdf' | 'file' | 'mbus' | 'video' | 'card' | 'columns-2' | 'columns-3' | 'tabs' | 'table' | 'code-block' | 'math' | 'undo' | 'redo' | 'fixed-toolbar' | 'bubble-toolbar' | 'slash-menu' | 'table-menu' | 'character-count' | 'upload-overlay';
 /**
  * 모드별 기본 feature 프리셋.
  *
