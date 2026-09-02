@@ -417,23 +417,69 @@ export const TabsBlock = Node.create({
 				const state = dragging;
 				if (!state) return;
 				dragging = null;
-				document.removeEventListener("keydown", onEscape, true);
+				detachDragListeners();
 				// ⚠️ 드래그 동안 꺼 뒀던 것을 되돌린다(이름 고치기와 같은 이유).
 				dom.draggable = true;
 				bar.classList.remove("is-dragging");
 				state.chip.classList.remove("is-dragged");
 				markDrop(-1);
-				try {
-					state.chip.releasePointerCapture(state.pointerId);
-				} catch {
-					// 이미 놓였거나 캡처를 못 잡은 포인터 — 무시해도 된다.
-				}
 				// 임계값을 못 넘겼으면 드래그가 아니다. 뒤따르는 click 이 탭 전환을 한다.
 				if (!state.moved) return;
 				swallowClick = true;
 				if (!commit || state.drop < 0) return;
 				moveTab(state.index, state.drop);
 			};
+
+			/*
+			 * 끄는 동안의 move·up 은 **문서에서** 받는다.
+			 *
+			 * ⚠️ **`setPointerCapture` 를 쓰지 않는다.** 칩에 캡처를 걸면 뒤따르는 호환 마우스
+			 * 이벤트가 캡처 대상(칩)으로 **재타겟팅**된다. 그러면 칩 **안**의 라벨 버튼에 건
+			 * 리스너를 건너뛰어, 더블클릭 이름 고치기가 통째로 죽는다 — 실측 로그에서 두 번째
+			 * 클릭의 `target` 이 라벨이 아니라 칩으로 찍혔고 `dblclick` 은 아예 오지 않았다.
+			 * 문서에 걸면 칩 밖으로 빠르게 끌어도 놓치지 않으므로 캡처가 필요 없다.
+			 */
+			const onDragMove = (e: PointerEvent) => {
+				if (!dragging || dragging.pointerId !== e.pointerId) return;
+				if (!dragging.moved) {
+					// ⚠️ 임계값 전에는 드래그가 아니다 — 넘지 않고 떼면 전환 클릭이 살아야 한다.
+					const dx = Math.abs(e.clientX - dragging.startX);
+					const dy = Math.abs(e.clientY - dragging.startY);
+					if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+					dragging.moved = true;
+					// 끄는 동안에는 블록 통째로 끌기를 꺼 둔다.
+					dom.draggable = false;
+					bar.classList.add("is-dragging");
+					dragging.chip.classList.add("is-dragged");
+				}
+				e.preventDefault();
+				dragging.drop = dropIndexAt(e.clientX, e.clientY);
+				markDrop(dragging.drop);
+			};
+
+			const onDragUp = (e: PointerEvent) => {
+				if (!dragging || dragging.pointerId !== e.pointerId) return;
+				endDrag(true);
+			};
+
+			const onDragCancel = (e: PointerEvent) => {
+				if (!dragging || dragging.pointerId !== e.pointerId) return;
+				endDrag(false);
+			};
+
+			function attachDragListeners() {
+				document.addEventListener("pointermove", onDragMove, true);
+				document.addEventListener("pointerup", onDragUp, true);
+				document.addEventListener("pointercancel", onDragCancel, true);
+				document.addEventListener("keydown", onEscape, true);
+			}
+
+			function detachDragListeners() {
+				document.removeEventListener("pointermove", onDragMove, true);
+				document.removeEventListener("pointerup", onDragUp, true);
+				document.removeEventListener("pointercancel", onDragCancel, true);
+				document.removeEventListener("keydown", onEscape, true);
+			}
 
 			/** 칩을 두 번 누르면 그 자리에서 이름을 고친다. */
 			const startRename = (index: number, chip: HTMLElement, label: HTMLElement) => {
@@ -514,34 +560,8 @@ export const TabsBlock = Node.create({
 								moved: false,
 								drop: index
 							};
-							try {
-								chip.setPointerCapture(e.pointerId);
-							} catch {
-								// 캡처를 못 잡아도 아래 move/up 리스너가 칩 위에 있으니 굴러간다.
-							}
-							document.addEventListener("keydown", onEscape, true);
+							attachDragListeners();
 						});
-
-						chip.addEventListener("pointermove", (e) => {
-							if (!dragging || dragging.pointerId !== e.pointerId) return;
-							if (!dragging.moved) {
-								// ⚠️ 임계값 전에는 드래그가 아니다 — 넘지 않고 떼면 전환 클릭이 살아야 한다.
-								const dx = Math.abs(e.clientX - dragging.startX);
-								const dy = Math.abs(e.clientY - dragging.startY);
-								if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
-								dragging.moved = true;
-								// 끄는 동안에는 블록 통째로 끌기를 꺼 둔다.
-								dom.draggable = false;
-								bar.classList.add("is-dragging");
-								chip.classList.add("is-dragged");
-							}
-							e.preventDefault();
-							dragging.drop = dropIndexAt(e.clientX, e.clientY);
-							markDrop(dragging.drop);
-						});
-
-						chip.addEventListener("pointerup", () => endDrag(true));
-						chip.addEventListener("pointercancel", () => endDrag(false));
 					}
 
 					const label = document.createElement("button");
@@ -653,8 +673,8 @@ export const TabsBlock = Node.create({
 					return true;
 				},
 				destroy: () => {
-					// 드래그 도중에 노드가 사라질 수 있다 — 문서에 건 Esc 리스너를 남기지 않는다.
-					document.removeEventListener("keydown", onEscape, true);
+					// 드래그 도중에 노드가 사라질 수 있다 — 문서에 건 리스너를 남기지 않는다.
+					detachDragListeners();
 				},
 				// 탭바 위의 이벤트는 ProseMirror 가 가로채면 안 된다.
 				stopEvent: (event: Event) => {
