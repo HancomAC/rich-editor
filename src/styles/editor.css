@@ -805,7 +805,7 @@
   margin: 0.5em 0;
   background: transparent;
   display: grid;
-  /* 손잡이 칸. 아래 버튼(22px) + 좌우 여백이 들어간다. */
+  /* 손잡이 칸. 아래 버튼(24px) + 좌우 여백이 들어간다. */
   grid-template-columns: 30px 1fr;
   align-items: start;
   transition: background 0.12s;
@@ -820,8 +820,15 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  width: 22px;
-  height: 22px;
+  /*
+   * ⚠️ **`font: inherit` 를 지우지 말 것.** `button` 은 UA 스타일시트가 제 글꼴을 덮어쓰는
+   * 요소라, 이게 없으면 아래 `1lh` 가 제목 줄이 아니라 UA 기본값(≈13px)으로 풀려 정렬이
+   * 통째로 어긋난다. 단계별 크기는 이 값을 아래에서 다시 덮는다.
+   */
+  font: inherit;
+  /* 누르는 면적. 접근성 최소 타깃(24px)이라 삼각형이 작아져도 여기는 줄이지 않는다. */
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -830,12 +837,16 @@
   transition: transform 0.2s, color 0.15s, background-color 0.15s;
   flex-shrink: 0;
   /*
-   * ⚠️ **제목 줄 한가운데에 맞춘 값이다.** 위 `summary` 의 `padding-top`(10px)에
-   * `(줄 높이 − 버튼 높이) / 2` 를 더한 것 — 일반 줄은 17px×1.8 ≈ 30.6px 이므로
-   * 10 + (30.6 − 22)/2 ≈ 14px. 제목 단계마다 줄 높이가 다르니 아래에서 다시 준다.
-   * 버튼이나 줄 높이를 건드리면 **이 값들을 같이 고쳐야** 삼각형이 글자와 어긋나지 않는다.
+   * 제목 줄 한가운데. **상수를 눈으로 맞추지 않는다** — `1lh`(이 줄의 실제 줄 높이)에서
+   * 계산한다: `summary` 의 `padding-top`(10px) + (줄 높이 − 버튼 높이) / 2.
+   *
+   * ⚠️ 예전엔 "글자 17px · 줄 높이 1.8" 을 전제로 손으로 맞춘 px 상수였고(기본 14 +
+   * 단계별 19·15·13), 그 전제가 달라지는 자리마다 삼각형만 어긋났다 — 글자 크기가
+   * 바뀌는 화면에서 삼각형이 제목보다 아래로 내려가 보였다(사용자 지적).
+   * 위 폴백 값은 `lh` 를 모르는 브라우저용이다. 지우면 그런 브라우저에서 0 이 된다.
    */
-  margin-top: 14px;
+  margin-top: 13px;
+  margin-top: calc(10px + (1lh - 24px) / 2);
   margin-left: 4px;
 }
 
@@ -845,17 +856,24 @@
 }
 
 /*
- * 삼각형. 예전엔 밑변 8px 짜리라 제목 글자 옆에서 **점처럼 보였다**(사용자 지적).
- * 밑변 11px · 높이 7px 로 키운다.
+ * 삼각형. **글자 크기를 따라간다**(`em`) — 본문 크기 토글과 제목 1 토글에 같은 크기가
+ * 붙으면 한쪽은 과하고 한쪽은 초라해 보인다.
+ *
+ * ⚠️ 아래·위 한계(`clamp`)를 지우지 말 것.
+ *  - 하한 6px: 예전에 밑변 8px(= 옆변 5px) 짜리를 썼다가 **점처럼 보인다**는 지적을 받았다.
+ *    그 실패 지점 바로 위가 6px 이다.
+ *  - 상한 11px: 제목 1(2rem)에서 그대로 비례시키면 손잡이가 글자만큼 커져 눈에 먼저 띈다.
+ * 두 한계는 밑변:높이 = 0.63 을 유지하도록 같은 비율로 잡았다(위 `> button` 이 24px 이라
+ * 상한에서도 안 넘친다).
  */
 .tiptap [data-type="details"] > button::after {
   content: "";
   display: block;
   width: 0;
   height: 0;
-  border-left: 7px solid currentColor;
-  border-top: 5.5px solid transparent;
-  border-bottom: 5.5px solid transparent;
+  border-left: clamp(6px, 0.42em, 11px) solid currentColor;
+  border-top: clamp(4.7px, 0.33em, 8.6px) solid transparent;
+  border-bottom: clamp(4.7px, 0.33em, 8.6px) solid transparent;
   margin-left: 2px;
 }
 
@@ -916,21 +934,26 @@
 }
 
 /*
- * ⚠️ 삼각형 버튼은 제목 줄 **한가운데**로 다시 내려야 한다. 위 `> button` 의
- * `margin-top: 13px` 은 본문 크기 제목 줄에 맞춰 눈으로 맞춰 둔 값이라, 글자가 커지면
- * 삼각형만 위에 붙어 제목과 어긋난다.
- * (읽기 화면의 네이티브 `<details>` 는 `summary::before` 가 `top: 50%` 라 저절로 맞는다.)
+ * 삼각형 버튼에 **그 줄의 글자 크기를 물려준다.** 버튼은 `summary` 바깥(그리드 첫 칸)에
+ * 있어서 저절로 물려받지 못한다.
+ *
+ * 이 세 규칙이 위치와 크기를 **동시에** 정한다 — `margin-top` 은 `1lh` 로, 삼각형은 `em`
+ * 으로 여기서 정해진 값을 따라간다. 그래서 단계별 위치 상수(예전의 19·15·13px)가 없다.
+ * 값은 위 `summary[data-level]` 과 **같은 것을 쓴다.** 한쪽만 고치면 다시 어긋난다.
  */
 .tiptap [data-type="details"]:has(> div > summary[data-level="1"]) > button {
-  margin-top: 19px;
+  font-size: 2rem;
+  line-height: 1.25;
 }
 
 .tiptap [data-type="details"]:has(> div > summary[data-level="2"]) > button {
-  margin-top: 15px;
+  font-size: 1.5rem;
+  line-height: 1.3;
 }
 
 .tiptap [data-type="details"]:has(> div > summary[data-level="3"]) > button {
-  margin-top: 13px;
+  font-size: 1.25rem;
+  line-height: 1.35;
 }
 
 .tiptap [data-type="detailsContent"] {
@@ -979,16 +1002,26 @@
   content: "";
 }
 
+/*
+ * 읽기 화면 삼각형. 크기 규칙은 편집 화면(`> button::after`)과 **같은 값**이다 — 같은
+ * 문서가 두 화면에서 다르게 보이면 안 된다. `::before` 는 `summary` 안이라 글자 크기를
+ * 저절로 물려받는다(편집 화면 버튼은 바깥이라 위에서 따로 줬다).
+ *
+ * ⚠️ `top` 은 **첫 줄** 한가운데다. 예전엔 `top: 50%` 였는데 그건 `summary` **블록**
+ * 한가운데라, 제목이 두 줄로 접히면 삼각형이 두 줄 사이로 내려갔다.
+ * (10px = 위 `summary` 의 `padding-top`. 폴백은 `lh` 를 모르는 브라우저용이다.)
+ */
 .tiptap details summary::before {
   content: "";
   position: absolute;
   left: 8px;
-  top: 50%;
+  top: 25px;
+  top: calc(10px + 0.5lh);
   width: 0;
   height: 0;
-  border-left: 7px solid var(--muted-foreground);
-  border-top: 5.5px solid transparent;
-  border-bottom: 5.5px solid transparent;
+  border-left: clamp(6px, 0.42em, 11px) solid var(--muted-foreground);
+  border-top: clamp(4.7px, 0.33em, 8.6px) solid transparent;
+  border-bottom: clamp(4.7px, 0.33em, 8.6px) solid transparent;
   transform: translateY(-50%);
   transition: transform 0.2s, border-left-color 0.15s;
 }
