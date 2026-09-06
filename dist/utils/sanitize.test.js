@@ -141,6 +141,17 @@ describe('sanitizeHtml', () => {
         expect(result).toContain('src=');
         expect(result).toContain('alt=');
     });
+    /*
+     * 이미지 리사이즈(`ResizableImage`)가 폭을 **`width` 속성**으로 저장하는 근거다.
+     * 인라인 `style` 로 저장하면 여기서 조용히 지워져, 정적 렌더(`{@html}` + 살균)에서는
+     * 원래 크기로 나왔다가 에디터가 뜨는 순간 조절한 크기로 화면이 튄다.
+     */
+    it('keeps img width but drops inline style', () => {
+        const input = '<img src="https://example.com/img.png" width="480" style="width: 480px">';
+        const result = sanitizeHtml(input);
+        expect(result).toContain('width="480"');
+        expect(result).not.toContain('style=');
+    });
     it('preserves data-pdf-src on div', () => {
         const input = '<div data-pdf-src="https://example.com/file.pdf" data-pdf-name="file.pdf"></div>';
         const result = sanitizeHtml(input);

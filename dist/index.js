@@ -12,6 +12,7 @@ export { Indent } from "./extensions/Indent";
 export { FixedDetails } from "./extensions/FixedDetails";
 export { FileAttachment } from "./extensions/FileAttachment";
 export { MbusVideo } from "./extensions/MbusVideo";
+export { ResizableImage, normalizeImageWidth } from "./extensions/ResizableImage";
 export { CardBlock } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
