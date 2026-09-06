@@ -14,6 +14,7 @@ export { FixedDetails } from "./extensions/FixedDetails";
 export { FileAttachment } from "./extensions/FileAttachment";
 export type { FileResolver, FileResolveResult } from "./extensions/FileAttachment";
 export { MbusVideo } from "./extensions/MbusVideo";
+export { ResizableImage, normalizeImageWidth } from "./extensions/ResizableImage";
 export { CardBlock } from "./extensions/CardBlock";
 export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";

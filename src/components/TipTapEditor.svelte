@@ -97,7 +97,6 @@
   import StarterKit from "@tiptap/starter-kit";
   import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
   import Placeholder from "@tiptap/extension-placeholder";
-  import Image from "@tiptap/extension-image";
   import Link from "@tiptap/extension-link";
   import Underline from "@tiptap/extension-underline";
   import TextAlign from "@tiptap/extension-text-align";
@@ -128,6 +127,7 @@
   import { Indent } from "../extensions/Indent";
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
+  import { ResizableImage } from "../extensions/ResizableImage";
   import { VideoEmbed } from "../extensions/VideoEmbed";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
@@ -558,7 +558,11 @@
               }),
             ]
           : []),
-        Image.configure({ inline: false }),
+        /*
+         * 기본 `Image` 대신 확장본을 쓴다 — 노드 타입은 그대로 `image` 이고
+         * 드래그 손잡이(`width` 속성으로 저장)만 얹은 것이다. `ResizableImage.ts` 참고.
+         */
+        ResizableImage.configure({ inline: false }),
         Link.configure({
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
