@@ -20,14 +20,45 @@
  * 값 없는 속성(`allowfullscreen`)은 `allowfullscreen=""` 로 정규화된다. prod 저장본도
  * 같은 경로(`getHTML()`)로 만들어져 이미 `=""` 꼴이라 실사용에서는 어긋나지 않는다.
  */
-import { Node } from "@tiptap/core";
-import type { DOMOutputSpec } from "@tiptap/pm/model";
+import { Node, type Editor } from "@tiptap/core";
+import type { DOMOutputSpec, Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 /** ProseMirror `DOMOutputSpec` 과 같은 모양이되 **JSON 으로 저장 가능한** 형태. */
 export type LegacySpec = string | LegacySpecElement;
 export type LegacySpecElement = [string, Record<string, string>, ...LegacySpec[]];
 
 export type LegacyBlockKind = "youtube" | "iframe" | "columns";
+
+/**
+ * 호스트가 이 옛 블록을 **살려서 그리고 싶을 때** 받는 것.
+ *
+ * ⚠️ 세 종류가 한 노드에 묶여 있으므로 `kind` 를 보고 **아는 것만 그리고 나머지는
+ * `false` 로 사양**하면 된다. 정올 lms 는 `youtube` 만 그리고 `iframe`·`columns` 는
+ * 사양해 자리표시자를 그대로 쓴다.
+ */
+export interface LegacyBlockRenderContext {
+	/** 그려 넣을 빈 칸. 노드뷰가 만들어 준다(자리표시자 테두리는 아직 안 붙었다). */
+	element: HTMLElement;
+	kind: LegacyBlockKind;
+	/** 저장된 원본 마크업. 여기서 `videoid`·`src` 를 꺼내 쓴다. */
+	spec: LegacySpecElement | null;
+	node: ProseMirrorNode;
+	editor: Editor;
+}
+
+/** 치울 함수를 돌려주거나, `false` 로 사양하면 자리표시자로 되돌아간다. */
+export type LegacyBlockRenderResult = (() => void) | void | false;
+export type LegacyBlockRenderer = (context: LegacyBlockRenderContext) => LegacyBlockRenderResult;
+
+export interface LegacyBlockOptions {
+	/**
+	 * 호스트가 심어 주는 실물 렌더러. 없거나 `false` 를 돌려주면 자리표시자.
+	 *
+	 * ⚠️ **주입은 화면만 바꾼다.** `renderHTML` 은 이 옵션을 보지 않고 `spec` 을 그대로
+	 * 되뱉으므로, 렌더러가 있어도 왕복 바이트는 같다. 테스트로 박아 뒀다.
+	 */
+	renderer: LegacyBlockRenderer | null;
+}
 
 /** 되쓸 이유가 없는(그리고 되쓰면 위험한) 것들. prod 저장본에는 원래 들어 있지 않다. */
 const SKIP_TAGS = new Set(["script", "style", "noscript", "template"]);
@@ -124,12 +155,16 @@ function outboundUrl(kind: LegacyBlockKind, spec: LegacySpecElement | null): str
 	return null;
 }
 
-export const LegacyBlock = Node.create({
+export const LegacyBlock = Node.create<LegacyBlockOptions>({
 	name: "legacyBlock",
 	group: "block",
 	atom: true,
 	selectable: true,
 	draggable: false,
+
+	addOptions() {
+		return { renderer: null };
+	},
 
 	addAttributes() {
 		return {
@@ -163,7 +198,7 @@ export const LegacyBlock = Node.create({
 	},
 
 	addNodeView() {
-		return ({ node }) => {
+		return ({ node, editor }) => {
 			const kind = (node.attrs.kind ?? "iframe") as LegacyBlockKind;
 			const spec = node.attrs.spec as LegacySpecElement | null;
 
@@ -171,6 +206,30 @@ export const LegacyBlock = Node.create({
 			dom.setAttribute("data-type", "legacyBlock");
 			dom.setAttribute("data-legacy-kind", kind);
 			dom.setAttribute("data-node-view-wrapper", "");
+
+			const renderer = this.options.renderer;
+			if (renderer) {
+				let cleanup: LegacyBlockRenderResult = false;
+				try {
+					cleanup = renderer({ element: dom, kind, spec, node, editor });
+				} catch {
+					/* 호스트 렌더러가 터져도 노드까지 잃지는 않는다. */
+					cleanup = false;
+				}
+				if (cleanup !== false) {
+					return {
+						dom,
+						/* `TiptapMidibus` 와 같은 이유. 주석은 그쪽에. */
+						update: () => false,
+						ignoreMutation: () => true,
+						destroy: () => {
+							if (typeof cleanup === "function") cleanup();
+						}
+					};
+				}
+				dom.replaceChildren();
+			}
+
 			dom.style.cssText =
 				"margin:8px 0;padding:16px;border:1px dashed rgba(120,130,150,0.5);border-radius:8px;background:rgba(120,130,150,0.06);box-sizing:border-box;max-width:100%;display:flex;flex-direction:column;gap:6px;align-items:flex-start;";
 

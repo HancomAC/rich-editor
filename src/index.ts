@@ -21,9 +21,23 @@ export { MbusVideo } from "./extensions/MbusVideo";
  * 이쪽은 prod 커스텀 태그 `<tiptap-midibus>` 를 그대로 읽고 그대로 되쓴다.
  */
 export { TiptapMidibus } from "./extensions/TiptapMidibus";
-export type { TiptapMidibusOptions, MidibusRawAttrs } from "./extensions/TiptapMidibus";
+export type {
+  TiptapMidibusOptions,
+  MidibusRawAttrs,
+  MidibusRenderContext,
+  MidibusRenderResult,
+  MidibusRenderer
+} from "./extensions/TiptapMidibus";
 export { LegacyBlock, elementToSpec } from "./extensions/LegacyBlock";
-export type { LegacySpec, LegacySpecElement, LegacyBlockKind } from "./extensions/LegacyBlock";
+export type {
+  LegacySpec,
+  LegacySpecElement,
+  LegacyBlockKind,
+  LegacyBlockOptions,
+  LegacyBlockRenderContext,
+  LegacyBlockRenderResult,
+  LegacyBlockRenderer
+} from "./extensions/LegacyBlock";
 export { ResizableImage, normalizeImageWidth } from "./extensions/ResizableImage";
 export { CardBlock } from "./extensions/CardBlock";
 export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBlock";
