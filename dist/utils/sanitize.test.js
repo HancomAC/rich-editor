@@ -49,13 +49,16 @@ describe('transformLegacyHtml', () => {
         expect(result).toContain('data-pdf-src="https://example.com/doc.pdf"');
         expect(result).toContain('data-pdf-name="doc.pdf"');
     });
-    it('converts <div class="tiptap-columns"> to <div data-type="columns">', () => {
+    /*
+     * ⚠️ **예전엔 여기서 `data-type="columns"` 로 갈아 끼웠다.** 그러면 lms 에서는 단이
+     * 편집 가능해지지만, 정올 prod 와 lms 는 **같은 Datastore 를 공유**하므로 그렇게 저장한
+     * 순간 이번엔 prod 에디터가 그 형식을 몰라 단이 통째로 사라진다 — 손해를 반대편으로
+     * 옮길 뿐이었다. 지금은 `LegacyBlock` 이 원본 마크업 그대로 품고 되쓴다.
+     */
+    it('leaves <div class="tiptap-columns"> untouched for LegacyBlock', () => {
         const input = '<div class="tiptap-columns"><div class="tiptap-column">A</div></div>';
         const result = transformLegacyHtml(input);
-        expect(result).toContain('data-type="columns"');
-        expect(result).toContain('data-type="column"');
-        expect(result).not.toContain('tiptap-columns');
-        expect(result).not.toContain('tiptap-column');
+        expect(result).toBe(input);
     });
     it('removes <tiptap-upload-skeleton>', () => {
         const input = '<p>Before</p><tiptap-upload-skeleton data-id="x"></tiptap-upload-skeleton><p>After</p>';

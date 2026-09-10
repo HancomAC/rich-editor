@@ -192,6 +192,8 @@
   import { MbusVideo } from "../extensions/MbusVideo";
   import { ResizableImage } from "../extensions/ResizableImage";
   import { VideoEmbed } from "../extensions/VideoEmbed";
+  import { TiptapMidibus } from "../extensions/TiptapMidibus";
+  import { LegacyBlock } from "../extensions/LegacyBlock";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
@@ -673,6 +675,15 @@
         }),
         MbusVideo,
         VideoEmbed,
+        /*
+         * ⚠️ **정올 prod 저장 형식을 잃지 않기 위한 둘.** prod(`@seorii/tiptap`)와 lms 는
+         * 같은 Datastore 를 쓰는데, 여기 없으면 prod 글을 lms 에서 여는 것만으로 해당
+         * 블록이 통째로 증발한다(강의영상 글이 `<p>` 하나만 남은 적이 있다).
+         * `TiptapMidibus` 는 `<tiptap-midibus>` 를, `LegacyBlock` 은 `lite-youtube`·
+         * `div.iframe-wrapper`·`div.tiptap-columns` 를 **원본 그대로** 읽고 되쓴다.
+         */
+        TiptapMidibus,
+        LegacyBlock,
         CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
         /*
          * ⚠️ **수학은 여기서 등록한다.** 예전엔 `MathInline`/`MathDisplay` 를 내보내기만 하고

@@ -14,6 +14,12 @@ export { Indent } from "./extensions/Indent";
 export { FixedDetails } from "./extensions/FixedDetails";
 export { FileAttachment } from "./extensions/FileAttachment";
 export { MbusVideo } from "./extensions/MbusVideo";
+/*
+ * 정올 prod 저장 형식 보존용. `MbusVideo`(lms 형식 `div[data-mbus-src]`) 와 **다른 노드**다 —
+ * 이쪽은 prod 커스텀 태그 `<tiptap-midibus>` 를 그대로 읽고 그대로 되쓴다.
+ */
+export { TiptapMidibus } from "./extensions/TiptapMidibus";
+export { LegacyBlock, elementToSpec } from "./extensions/LegacyBlock";
 export { ResizableImage, normalizeImageWidth } from "./extensions/ResizableImage";
 export { CardBlock } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
