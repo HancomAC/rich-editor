@@ -183,35 +183,27 @@ export const FileAttachment = Node.create({
                 nameEl.download = resolvedName;
             }
             updateHref();
-            let downloadInProgress = false;
             function handleClick(e) {
-                e.preventDefault();
+                // 상위(ProseMirror 노드 선택 등) 간섭만 막는다. 기본 동작을 죽일지는 분기별로 정한다.
                 e.stopPropagation();
-                if (downloadInProgress)
+                const targetUrl = getProxyUrl() || resolvedSrc;
+                if (!targetUrl) {
+                    e.preventDefault();
                     return;
-                const proxyUrl = getProxyUrl();
-                const targetUrl = proxyUrl || resolvedSrc;
-                if (!targetUrl)
-                    return;
+                }
                 if (isInlineable(resolvedName)) {
+                    // 새 탭으로 "보여주는" 분기는 <a download>의 기본 동작(저장)과 정반대이므로
+                    // 여기서만 기본 동작을 가로챈다.
+                    e.preventDefault();
                     window.open(targetUrl, "_blank");
+                    return;
                 }
-                else {
-                    downloadInProgress = true;
-                    fetch(targetUrl)
-                        .then((res) => res.blob())
-                        .then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = resolvedName;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    })
-                        .finally(() => {
-                        downloadInProgress = false;
-                    });
-                }
+                // 다운로드 분기는 preventDefault 하지 않고 <a href download> 네이티브 동작에 맡긴다.
+                // 예전 방식(fetch → res.blob())은 파일 전체를 탭 메모리에 버퍼링한 뒤에야 저장을
+                // 시작해서, 381MB 첨부에서 클릭 후 수 분간 아무 반응이 없었다 — 진행률도 없고
+                // 브라우저 다운로드 목록에도 안 떴다. 네이티브 다운로드는 클릭 즉시 다운로드
+                // 관리자로 넘어가 디스크로 스트리밍되므로 대기도, 탭 메모리 점유도 없다.
+                // href/download는 updateHref()가 같은 우선순위(proxy → resolvedSrc)로 이미 세팅한다.
             }
             nameEl.addEventListener("click", handleClick);
             nameEl.addEventListener("mousedown", (e) => e.stopPropagation());
