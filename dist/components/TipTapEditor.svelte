@@ -192,8 +192,8 @@
   import { MbusVideo } from "../extensions/MbusVideo";
   import { ResizableImage } from "../extensions/ResizableImage";
   import { VideoEmbed } from "../extensions/VideoEmbed";
-  import { TiptapMidibus } from "../extensions/TiptapMidibus";
-  import { LegacyBlock } from "../extensions/LegacyBlock";
+  import { TiptapMidibus, type MidibusRenderer } from "../extensions/TiptapMidibus";
+  import { LegacyBlock, type LegacyBlockRenderer } from "../extensions/LegacyBlock";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
@@ -213,6 +213,8 @@
     onPromptVideo,
     onPromptCardBackground,
     onPromptMath,
+    onRenderMidibus,
+    onRenderLegacyBlock,
     toolbarEnd,
     extensions: extraExtensions = [],
     editable = true,
@@ -234,6 +236,19 @@
     onPromptCardBackground?: PromptHandler;
     /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */
     onPromptMath?: MathPrompt;
+    /**
+     * 정올 prod 형식 `<tiptap-midibus>` 를 **실제로 재생**할 플레이어.
+     *
+     * 패키지는 노드와 마크업만 책임지고, 플레이어는 호스트가 준다 — prod 플레이어가
+     * 로그인 계정 id·`GET /midibus/start/{id}`·PIP 헬퍼를 쓰기 때문이다(`resolver` 와
+     * 같은 패턴). 미제공 시 읽기 전용 자리표시자로 폴백한다.
+     */
+    onRenderMidibus?: MidibusRenderer;
+    /**
+     * 옛 블록(`lite-youtube`·`div.iframe-wrapper`·`div.tiptap-columns`)을 실제로 그릴 렌더러.
+     * `kind` 를 보고 아는 것만 그리고 나머지는 `false` 로 사양하면 된다.
+     */
+    onRenderLegacyBlock?: LegacyBlockRenderer;
     /** 고정 툴바 오른쪽 끝에 끼워 넣을 조각 */
     toolbarEnd?: Snippet;
     extensions?: AnyExtension[];
@@ -306,6 +321,19 @@
     mathPrompt = null;
     pending?.resolve(value);
   }
+
+  /*
+   * 플레이어 주입 다리 둘. `promptMath` 와 **같은 이유로 함수를 직접 넘기지 않는다** —
+   * 확장은 `onMount` 에서 한 번만 만들어지므로, prop 을 그대로 넘기면 호스트가 나중에
+   * 붙인 렌더러를 영영 못 본다. 여기서 호출 시점에 읽는다.
+   *
+   * 안 준 호스트(코드패스)에게는 `false` 를 돌려 확장이 자리표시자로 되돌아가게 한다.
+   */
+  const renderMidibus: MidibusRenderer = (context) =>
+    onRenderMidibus ? onRenderMidibus(context) : false;
+
+  const renderLegacyBlock: LegacyBlockRenderer = (context) =>
+    onRenderLegacyBlock ? onRenderLegacyBlock(context) : false;
 
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
@@ -682,8 +710,8 @@
          * `TiptapMidibus` 는 `<tiptap-midibus>` 를, `LegacyBlock` 은 `lite-youtube`·
          * `div.iframe-wrapper`·`div.tiptap-columns` 를 **원본 그대로** 읽고 되쓴다.
          */
-        TiptapMidibus,
-        LegacyBlock,
+        TiptapMidibus.configure({ renderer: renderMidibus }),
+        LegacyBlock.configure({ renderer: renderLegacyBlock }),
         CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
         /*
          * ⚠️ **수학은 여기서 등록한다.** 예전엔 `MathInline`/`MathDisplay` 를 내보내기만 하고

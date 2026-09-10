@@ -92,4 +92,54 @@ describe('LegacyBlock — 옛 정올 블록 보존', () => {
             expect(clean).not.toContain('evil.example');
         });
     });
+    /*
+     * 호스트 렌더러 주입(정올 lms 는 `youtube` 만 그리고 나머지는 사양한다).
+     * **화면만 바뀌고 저장 바이트는 그대로여야 한다.**
+     */
+    describe('renderer 주입', () => {
+        function createWithRenderer(content, renderer) {
+            editor = new Editor({
+                element: document.createElement('div'),
+                extensions: [StarterKit, LegacyBlock.configure({ renderer }), Columns, Column],
+                content
+            });
+            return editor;
+        }
+        /** lms 가 실제로 쓰는 모양 — 유튜브만 그리고 나머지는 자리표시자에 맡긴다. */
+        const youtubeOnly = ({ element, kind, spec }) => {
+            if (kind !== 'youtube')
+                return false;
+            const videoid = spec?.[1]?.videoid ?? '';
+            element.innerHTML = `<div class="yt" data-videoid="${videoid}"></div>`;
+        };
+        it('셋을 함께 넣어도 왕복 바이트가 그대로다', () => {
+            const html = YOUTUBE + IFRAME + COLUMNS;
+            createWithRenderer(html, youtubeOnly);
+            expect(editor.getHTML()).toBe(html);
+        });
+        it('유튜브만 실물이 서고 나머지는 자리표시자다', () => {
+            createWithRenderer(YOUTUBE + IFRAME + COLUMNS, youtubeOnly);
+            const blocks = Array.from(editor.view.dom.querySelectorAll('[data-type="legacyBlock"]'));
+            const byKind = (kind) => blocks.find((el) => el.getAttribute('data-legacy-kind') === kind);
+            expect(byKind('youtube')?.querySelector('.yt')?.getAttribute('data-videoid')).toBe('dQw4w9WgXcQ');
+            expect(byKind('youtube')?.textContent).not.toContain('편집 불가');
+            expect(byKind('iframe')?.textContent).toContain('임베드 (옛 형식 · 편집 불가)');
+            expect(byKind('columns')?.textContent).toContain('단 나누기 (옛 형식 · 편집 불가)');
+        });
+        it('렌더러가 던져도 자리표시자로 살아남고 바이트도 그대로다', () => {
+            createWithRenderer(YOUTUBE, () => {
+                throw new Error('host boom');
+            });
+            expect(editor.view.dom.textContent).toContain('유튜브 영상 (옛 형식 · 편집 불가)');
+            expect(editor.getHTML()).toBe(YOUTUBE);
+        });
+        it('노드가 사라지면 치울 함수가 불린다', () => {
+            let destroyed = 0;
+            createWithRenderer(YOUTUBE, () => () => {
+                destroyed += 1;
+            });
+            editor.commands.setContent('<p>비움</p>');
+            expect(destroyed).toBe(1);
+        });
+    });
 });

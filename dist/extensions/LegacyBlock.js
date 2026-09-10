@@ -122,6 +122,9 @@ export const LegacyBlock = Node.create({
     atom: true,
     selectable: true,
     draggable: false,
+    addOptions() {
+        return { renderer: null };
+    },
     addAttributes() {
         return {
             /* 원본 마크업. `rendered: false` — `renderHTML` 이 직접 되뱉는다. */
@@ -152,13 +155,37 @@ export const LegacyBlock = Node.create({
         return cloneSpec(spec);
     },
     addNodeView() {
-        return ({ node }) => {
+        return ({ node, editor }) => {
             const kind = (node.attrs.kind ?? "iframe");
             const spec = node.attrs.spec;
             const dom = document.createElement("div");
             dom.setAttribute("data-type", "legacyBlock");
             dom.setAttribute("data-legacy-kind", kind);
             dom.setAttribute("data-node-view-wrapper", "");
+            const renderer = this.options.renderer;
+            if (renderer) {
+                let cleanup = false;
+                try {
+                    cleanup = renderer({ element: dom, kind, spec, node, editor });
+                }
+                catch {
+                    /* 호스트 렌더러가 터져도 노드까지 잃지는 않는다. */
+                    cleanup = false;
+                }
+                if (cleanup !== false) {
+                    return {
+                        dom,
+                        /* `TiptapMidibus` 와 같은 이유. 주석은 그쪽에. */
+                        update: () => false,
+                        ignoreMutation: () => true,
+                        destroy: () => {
+                            if (typeof cleanup === "function")
+                                cleanup();
+                        }
+                    };
+                }
+                dom.replaceChildren();
+            }
             dom.style.cssText =
                 "margin:8px 0;padding:16px;border:1px dashed rgba(120,130,150,0.5);border-radius:8px;background:rgba(120,130,150,0.06);box-sizing:border-box;max-width:100%;display:flex;flex-direction:column;gap:6px;align-items:flex-start;";
             const label = document.createElement("span");

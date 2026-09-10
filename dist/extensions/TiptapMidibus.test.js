@@ -86,4 +86,78 @@ describe('TiptapMidibus — prod 저장 형식 왕복', () => {
         expect(clean).toContain('data-bubble-menu="false"');
         expect(clean).toContain('</tiptap-midibus>');
     });
+    /*
+     * 호스트 플레이어 주입. **화면만 바뀌고 저장 바이트는 그대로여야 한다** — 이게
+     * 깨지면 lms 에서 열었다 저장하는 것만으로 prod 쪽 렌더가 어긋난다.
+     */
+    describe('renderer 주입', () => {
+        function createWithRenderer(content, renderer) {
+            editor = new Editor({
+                element: document.createElement('div'),
+                extensions: [StarterKit, TiptapMidibus.configure({ renderer })],
+                content
+            });
+            return editor;
+        }
+        it('주입해도 왕복 바이트가 그대로다', () => {
+            createWithRenderer(PROD, ({ element }) => {
+                element.appendChild(document.createElement('iframe'));
+            });
+            expect(editor.getHTML()).toBe(PROD);
+        });
+        it('모르는 속성이 붙어 있어도 주입이 바이트를 건드리지 않는다', () => {
+            const html = '<tiptap-midibus id="v" start="12" uuid="u" width="100%" height="600" data-bubble-menu="false" data-resize-aspect-ratio="1.777"></tiptap-midibus>';
+            createWithRenderer(html, ({ element }) => {
+                element.innerHTML = '<div class="player">재생 중</div>';
+            });
+            expect(editor.getHTML()).toBe(html);
+        });
+        /*
+         * ⚠️ **`height`·`start` 는 숫자로 들어온다.** TipTap 이 숫자꼴 속성값을 알아서
+         * 바꾼다 — 호스트 플레이어는 문자열이라고 단정하면 안 된다(정올 `MidibusInner`
+         * 는 둘 다 받도록 `Number.parseFloat(String(...))` 로 읽는다).
+         */
+        it('렌더러가 노드 속성을 받는다', () => {
+            let seen = null;
+            createWithRenderer(PROD, ({ node }) => {
+                seen = { ...node.attrs };
+            });
+            expect(seen).toMatchObject({ id: 'abc123', uuid: 'abc123', height: 600 });
+        });
+        it('주입하면 자리표시자 대신 호스트 DOM 이 선다', () => {
+            createWithRenderer(PROD, ({ element }) => {
+                element.setAttribute('data-host-player', '1');
+            });
+            const dom = editor.view.dom.querySelector('[data-type="tiptapMidibus"]');
+            expect(dom?.getAttribute('data-host-player')).toBe('1');
+            expect(dom?.textContent).not.toContain('새 탭에서 보기');
+        });
+        it('false 로 사양하면 자리표시자로 되돌아간다', () => {
+            createWithRenderer(PROD, ({ element }) => {
+                /* 그리다 만 흔적을 남겨도 자리표시자가 깨끗해야 한다. */
+                element.appendChild(document.createElement('span'));
+                return false;
+            });
+            const dom = editor.view.dom.querySelector('[data-type="tiptapMidibus"]');
+            expect(dom?.textContent).toContain('새 탭에서 보기');
+            expect(editor.getHTML()).toBe(PROD);
+        });
+        /* 호스트가 터져도 노드까지 잃으면 안 된다 — 보존이 최우선 계약이다. */
+        it('렌더러가 던져도 자리표시자로 살아남고 바이트도 그대로다', () => {
+            createWithRenderer(PROD, () => {
+                throw new Error('host boom');
+            });
+            const dom = editor.view.dom.querySelector('[data-type="tiptapMidibus"]');
+            expect(dom?.textContent).toContain('강의 영상');
+            expect(editor.getHTML()).toBe(PROD);
+        });
+        it('노드가 사라지면 치울 함수가 불린다', () => {
+            let destroyed = 0;
+            createWithRenderer(PROD, () => () => {
+                destroyed += 1;
+            });
+            editor.commands.setContent('<p>비움</p>');
+            expect(destroyed).toBe(1);
+        });
+    });
 });

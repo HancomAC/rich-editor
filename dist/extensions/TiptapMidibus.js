@@ -13,14 +13,18 @@
  * 2. `renderHTML` 은 `rawAttrs` 가 있으면 그것을 그대로 되뱉는다 → 왕복에서 바이트 보존.
  * 3. 화면에는 **읽기 전용 자리표시자**만 세운다(아래 이유).
  *
- * ⚠️ **재생 UI 는 일부러 포팅하지 않았다.** prod 플레이어
+ * ⚠️ **재생 UI 는 패키지에 넣지 않는다 — 호스트가 주입한다.** prod 플레이어
  * (`trinity/apps/jungol/src/components/ui/tiptap/midibus/MidibusInner.svelte`)는
  * ① 로그인 계정 id 로 `uuid` 를 조립하고 ② `GET /midibus/start/{id}` 로 이어보기 지점을
  * 받아오며 ③ PIP 헬퍼를 쓴다 — 셋 다 **호스트 앱의 API 클라이언트·세션**이 있어야 하는
- * 것이라 패키지 안으로 들어올 수 없다. 게다가 정올은 전 문서에 `COEP: require-corp` 를
- * 걸어 두어서, `credentialless` 를 모르는 파이어폭스·사파리에서는 prod 에서도 이 영상이
- * 이미 **빈 회색 박스**다. 재생을 어설프게 옮기면 그 미해결 문제를 그대로 물려받는다.
- * 대신 자리표시자에 플레이어 새 탭 링크를 둔다 — 비로그인 prod 가 쓰는 것과 같은 주소다.
+ * 것이라 패키지 안으로 들어올 수 없다. 그래서 파일 첨부가 `resolver` 를 받는 것과 같은
+ * 방식으로 `renderer` 를 받는다: **노드와 마크업은 여기, 플레이어는 앱.**
+ * 주입이 없으면(코드패스 등) 지금까지처럼 자리표시자로 폴백한다.
+ *
+ * ⚠️ 정올은 전 문서에 `COEP: require-corp` 를 걸어 두어서, `credentialless` 를 모르는
+ * 파이어폭스·사파리에서는 **prod 에서도 이 영상이 이미 빈 회색 박스**다. 주입된
+ * 플레이어도 그 미해결 문제를 그대로 물려받는다 — 나빠지지는 않지만 낫지도 않다.
+ * 자리표시자에는 플레이어 새 탭 링크를 둔다 — 비로그인 prod 가 쓰는 것과 같은 주소다.
  */
 import { Node, mergeAttributes } from "@tiptap/core";
 /**
@@ -47,7 +51,8 @@ export const TiptapMidibus = Node.create({
     addOptions() {
         return {
             HTMLAttributes: {},
-            playerBaseUrl: "https://play.mbus.tv/v1/hls"
+            playerBaseUrl: "https://play.mbus.tv/v1/hls",
+            renderer: null
         };
     },
     /*
@@ -92,14 +97,46 @@ export const TiptapMidibus = Node.create({
         ];
     },
     addNodeView() {
-        return ({ node }) => {
-            const videoId = String(node.attrs.id ?? "").trim();
-            const startRaw = Number(node.attrs.start ?? 0);
-            const start = Number.isFinite(startRaw) ? Math.max(0, Math.floor(startRaw)) : 0;
+        return ({ node, editor }) => {
             const dom = document.createElement("div");
             dom.setAttribute("data-type", "tiptapMidibus");
             dom.setAttribute("data-node-view-wrapper", "");
             dom.style.cssText = "margin:8px 0;position:relative;box-sizing:border-box;max-width:100%;";
+            const renderer = this.options.renderer;
+            if (renderer) {
+                let cleanup = false;
+                try {
+                    cleanup = renderer({ element: dom, node, editor });
+                }
+                catch {
+                    /* 호스트 플레이어가 터져도 노드까지 잃지는 않는다 — 자리표시자로 되돌아간다. */
+                    cleanup = false;
+                }
+                if (cleanup !== false) {
+                    return {
+                        dom,
+                        /*
+                         * 속성이 바뀌면 노드뷰를 **새로 만들게 둔다**(`false`). 호스트가 어떤
+                         * 틀로 그렸는지 여기서는 모르므로 갈아 끼울 방법이 없다.
+                         */
+                        update: () => false,
+                        /*
+                         * 호스트가 그린 DOM 은 **문서가 아니다.** 재생 중 iframe·버튼이
+                         * 바뀌는 것을 파서가 되읽으면 노드 속성이 오염된다.
+                         */
+                        ignoreMutation: () => true,
+                        destroy: () => {
+                            if (typeof cleanup === "function")
+                                cleanup();
+                        }
+                    };
+                }
+                /* 사양했다. 호스트가 뭔가 그리다 말았을 수 있으니 비우고 자리표시자로 간다. */
+                dom.replaceChildren();
+            }
+            const videoId = String(node.attrs.id ?? "").trim();
+            const startRaw = Number(node.attrs.start ?? 0);
+            const start = Number.isFinite(startRaw) ? Math.max(0, Math.floor(startRaw)) : 0;
             const aspect = document.createElement("div");
             aspect.style.cssText =
                 "position:relative;width:100%;padding-top:56.25%;background:#0b1020;border-radius:8px;overflow:hidden;";
