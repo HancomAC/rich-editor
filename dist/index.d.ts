@@ -1,10 +1,4 @@
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
-export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
-export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
-export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
-export { default as InputModal } from "./components/InputModal.svelte";
-export { default as MathModal } from "./components/MathModal.svelte";
-export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
 export { PdfBlock } from "./extensions/PdfBlock";
 export { Indent } from "./extensions/Indent";
 export { FixedDetails } from "./extensions/FixedDetails";

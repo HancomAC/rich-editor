@@ -11,6 +11,11 @@
       "svelte": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./toolbars": {
+      "types": "./dist/toolbars.d.ts",
+      "svelte": "./dist/toolbars.js",
+      "default": "./dist/toolbars.js"
+    },
     "./lowlight": {
       "types": "./dist/utils/lowlight.d.ts",
       "default": "./dist/utils/lowlight.js"

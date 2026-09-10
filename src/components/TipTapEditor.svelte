@@ -88,6 +88,69 @@
       };
     },
   });
+
+  /**
+   * 편집 크롬(툴바 2 · 메뉴 2 · 모달 3)은 **`editable` 일 때만 그려지는데**
+   * 정적 import 면 읽기 전용 페이지도 통째로 받는다.
+   *
+   * 실측(정올 prod 빌드, `apps/jungol/.svelte-kit/output/client`): 이 일곱만 쓰는
+   * lucide 아이콘 53 개가 **270KB raw / 75KB gzip** 짜리 청크 하나로 앉아 있고,
+   * rich-editor 가 끌고 오는 그래프 전체는 2.06MB raw / 599KB gzip 이다. 그리고
+   * 그 그래프를 끌고 오는 라우트가 **176 개 중 91 개** — 문제 지문·글·댓글처럼
+   * 툴바가 평생 뜨지 않는 화면이 대부분이다.
+   *
+   * 그래서 **필요해질 때 한 번만** 받아 모든 인스턴스가 나눠 쓴다.
+   *
+   * ⚠️ **인스턴스마다 `import()` 를 걸지 않는다.** 모듈 자체는 캐시되니 손해가 없어
+   *    보이지만 `.then()` 이 인스턴스 수만큼 생긴다. 그 콜백들이 제각각 풀리면 툴바가
+   *    한 번에 서지 못하고 줄줄이 늘어선다 — 한 화면에 에디터가 20~27 개 서는 곳
+   *    (정올 기출 퀴즈)에서 눈에 띈다. 소비 앱 래퍼(`ui/tiptap/TipTap.svelte`)가 같은
+   *    이유로 이미 모듈 스코프 공유 import 를 쓰고 있고, 그 주석에 실측이 남아 있다.
+   *
+   * ⚠️ 배럴(`index.ts`)에서 이 일곱을 **re-export 하면 안 된다.** 여기서 지연시켜도
+   *    배럴이 정적으로 참조하면 그래프에 그대로 남아 이 지연이 아무 효과가 없다.
+   *    필요하면 `@teriusu/rich-editor/toolbars` 서브패스로 가져간다.
+   */
+  /*
+   * ⚠️ 타입은 `typeof import(...)` 로 **원본 컴포넌트에서 그대로 가져온다.**
+   * `Component<any>` 로 뭉개면 마크업의 콜백 인자(`onConfirm={(url) => …}`)가
+   * `implicit any` 로 떨어져 타입 검사에서 걸린다. 타입 위치의 `import()` 는
+   * 컴파일 뒤 사라지므로 **번들에는 영향이 없다** — 지연 로드는 그대로다.
+   */
+  type EditorChrome = {
+    FixedToolbar: typeof import("./FixedToolbar.svelte").default;
+    BubbleToolbar: typeof import("./BubbleToolbar.svelte").default;
+    TableBubbleMenu: typeof import("./TableBubbleMenu.svelte").default;
+    SlashCommandMenu: typeof import("./SlashCommandMenu.svelte").default;
+    MediaPickerModal: typeof import("./MediaPickerModal.svelte").default;
+    InputModal: typeof import("./InputModal.svelte").default;
+    MathModal: typeof import("./MathModal.svelte").default;
+  };
+  let sharedChrome = $state<EditorChrome | null>(null);
+  let chromePending = false;
+  function loadEditorChrome() {
+    if (sharedChrome || chromePending) return;
+    chromePending = true;
+    Promise.all([
+      import("./FixedToolbar.svelte"),
+      import("./BubbleToolbar.svelte"),
+      import("./TableBubbleMenu.svelte"),
+      import("./SlashCommandMenu.svelte"),
+      import("./MediaPickerModal.svelte"),
+      import("./InputModal.svelte"),
+      import("./MathModal.svelte"),
+    ]).then(([fixed, bubble, table, slash, media, input, math]) => {
+      sharedChrome = {
+        FixedToolbar: fixed.default,
+        BubbleToolbar: bubble.default,
+        TableBubbleMenu: table.default,
+        SlashCommandMenu: slash.default,
+        MediaPickerModal: media.default,
+        InputModal: input.default,
+        MathModal: math.default,
+      };
+    });
+  }
 </script>
 
 <script lang="ts">
@@ -131,13 +194,6 @@
   import { VideoEmbed } from "../extensions/VideoEmbed";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
-  import FixedToolbar from "./FixedToolbar.svelte";
-  import BubbleToolbar from "./BubbleToolbar.svelte";
-  import SlashCommandMenu from "./SlashCommandMenu.svelte";
-  import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import MathModal from "./MathModal.svelte";
-  import MediaPickerModal from "./MediaPickerModal.svelte";
-  import InputModal from "./InputModal.svelte";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import type { FileResolver } from "../extensions/FileAttachment";
@@ -188,6 +244,25 @@
 
   let editorElement: HTMLDivElement | undefined = $state();
   let editor: Editor | undefined = $state();
+
+  /*
+   * 편집 크롬을 **필요해질 때** 받아 온다(사유·실측은 모듈 블록의 `loadEditorChrome` 주석).
+   * `$effect` 라 SSR 에서는 돌지 않는다 — 크롬은 어차피 `editor` 가 선 뒤에만 그려지고
+   * `editor` 는 `onMount` 에서 만들어지므로 서버에서는 그릴 일이 없다.
+   *
+   * 아래 일곱은 **원래 이름 그대로** 두어 마크업이 그대로 읽히게 한다. 도착 전에는
+   * `undefined` 이고, 마크업이 `sharedChrome` 유무로 이미 갈라져 있어 그때는 그리지 않는다.
+   */
+  $effect(() => {
+    if (editable) loadEditorChrome();
+  });
+  const FixedToolbar = $derived(sharedChrome?.FixedToolbar);
+  const BubbleToolbar = $derived(sharedChrome?.BubbleToolbar);
+  const TableBubbleMenu = $derived(sharedChrome?.TableBubbleMenu);
+  const SlashCommandMenu = $derived(sharedChrome?.SlashCommandMenu);
+  const MediaPickerModal = $derived(sharedChrome?.MediaPickerModal);
+  const InputModal = $derived(sharedChrome?.InputModal);
+  const MathModal = $derived(sharedChrome?.MathModal);
 
   /*
    * 글자수는 `editor.storage` 에서 읽는데 그건 `$state` 가 아니라, 그냥 부르면 첫 값에
@@ -803,7 +878,7 @@
 	ondragover={(e) => e.preventDefault()}
 	ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
 >
-	{#if editor && editable && features.has('fixed-toolbar')}
+	{#if editor && editable && FixedToolbar && features.has('fixed-toolbar')}
 		<FixedToolbar
 			{editor}
 			{features}
@@ -825,11 +900,11 @@
 	<div class="hce-editor-body" bind:this={editorElement}></div>
 
 	{#if editor && editable}
-		{#if features.has('bubble-toolbar')}
+		{#if BubbleToolbar && features.has('bubble-toolbar')}
 			<BubbleToolbar {editor} {features} {onPromptLink} />
 		{/if}
 
-		{#if features.has('table-menu')}
+		{#if TableBubbleMenu && features.has('table-menu')}
 			<TableBubbleMenu {editor} />
 		{/if}
 
@@ -843,7 +918,7 @@
 			</div>
 		{/if}
 
-		{#if features.has('slash-menu') && slashMenuOpen}
+		{#if SlashCommandMenu && features.has('slash-menu') && slashMenuOpen}
 			<div
 				style="top: {slashMenuPos.top}px; left: {slashMenuPos.left}px"
 				class="fixed z-50"
@@ -876,7 +951,7 @@
 			이미지·파일 고르기. 둘이 **같은 모달**을 쓰고 문구만 다르다
 			(`MediaPickerModal` 주석 참고).
 		-->
-		{#if mediaPicker === 'image'}
+		{#if MediaPickerModal && mediaPicker === 'image'}
 			<MediaPickerModal
 				title="이미지 추가"
 				accept="image/*"
@@ -889,7 +964,7 @@
 				onCancel={() => (mediaPicker = null)}
 			/>
 		{/if}
-		{#if mediaPicker === 'file'}
+		{#if MediaPickerModal && mediaPicker === 'file'}
 			<MediaPickerModal
 				title="파일 추가"
 				uploadLabel="파일을 선택하세요"
@@ -902,7 +977,7 @@
 		{/if}
 
 		<!-- 업로드를 못 하는 호스트용 폴백(URL 만 받는다). 위 `pickImage` 참고. -->
-		{#if imageUrlPrompt}
+		{#if InputModal && imageUrlPrompt}
 			<InputModal
 				title="이미지 URL 입력"
 				placeholder="https://example.com/image.png"
@@ -914,7 +989,7 @@
 			/>
 		{/if}
 
-		{#if mathPrompt}
+		{#if MathModal && mathPrompt}
 			<MathModal
 				latex={mathPrompt.latex}
 				displayMode={mathPrompt.displayMode}

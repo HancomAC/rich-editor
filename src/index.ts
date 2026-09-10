@@ -1,11 +1,13 @@
 // 컴포넌트
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
-export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
-export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
-export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
-export { default as InputModal } from "./components/InputModal.svelte";
-export { default as MathModal } from "./components/MathModal.svelte";
-export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
+/*
+ * ⚠️ **툴바·메뉴·모달 여섯은 여기서 re-export 하지 않는다** → `@teriusu/rich-editor/toolbars`.
+ * `TipTapEditor` 가 그것들을 `editable` 일 때만 동적으로 받도록 해 놨는데(그쪽
+ * `loadEditorChrome` 주석), 배럴이 정적으로 참조하면 **지연이 통째로 무효가 된다** —
+ * 배럴을 가져오는 순간 다시 그래프에 들어오기 때문이다. 실측으로 그 여섯만 쓰는
+ * lucide 아이콘 53 개가 75KB(gzip) 짜리 청크 하나였고, 툴바가 평생 뜨지 않는
+ * 읽기 전용 라우트가 정올 176 개 중 91 개다.
+ */
 
 // 익스텐션
 export { PdfBlock } from "./extensions/PdfBlock";
