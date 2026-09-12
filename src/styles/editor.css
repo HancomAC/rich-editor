@@ -166,6 +166,41 @@
 .tiptap ol ol { list-style: lower-alpha; }
 .tiptap ol ol ol { list-style: lower-roman; }
 
+/* ── 순서목록 마커 (OrderedListMarker — 정올 main orderedlist 플러그인 이식) ──
+ * 한글 마커는 main korean.css 방식 그대로 @counter-style 로 그린다.
+ * cyclic 이라 ㅎ./하. 다음은 ㄱ./가. 로 돈다 (main 과 동일).
+ */
+@counter-style kors {
+  system: cyclic;
+  symbols: "ㄱ." "ㄴ." "ㄷ." "ㄹ." "ㅁ." "ㅂ." "ㅅ." "ㅇ." "ㅈ." "ㅊ." "ㅋ." "ㅌ." "ㅍ." "ㅎ.";
+  suffix: " ";
+}
+
+@counter-style korc {
+  system: cyclic;
+  symbols: "가." "나." "다." "라." "마." "바." "사." "아." "자." "차." "카." "타." "파." "하.";
+  suffix: " ";
+}
+
+/* type 속성 폴백 — ⚠️ HTML 속성 선택자는 `type` 값을 **대소문자 무시**로 매치한다
+ * ([type="a"] 가 A 도 잡는다). 그래서 여기서는 소문자 계열만 깔고, 정확한 대소문자는
+ * 아래 marker-* 클래스(대소문자 구분)가 이긴다 — 같은 특이도라 뒤에 온 쪽이 우선.
+ * 클래스 없는 HTML(정올 main 이 저장한 옛 본문)도 마커 **계열**은 이 폴백으로 맞는다.
+ */
+.tiptap ol[type="1"] { list-style-type: decimal; }
+.tiptap ol[type="a"] { list-style-type: lower-alpha; }
+.tiptap ol[type="i"] { list-style-type: lower-roman; }
+.tiptap ol[type="kors"] { list-style-type: kors; }
+.tiptap ol[type="korc"] { list-style-type: korc; }
+
+.tiptap ol.marker-1 { list-style-type: decimal; }
+.tiptap ol.marker-a { list-style-type: lower-alpha; }
+.tiptap ol.marker-A { list-style-type: upper-alpha; }
+.tiptap ol.marker-i { list-style-type: lower-roman; }
+.tiptap ol.marker-I { list-style-type: upper-roman; }
+.tiptap ol.marker-kors { list-style-type: kors; }
+.tiptap ol.marker-korc { list-style-type: korc; }
+
 .tiptap li {
   margin: 0.4em 0;
   line-height: 1.7;

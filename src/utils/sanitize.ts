@@ -59,7 +59,12 @@ function isAllowedIframeSrc(value: string): boolean {
 
 const ALLOWED_ATTRS: Record<string, Set<string>> = {
   a: new Set(["href", "title", "target", "rel"]),
-  img: new Set(["src", "alt", "width", "height"]),
+  // `data-align` 은 미디어 툴바의 좌/중/우 정렬(`ResizableImage`). `style` 로 저장하면
+  // 여기서 지워져 왕복이 어긋나므로 속성으로 저장하고, 그 이름을 여기 허용한다.
+  img: new Set(["src", "alt", "width", "height", "data-align"]),
+  // 순서목록 마커(`OrderedListMarker`). `type` 은 마커 종류(1·a·A·i·I·kors·korc),
+  // `start` 는 시작 번호 — 지워지면 `c.` 로 시작한 목록이 `a.` 부터 다시 세는 것처럼 보인다.
+  ol: new Set(["start", "type"]),
   table: new Set(["style"]),
   col: new Set(["style", "width"]),
   td: new Set(["colspan", "rowspan", "colwidth", "style"]),
