@@ -26,8 +26,20 @@ export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
 export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
+/*
+ * 업로드 스켈레톤·미디어 툴바. 둘 다 순수 vanilla(DOM + ProseMirror)라 lucide 같은
+ * 무거운 그래프를 끌지 않는다 — 위 지연 로딩 경고와 무관하다.
+ */
+export { UploadSkeleton, insertUploadSkeleton, UPLOAD_SKELETON_NODE } from "./extensions/UploadSkeleton";
+export { MediaResizeToolbar, applyMediaToolbarAction } from "./extensions/MediaToolbar";
+/*
+ * 에디터 UI i18n. 순수 TS(사전 + 번역기 + storage 확장)라 lucide 그래프와 무관하다.
+ * 보통은 `TipTapEditor` 의 `locale` prop 만 쓰면 되고, 확장을 직접 조립하는 호스트만
+ * `EditorI18n.configure({ locale })` / `getEditorTranslator(editor)` 를 쓴다.
+ */
+export { createTranslator, defaultTranslator, getEditorTranslator, EditorI18n } from "./i18n";
 // 유틸리티
-export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";
+export { sanitizeHtml, stripHtmlToExcerpt, stripUploadSkeletonHtml, transformLegacyHtml } from "./utils/sanitize";
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";
 export { cn } from "./utils/cn";

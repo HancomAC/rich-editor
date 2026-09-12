@@ -4,11 +4,18 @@ import { type MidibusRenderer } from "../extensions/TiptapMidibus";
 import { type LegacyBlockRenderer } from "../extensions/LegacyBlock";
 import { type MathPrompt } from "../extensions/Math";
 import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
+import { type EditorLocaleInput } from "../i18n";
 import type { FileResolver } from "../extensions/FileAttachment";
 type $$ComponentProps = {
     content: string;
     onChange: (html: string) => void;
+    /** 본문 안내문. 미지정 시 로케일의 기본 안내문(ko: "'/'를 눌러 명령어를 입력하세요..."). */
     placeholder?: string;
+    /**
+     * 에디터 UI 로케일 — 코드('ko'·'en'·'ja'·'es'·'zh-hans'·'zh-hant', 지역 변형 허용) 또는
+     * 부분 메시지 오버라이드 객체. **미주입 시 ko** — 기존 호스트와 픽셀 단위 동일(하위호환).
+     */
+    locale?: EditorLocaleInput;
     onUploadFile?: UploadHandler;
     onResolveFile?: FileResolver;
     fileDownloadBaseUrl?: string;

@@ -19,26 +19,34 @@
   import { onMount } from "svelte";
   import { cn } from "../utils/cn";
   import { splitCellPreservingHeaders } from "../utils/splitCell";
+  import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
 
-  const PRESET_COLORS = [
-    { label: "없음", value: "" },
-    { label: "밝은 회색", value: "#f1f5f9" },
-    { label: "밝은 파랑", value: "#dbeafe" },
-    { label: "밝은 초록", value: "#dcfce7" },
-    { label: "밝은 노랑", value: "#fef9c3" },
-    { label: "밝은 주황", value: "#ffedd5" },
-    { label: "밝은 빨강", value: "#fee2e2" },
-    { label: "밝은 보라", value: "#ede9fe" },
-    { label: "밝은 분홍", value: "#fce7f3" },
+  const PRESET_COLORS: { labelKey: EditorMessageKey; value: string }[] = [
+    { labelKey: "bgNone", value: "" },
+    { labelKey: "bgGray", value: "#f1f5f9" },
+    { labelKey: "bgBlue", value: "#dbeafe" },
+    { labelKey: "bgGreen", value: "#dcfce7" },
+    { labelKey: "bgYellow", value: "#fef9c3" },
+    { labelKey: "bgOrange", value: "#ffedd5" },
+    { labelKey: "bgRed", value: "#fee2e2" },
+    { labelKey: "bgPurple", value: "#ede9fe" },
+    { labelKey: "bgPink", value: "#fce7f3" },
   ];
 
-  const LINE_HEIGHTS = [
-    { label: "좁게", value: "0.8" },
-    { label: "보통", value: "1.0" },
-    { label: "넓게", value: "1.4" },
+  const LINE_HEIGHTS: { labelKey: EditorMessageKey; value: string }[] = [
+    { labelKey: "spacingNarrow", value: "0.8" },
+    { labelKey: "spacingNormal", value: "1.0" },
+    { labelKey: "spacingWide", value: "1.4" },
   ];
 
-  let { editor }: { editor: Editor } = $props();
+  let {
+    editor,
+    t = defaultTranslator,
+  }: {
+    editor: Editor;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
+  } = $props();
 
   let visible = $state(false);
   let pos = $state({ top: 0, left: 0, width: 0 });
@@ -143,7 +151,7 @@
     onmousedown={(e) => e.preventDefault()}
     role="toolbar"
     tabindex="-1"
-    aria-label="표 편집"
+    aria-label={t('tableEdit')}
     style="top: {pos.top}px; left: {pos.left}px; width: {pos.width}px"
   >
     <div
@@ -163,7 +171,7 @@
         >
           <ArrowUpToLine size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">행 위에 추가</span>
+        <span class="hce-table-btn-tooltip">{t('rowAddAbove')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -179,7 +187,7 @@
         >
           <ArrowDownToLine size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">행 아래에 추가</span>
+        <span class="hce-table-btn-tooltip">{t('rowAddBelow')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -196,7 +204,7 @@
         >
           <ArrowLeftToLine size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">열 왼쪽에 추가</span>
+        <span class="hce-table-btn-tooltip">{t('colAddLeft')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -213,7 +221,7 @@
         >
           <ArrowRightToLine size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">열 오른쪽에 추가</span>
+        <span class="hce-table-btn-tooltip">{t('colAddRight')}</span>
       </div>
 
       <div class="w-px h-5 bg-border mx-0.5"></div>
@@ -232,7 +240,7 @@
         >
           <PanelTop size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">헤더 행 토글</span>
+        <span class="hce-table-btn-tooltip">{t('headerRowToggle')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -249,7 +257,7 @@
         >
           <PanelLeft size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">헤더 열 토글</span>
+        <span class="hce-table-btn-tooltip">{t('headerColToggle')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -265,7 +273,7 @@
         >
           <Combine size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">셀 병합</span>
+        <span class="hce-table-btn-tooltip">{t('cellMerge')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -281,7 +289,7 @@
         >
           <SplitSquareHorizontal size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">셀 분할</span>
+        <span class="hce-table-btn-tooltip">{t('cellSplit')}</span>
       </div>
 
       <div class="w-px h-5 bg-border mx-0.5"></div>
@@ -299,7 +307,7 @@
           >
             <UnfoldVertical size={iconSize} />
           </button>
-          <span class="hce-table-btn-tooltip">줄 간격</span>
+          <span class="hce-table-btn-tooltip">{t('lineSpacing')}</span>
         </div>
         {#if showLineHeight}
           <div
@@ -337,7 +345,7 @@
                   showLineHeight = false;
                 }}
               >
-                {lh.label}
+                {t(lh.labelKey)}
               </button>
             {/each}
           </div>
@@ -387,7 +395,7 @@
         >
           <EqualApproximately size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">너비 동일</span>
+        <span class="hce-table-btn-tooltip">{t('widthEqual')}</span>
       </div>
 
       <!-- Background color -->
@@ -403,7 +411,7 @@
           >
             <Paintbrush size={iconSize} />
           </button>
-          <span class="hce-table-btn-tooltip">셀 배경색</span>
+          <span class="hce-table-btn-tooltip">{t('cellBackground')}</span>
         </div>
         {#if showColors}
           <div
@@ -413,13 +421,13 @@
             <p
               class="text-xs font-medium text-muted-foreground mb-1.5 px-1"
             >
-              배경색
+              {t('background')}
             </p>
             <div class="grid grid-cols-3 gap-1">
               {#each PRESET_COLORS as c}
                 <button
                   type="button"
-                  title={c.label}
+                  title={t(c.labelKey)}
                   class="w-full h-7 rounded-md border border-border transition-transform hover:scale-110"
                   style="background: {c.value ||
                     'transparent'}; {!c.value
@@ -456,7 +464,7 @@
         >
           <RowsIcon size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">행 삭제</span>
+        <span class="hce-table-btn-tooltip">{t('rowDelete')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -472,7 +480,7 @@
         >
           <ColumnsIcon size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">열 삭제</span>
+        <span class="hce-table-btn-tooltip">{t('colDelete')}</span>
       </div>
 
       <div class="hce-table-btn-wrap">
@@ -488,7 +496,7 @@
         >
           <Trash2 size={iconSize} />
         </button>
-        <span class="hce-table-btn-tooltip">표 삭제</span>
+        <span class="hce-table-btn-tooltip">{t('tableDelete')}</span>
       </div>
     </div>
   </div>

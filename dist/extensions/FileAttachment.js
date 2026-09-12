@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { getEditorTranslator } from "../i18n";
 function formatFileSize(bytes) {
     if (bytes < 1024)
         return `${bytes} B`;
@@ -222,7 +223,7 @@ export const FileAttachment = Node.create({
                 // resolver가 있으면 이름/크기 메타데이터를 채운다.
                 const resolver = editor.storage.fileAttachment?.resolver;
                 if (resolver) {
-                    sizeEl.textContent = "loading...";
+                    sizeEl.textContent = getEditorTranslator(editor)("fileSizeLoading");
                     resolver(node.attrs.fileId)
                         .then((result) => {
                         resolvedSrc = result.src;

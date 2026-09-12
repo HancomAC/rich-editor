@@ -94,10 +94,10 @@ export function attachResize(options) {
         // ⚠️ `getNode()` — 클로저가 잡아 둔 낡은 노드를 쓰면 리사이즈가 그 사이의 다른
         //    속성 변경을 되돌린다(복붙 시절의 버그).
         const node = getNode();
-        editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            [attr]: format(parsed)
-        }));
+        const nextAttrs = options.buildAttrs
+            ? options.buildAttrs(node, parsed)
+            : { ...node.attrs, [attr]: format(parsed) };
+        editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, nextAttrs));
     };
     const attachWindow = () => {
         window.addEventListener("pointermove", onPointerMove);
@@ -125,7 +125,7 @@ export function attachResize(options) {
     handle.addEventListener("mouseenter", onEnter);
     handle.addEventListener("mouseleave", onLeave);
     handle.addEventListener("pointerdown", onPointerDown);
-    dom.appendChild(handle);
+    (options.handleParent ?? dom).appendChild(handle);
     return () => {
         handle.removeEventListener("mouseenter", onEnter);
         handle.removeEventListener("mouseleave", onLeave);

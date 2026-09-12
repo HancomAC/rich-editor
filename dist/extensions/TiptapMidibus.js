@@ -27,6 +27,9 @@
  * 자리표시자에는 플레이어 새 탭 링크를 둔다 — 비로그인 prod 가 쓰는 것과 같은 주소다.
  */
 import { Node, mergeAttributes } from "@tiptap/core";
+import { attachResize } from "../utils/resize";
+import { normalizeMediaHeight } from "../utils/media-size";
+import { getEditorTranslator } from "../i18n";
 /**
  * ⚠️ `on*` 만 걸러내고 나머지는 손대지 않는다. prod 가 `data-resize-*`·`data-bubble-menu`
  * 같은 것을 붙여 저장해도 여기서 살아남아야 왕복이 성립한다 — 아는 속성만 남기면
@@ -97,7 +100,8 @@ export const TiptapMidibus = Node.create({
         ];
     },
     addNodeView() {
-        return ({ node, editor }) => {
+        return ({ node, editor, getPos }) => {
+            const t = getEditorTranslator(editor);
             const dom = document.createElement("div");
             dom.setAttribute("data-type", "tiptapMidibus");
             dom.setAttribute("data-node-view-wrapper", "");
@@ -137,20 +141,60 @@ export const TiptapMidibus = Node.create({
             const videoId = String(node.attrs.id ?? "").trim();
             const startRaw = Number(node.attrs.start ?? 0);
             const start = Number.isFinite(startRaw) ? Math.max(0, Math.floor(startRaw)) : 0;
+            /*
+             * 자리표시자도 저장된 `height` 를 따른다(prod 기본 600). `padding-top` 대신
+             * `aspect-ratio` 를 쓰는 이유는 `VideoEmbed` 주석 참조 — 높이 드래그가 인라인
+             * `height` 하나로 먹게 하기 위해서다.
+             */
             const aspect = document.createElement("div");
             aspect.style.cssText =
-                "position:relative;width:100%;padding-top:56.25%;background:#0b1020;border-radius:8px;overflow:hidden;";
+                "position:relative;width:100%;aspect-ratio:16 / 9;background:#0b1020;border-radius:8px;overflow:hidden;";
+            const height = normalizeMediaHeight(node.attrs.height);
+            if (height != null) {
+                aspect.style.height = `${height}px`;
+                aspect.style.removeProperty("aspect-ratio");
+            }
             dom.appendChild(aspect);
+            /*
+             * 높이 드래그(main 은 `tiptap-midibus` 에 정확히 이것 하나만 준다 — 비율·정렬
+             * 칩 없음). ⚠️ 이 노드는 `renderHTML` 이 `rawAttrs` 를 그대로 되뱉으므로,
+             * `height` 만 바꾸면 저장본에는 **옛 높이가 남는다.** 커밋 때 `rawAttrs` 사본의
+             * `height` 도 함께 맞춘다 — 다른 속성·순서는 그대로라 바이트 보존이 유지된다.
+             */
+            let detachResize = null;
+            if (editor.isEditable) {
+                detachResize = attachResize({
+                    dom: aspect,
+                    handleParent: dom,
+                    editor,
+                    getPos: () => (typeof getPos === "function" ? getPos() : undefined),
+                    getNode: () => node,
+                    axis: "y",
+                    attr: "height",
+                    min: 160,
+                    max: 1600,
+                    label: t("lectureResizeHeight"),
+                    buildAttrs: (current, value) => {
+                        const nextHeight = String(Math.round(value));
+                        const raw = current.attrs.rawAttrs;
+                        return {
+                            ...current.attrs,
+                            height: nextHeight,
+                            rawAttrs: raw ? { ...raw, height: nextHeight } : raw
+                        };
+                    }
+                });
+            }
             const poster = document.createElement("div");
             poster.style.cssText =
                 "position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;text-align:center;color:#c7cbd4;";
             aspect.appendChild(poster);
             const label = document.createElement("span");
-            label.textContent = "강의 영상";
+            label.textContent = t("lectureVideo");
             label.style.cssText = "font-size:13px;font-weight:600;line-height:1.5;";
             poster.appendChild(label);
             const hint = document.createElement("span");
-            hint.textContent = videoId ? videoId : "영상 주소가 비어 있습니다";
+            hint.textContent = videoId ? videoId : t("lectureEmptySrc");
             hint.style.cssText = "font-size:12px;line-height:1.5;opacity:0.7;word-break:break-all;";
             poster.appendChild(hint);
             if (videoId) {
@@ -158,12 +202,22 @@ export const TiptapMidibus = Node.create({
                 open.href = `${this.options.playerBaseUrl}/${videoId}?start=${start}&volume=50`;
                 open.target = "_blank";
                 open.rel = "noopener noreferrer";
-                open.textContent = "새 탭에서 보기";
+                open.textContent = t("openInNewTab");
                 open.style.cssText =
                     "font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,0.16);border-radius:6px;padding:6px 14px;text-decoration:none;";
                 poster.appendChild(open);
             }
-            return { dom };
+            /*
+             * `update` 는 두지 않는다 — 속성이 바뀌면 노드뷰를 새로 세운다(렌더러 주입
+             * 경로와 같은 이유). 그래서 위 `getNode` 가 클로저의 `node` 를 그대로 써도
+             * 낡을 새가 없다: 낡아지는 순간 이 뷰 자체가 버려진다.
+             */
+            return {
+                dom,
+                destroy: () => {
+                    detachResize?.();
+                }
+            };
         };
     },
     addCommands() {

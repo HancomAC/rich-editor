@@ -1,3 +1,4 @@
+import { type EditorTranslator } from "../i18n";
 type $$ComponentProps = {
     title: string;
     /** 파일 선택창에서 거를 확장자. 파일 첨부처럼 아무거나 받는 곳은 비운다. */
@@ -11,6 +12,8 @@ type $$ComponentProps = {
     onUpload: (file: File) => void;
     onLink: (url: string) => void;
     onCancel: () => void;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
 };
 declare const MediaPickerModal: import("svelte").Component<$$ComponentProps, {}, "">;
 type MediaPickerModal = ReturnType<typeof MediaPickerModal>;

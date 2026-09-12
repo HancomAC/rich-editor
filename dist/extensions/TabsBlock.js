@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { getEditorTranslator } from "../i18n";
 import { Selection } from "@tiptap/pm/state";
 /**
  * 탭 블록 — 한 상자 안의 내용을 **탭으로 나눠** 한 번에 하나만 보여준다(노션의 그것).
@@ -33,7 +34,7 @@ import { Selection } from "@tiptap/pm/state";
  * (`editor.css` 의 `:not(.hce-tabs-live)` 규칙). 그래야 에디터가 서기 전후로 높이가 튀지 않는다.
  */
 /** 이름을 따로 주지 않은 탭이 보여줄 기본 이름. */
-const defaultTitle = (index) => `탭 ${index + 1}`;
+const defaultTitle = (t, index) => t("tabDefaultTitle", { n: index + 1 });
 /**
  * 여기까지는 **클릭이다.** 손가락·마우스는 누를 때 몇 px 씩 흔들리므로, 이만큼 넘어야
  * "끌었다"로 본다. 넘지 않고 떼면 평소대로 탭 전환이 되고 두 번 누르면 이름 고치기가 뜬다.
@@ -120,6 +121,7 @@ export const TabsBlock = Node.create({
     },
     addNodeView() {
         return ({ node, editor, getPos }) => {
+            const t = getEditorTranslator(editor);
             let currentNode = node;
             /** 지금 보고 있는 탭. 문서에 저장하지 않는다(파일 첫머리 주석 참고). */
             let active = 0;
@@ -170,7 +172,7 @@ export const TabsBlock = Node.create({
             };
             const titleOf = (index) => {
                 const raw = String(currentNode.child(index).attrs.title ?? "").trim();
-                return raw || defaultTitle(index);
+                return raw || defaultTitle(t, index);
             };
             /** `index` 번째 탭 노드의 문서상 위치. `tabs` 가 문서에서 빠졌으면 null. */
             const childPos = (index) => {
@@ -287,7 +289,7 @@ export const TabsBlock = Node.create({
                     return;
                 const index = currentNode.childCount;
                 // `content: "block+"` 이라 `createAndFill` 이 빈 문단 하나를 채워 준다.
-                const created = type.createAndFill({ title: defaultTitle(index) });
+                const created = type.createAndFill({ title: defaultTitle(t, index) });
                 if (!created)
                     return;
                 active = index;
@@ -557,7 +559,7 @@ export const TabsBlock = Node.create({
                         setActive(index);
                     });
                     if (editable) {
-                        label.title = "두 번 누르면 이름을 고칩니다";
+                        label.title = t("tabRenameTip");
                         label.addEventListener("dblclick", (e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -581,7 +583,7 @@ export const TabsBlock = Node.create({
                         close.className = deletable
                             ? "hce-tab-chip-close"
                             : "hce-tab-chip-close is-disabled";
-                        close.setAttribute("aria-label", `${titleOf(index)} 삭제`);
+                        close.setAttribute("aria-label", t("tabDelete", { title: titleOf(index) }));
                         close.textContent = "×";
                         if (deletable) {
                             close.addEventListener("mousedown", (e) => e.preventDefault());
@@ -604,8 +606,8 @@ export const TabsBlock = Node.create({
                     const add = document.createElement("button");
                     add.type = "button";
                     add.className = "hce-tabs-add";
-                    add.setAttribute("aria-label", "탭 추가");
-                    add.title = "탭 추가";
+                    add.setAttribute("aria-label", t("tabAdd"));
+                    add.title = t("tabAdd");
                     add.textContent = "+";
                     add.addEventListener("mousedown", (e) => e.preventDefault());
                     add.addEventListener("click", (e) => {
@@ -669,14 +671,15 @@ export const TabsBlock = Node.create({
     },
     addCommands() {
         return {
-            setTabs: (count = 3) => ({ chain }) => {
+            setTabs: (count = 3) => ({ chain, editor }) => {
+                const t = getEditorTranslator(editor);
                 const total = Math.max(1, Math.floor(count));
                 return (chain()
                     .insertContent({
                     type: this.name,
                     content: Array.from({ length: total }, (_unused, i) => ({
                         type: "tab",
-                        attrs: { title: defaultTitle(i) },
+                        attrs: { title: defaultTitle(t, i) },
                         content: [{ type: "paragraph" }]
                     }))
                 })

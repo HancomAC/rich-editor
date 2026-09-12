@@ -11,18 +11,22 @@
    */
   import { X } from "lucide-svelte";
   import katex from "katex";
+  import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
 
   let {
     latex = "",
     displayMode = false,
     onConfirm,
     onCancel,
+    t = defaultTranslator,
   }: {
     latex?: string;
     displayMode?: boolean;
     /** 빈 문자열로 확인하면 호출부가 노드를 지운다(편집 중일 때). */
     onConfirm: (value: string) => void;
     onCancel: () => void;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   let value = $state(latex);
@@ -87,27 +91,27 @@
    *
    * `$` 는 커서를 놓을 자리다(아래 `insert` 가 그 자리에 커서를 둔다). 없으면 끝에 놓인다.
    */
-  const SYMBOLS: { label: string; snippet: string; title: string }[] = [
-    { label: "x²", snippet: "^{$}", title: "위첨자" },
-    { label: "xᵢ", snippet: "_{$}", title: "아래첨자" },
-    { label: "a/b", snippet: "\\frac{$}{}", title: "분수" },
-    { label: "√", snippet: "\\sqrt{$}", title: "제곱근" },
-    { label: "∑", snippet: "\\sum_{i=1}^{n} $", title: "합" },
-    { label: "∏", snippet: "\\prod_{i=1}^{n} $", title: "곱" },
-    { label: "log", snippet: "\\log $", title: "로그" },
-    { label: "O(n)", snippet: "O($)", title: "빅오 표기" },
-    { label: "≤", snippet: "\\le $", title: "작거나 같다" },
-    { label: "≥", snippet: "\\ge $", title: "크거나 같다" },
-    { label: "≠", snippet: "\\ne $", title: "같지 않다" },
-    { label: "×", snippet: "\\times $", title: "곱하기" },
-    { label: "÷", snippet: "\\div $", title: "나누기" },
-    { label: "∈", snippet: "\\in $", title: "원소" },
-    { label: "∞", snippet: "\\infty $", title: "무한대" },
-    { label: "α", snippet: "\\alpha $", title: "알파" },
-    { label: "θ", snippet: "\\theta $", title: "세타" },
-    { label: "π", snippet: "\\pi $", title: "파이" },
-    { label: "→", snippet: "\\to $", title: "화살표" },
-    { label: "⋯", snippet: "\\cdots $", title: "가운데 말줄임" },
+  const SYMBOLS: { label: string; snippet: string; titleKey: EditorMessageKey }[] = [
+    { label: "x²", snippet: "^{$}", titleKey: "mathSuperscript" },
+    { label: "xᵢ", snippet: "_{$}", titleKey: "mathSubscript" },
+    { label: "a/b", snippet: "\\frac{$}{}", titleKey: "mathFraction" },
+    { label: "√", snippet: "\\sqrt{$}", titleKey: "mathSqrt" },
+    { label: "∑", snippet: "\\sum_{i=1}^{n} $", titleKey: "mathSum" },
+    { label: "∏", snippet: "\\prod_{i=1}^{n} $", titleKey: "mathProduct" },
+    { label: "log", snippet: "\\log $", titleKey: "mathLog" },
+    { label: "O(n)", snippet: "O($)", titleKey: "mathBigO" },
+    { label: "≤", snippet: "\\le $", titleKey: "mathLe" },
+    { label: "≥", snippet: "\\ge $", titleKey: "mathGe" },
+    { label: "≠", snippet: "\\ne $", titleKey: "mathNe" },
+    { label: "×", snippet: "\\times $", titleKey: "mathTimes" },
+    { label: "÷", snippet: "\\div $", titleKey: "mathDivide" },
+    { label: "∈", snippet: "\\in $", titleKey: "mathIn" },
+    { label: "∞", snippet: "\\infty $", titleKey: "mathInfinity" },
+    { label: "α", snippet: "\\alpha $", titleKey: "mathAlpha" },
+    { label: "θ", snippet: "\\theta $", titleKey: "mathTheta" },
+    { label: "π", snippet: "\\pi $", titleKey: "mathPi" },
+    { label: "→", snippet: "\\to $", titleKey: "mathArrow" },
+    { label: "⋯", snippet: "\\cdots $", titleKey: "mathCdots" },
   ];
 
   /**
@@ -158,13 +162,13 @@
   >
     <div class="flex items-center justify-between mb-3">
       <span class="text-sm font-semibold">
-        {displayMode ? "수식 블록" : "인라인 수식"}
+        {displayMode ? t('mathBlock') : t('mathInline')}
       </span>
       <button
         type="button"
         class="p-1 rounded-md hover:bg-muted text-muted-foreground"
         onclick={onCancel}
-        aria-label="닫기"
+        aria-label={t('close')}
       >
         <X size={14} />
       </button>
@@ -189,8 +193,8 @@
         <button
           type="button"
           class="hce-math-sym"
-          title={sym.title}
-          aria-label={sym.title}
+          title={t(sym.titleKey)}
+          aria-label={t(sym.titleKey)}
           onclick={() => insert(sym.snippet)}
         >
           {sym.label}
@@ -215,26 +219,26 @@
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html preview.html}
       {:else}
-        <span class="text-xs text-muted-foreground">미리보기</span>
+        <span class="text-xs text-muted-foreground">{t('preview')}</span>
       {/if}
     </div>
 
     <div class="hce-math-actions flex items-center justify-between gap-2 mt-4">
-      <span class="text-[11px] text-muted-foreground">⌘/Ctrl + Enter 로 확인</span>
+      <span class="text-[11px] text-muted-foreground">{t('mathConfirmHint')}</span>
       <div class="flex gap-2">
         <button
           type="button"
           class="px-3.5 py-1.5 text-sm rounded-md border border-border hover:bg-muted transition-colors"
           onclick={onCancel}
         >
-          취소
+          {t('cancel')}
         </button>
         <button
           type="button"
           class="px-3.5 py-1.5 text-sm rounded-md hce-btn-primary hover:opacity-90 transition-opacity"
           onclick={handleSubmit}
         >
-          확인
+          {t('confirm')}
         </button>
       </div>
     </div>

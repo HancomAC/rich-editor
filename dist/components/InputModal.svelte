@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
+  import { defaultTranslator, type EditorTranslator } from "../i18n";
 
   let {
     title,
@@ -7,12 +8,15 @@
     defaultValue = "",
     onConfirm,
     onCancel,
+    t = defaultTranslator,
   }: {
     title: string;
     placeholder?: string;
     defaultValue?: string;
     onConfirm: (value: string) => void;
     onCancel: () => void;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   let value = $state(defaultValue);
@@ -71,7 +75,7 @@
           type="button"
           class="p-1 rounded-md hover:bg-muted text-muted-foreground"
           onclick={onCancel}
-          aria-label="닫기"
+          aria-label={t('close')}
         >
           <X size={14} />
         </button>
@@ -91,14 +95,14 @@
         class="px-3.5 py-1.5 text-sm rounded-md border border-border hover:bg-muted transition-colors"
         onclick={onCancel}
       >
-        취소
+        {t('cancel')}
       </button>
       <button
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-md hce-btn-primary hover:opacity-90 transition-opacity"
         onclick={handleSubmit}
       >
-        확인
+        {t('confirm')}
       </button>
     </div>
   </div>

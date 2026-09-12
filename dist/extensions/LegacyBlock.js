@@ -21,6 +21,7 @@
  * 같은 경로(`getHTML()`)로 만들어져 이미 `=""` 꼴이라 실사용에서는 어긋나지 않는다.
  */
 import { Node } from "@tiptap/core";
+import { getEditorTranslator } from "../i18n";
 /** 되쓸 이유가 없는(그리고 되쓰면 위험한) 것들. prod 저장본에는 원래 들어 있지 않다. */
 const SKIP_TAGS = new Set(["script", "style", "noscript", "template"]);
 /** `Columns`/`Column` 의 같은 셀렉터보다 먼저 잡혀야 한다(기본 50). */
@@ -96,10 +97,10 @@ function detectKind(el) {
         return "columns";
     return "iframe";
 }
-const KIND_LABEL = {
-    youtube: "유튜브 영상",
-    iframe: "임베드",
-    columns: "단 나누기"
+const KIND_LABEL_KEY = {
+    youtube: "legacyYoutube",
+    iframe: "legacyIframe",
+    columns: "legacyColumns"
 };
 /** 자리표시자의 "새 탭에서 보기" 주소. 없으면 링크를 안 만든다. */
 function outboundUrl(kind, spec) {
@@ -156,6 +157,7 @@ export const LegacyBlock = Node.create({
     },
     addNodeView() {
         return ({ node, editor }) => {
+            const t = getEditorTranslator(editor);
             const kind = (node.attrs.kind ?? "iframe");
             const spec = node.attrs.spec;
             const dom = document.createElement("div");
@@ -189,7 +191,7 @@ export const LegacyBlock = Node.create({
             dom.style.cssText =
                 "margin:8px 0;padding:16px;border:1px dashed rgba(120,130,150,0.5);border-radius:8px;background:rgba(120,130,150,0.06);box-sizing:border-box;max-width:100%;display:flex;flex-direction:column;gap:6px;align-items:flex-start;";
             const label = document.createElement("span");
-            label.textContent = `${KIND_LABEL[kind]} (옛 형식 · 편집 불가)`;
+            label.textContent = t("legacyNotice", { kind: t(KIND_LABEL_KEY[kind]) });
             label.style.cssText = "font-size:13px;font-weight:600;opacity:0.8;";
             dom.appendChild(label);
             /*
@@ -209,7 +211,7 @@ export const LegacyBlock = Node.create({
                 open.href = url;
                 open.target = "_blank";
                 open.rel = "noopener noreferrer";
-                open.textContent = "새 탭에서 보기";
+                open.textContent = t("openInNewTab");
                 open.style.cssText = "font-size:13px;font-weight:600;text-decoration:underline;";
                 dom.appendChild(open);
             }

@@ -1,5 +1,7 @@
 import Image from "@tiptap/extension-image";
 import { attachResize } from "../utils/resize";
+import { normalizeMediaAlign } from "../utils/media-size";
+import { getEditorTranslator } from "../i18n";
 /**
  * 드래그로 폭을 조절할 수 있는 이미지.
  *
@@ -74,6 +76,19 @@ export const ResizableImage = Image.extend({
                     const w = normalizeImageWidth(attributes.width);
                     return w == null ? {} : { width: String(w) };
                 }
+            },
+            /*
+             * 좌/중/우 정렬(미디어 툴바). `width` 와 같은 이유로 `style` 이 아니라 **속성**
+             * (`data-align`)으로 간다 — 살균기의 `img` 허용 목록에 이 이름을 넣어 두었고,
+             * 읽기 화면에서는 `editor.css` 의 `.tiptap img[data-align=…]` 규칙이 받는다.
+             */
+            align: {
+                default: null,
+                parseHTML: (element) => normalizeMediaAlign(element.getAttribute("data-align")),
+                renderHTML: (attributes) => {
+                    const align = normalizeMediaAlign(attributes.align);
+                    return align ? { "data-align": align } : {};
+                }
             }
         };
     },
@@ -108,6 +123,10 @@ export const ResizableImage = Image.extend({
                     dom.style.removeProperty("width");
                 else
                     dom.style.width = `${w}px`;
+                /* 정렬은 래퍼의 마진으로 — `width: fit-content` 라 `auto` 마진이 그대로 먹는다. */
+                const align = normalizeMediaAlign(attrs.align);
+                dom.style.marginLeft = align === "center" || align === "right" ? "auto" : "";
+                dom.style.marginRight = align === "center" ? "auto" : "";
             };
             applyAttrs(node.attrs);
             if (editor.isEditable) {
@@ -119,7 +138,7 @@ export const ResizableImage = Image.extend({
                     axis: "x",
                     attr: "width",
                     min: MIN_WIDTH,
-                    label: "이미지 너비 조절",
+                    label: getEditorTranslator(editor)("imageResizeWidth"),
                     // 저장 형식은 단위 없는 숫자 — 살균기가 `style` 을 지우므로 `width` 속성으로 간다.
                     format: (v) => String(Math.round(v))
                 });
