@@ -39,6 +39,18 @@ export interface AttachResizeOptions {
 	label?: string;
 	/** 저장 형식. 기본은 `'240px'` 같은 px 문자열. */
 	format?: (value: number) => string;
+	/**
+	 * 손잡이를 붙일 부모. 기본은 `dom` 자신. **크기를 먹는 요소와 손잡이가 사는 요소를
+	 * 갈라야 할 때** 쓴다 — 영상의 비율 박스는 `overflow:hidden` 이라 밖 12px 을 침범하는
+	 * 손잡이가 잘리므로, 크기는 박스에 먹이고 손잡이는 래퍼에 둔다.
+	 */
+	handleParent?: HTMLElement;
+	/**
+	 * 드래그 커밋 때 저장할 속성 일습. 기본은 `{ ...attrs, [attr]: format(v) }`.
+	 * 한 번의 커밋으로 **여러 속성을 함께** 바꿔야 할 때 쓴다 — 높이 드래그가 비율
+	 * 프리셋을 풀거나(`ratio: null`), `TiptapMidibus` 가 `rawAttrs` 사본을 맞추는 자리.
+	 */
+	buildAttrs?: (node: ProseMirrorNode, value: number) => Record<string, unknown>;
 }
 
 const DEFAULTS = {
@@ -151,12 +163,10 @@ export function attachResize(options: AttachResizeOptions): () => void {
 		// ⚠️ `getNode()` — 클로저가 잡아 둔 낡은 노드를 쓰면 리사이즈가 그 사이의 다른
 		//    속성 변경을 되돌린다(복붙 시절의 버그).
 		const node = getNode();
-		editor.view.dispatch(
-			editor.view.state.tr.setNodeMarkup(pos, undefined, {
-				...node.attrs,
-				[attr]: format(parsed)
-			})
-		);
+		const nextAttrs = options.buildAttrs
+			? options.buildAttrs(node, parsed)
+			: { ...node.attrs, [attr]: format(parsed) };
+		editor.view.dispatch(editor.view.state.tr.setNodeMarkup(pos, undefined, nextAttrs));
 	};
 
 	const attachWindow = () => {
@@ -187,7 +197,7 @@ export function attachResize(options: AttachResizeOptions): () => void {
 	handle.addEventListener("mouseenter", onEnter);
 	handle.addEventListener("mouseleave", onLeave);
 	handle.addEventListener("pointerdown", onPointerDown);
-	dom.appendChild(handle);
+	(options.handleParent ?? dom).appendChild(handle);
 
 	return () => {
 		handle.removeEventListener("mouseenter", onEnter);

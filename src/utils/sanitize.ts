@@ -85,9 +85,16 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
     "data-file-size",
     "data-mbus-src",
     "data-mbus-width",
+    // 미디어 툴바·높이 드래그가 저장하는 크기·정렬(`MbusVideo`).
+    "data-mbus-height",
+    "data-mbus-ratio",
+    "data-mbus-align",
     // 유튜브·Vimeo 등 바깥 영상(`VideoEmbed`). mbus 와 **다른 이름**을 쓴다.
     "data-video-src",
     "data-video-width",
+    "data-video-height",
+    "data-video-ratio",
+    "data-video-align",
     "data-card-title",
     "data-card-background",
     "data-card-height",

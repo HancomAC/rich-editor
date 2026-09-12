@@ -2083,3 +2083,144 @@ math-inline.math-node .katex {
 .hce-active:hover {
 	background-color: color-mix(in srgb, var(--primary) 18%, transparent);
 }
+
+/* ── 업로드 스켈레톤 (`UploadSkeleton`) ──────────────────────────────────
+ * 업로드가 도는 동안 삽입 지점에 서는 회색 자리표시자. 저장 HTML 에는 남지 않는다
+ * (`stripUploadSkeletonHtml` 가 내보내기 전에 걷는다). 색은 흰색 고정이던 main 과 달리
+ * 테마 변수를 섞는다 — 다크에서도 "면 위에 살짝 뜬" 결이 유지되게.
+ */
+.tiptap .hce-upload-skeleton {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	border-radius: 12px;
+	border: 1px solid var(--border, #d1d5db);
+	background: color-mix(in srgb, var(--foreground, #111827) 6%, transparent);
+	margin: 0.75em 0;
+}
+
+.tiptap .hce-upload-skeleton[data-kind="file"] {
+	min-height: 56px;
+}
+
+.hce-upload-skeleton-shine {
+	position: absolute;
+	inset: 0;
+	transform: translateX(-120%);
+	background: linear-gradient(
+		105deg,
+		transparent 20%,
+		color-mix(in srgb, var(--background, #ffffff) 45%, transparent),
+		transparent 80%
+	);
+	animation: hce-upload-shimmer 1.35s ease-in-out infinite;
+}
+
+.hce-upload-skeleton-bar {
+	position: absolute;
+	left: 14px;
+	height: 10px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--foreground, #111827) 14%, transparent);
+}
+
+.hce-upload-skeleton-bar.is-top {
+	top: 14px;
+	width: min(160px, 45%);
+}
+
+.hce-upload-skeleton-bar.is-mid {
+	top: 34px;
+	width: min(280px, 78%);
+}
+
+.hce-upload-skeleton-bar.is-low {
+	top: 54px;
+	width: min(220px, 62%);
+}
+
+/* 파일(56px)은 막대 하나 높이라 아래 두 줄이 삐져나온다 — 첫 줄만 남긴다. */
+.tiptap .hce-upload-skeleton[data-kind="file"] .hce-upload-skeleton-bar.is-mid,
+.tiptap .hce-upload-skeleton[data-kind="file"] .hce-upload-skeleton-bar.is-low {
+	display: none;
+}
+
+@keyframes hce-upload-shimmer {
+	from {
+		transform: translateX(-120%);
+	}
+	to {
+		transform: translateX(120%);
+	}
+}
+
+/* ── 미디어 리사이즈 툴바 (`MediaResizeToolbar`) ─────────────────────────
+ * 미디어 블록을 선택하면 바로 아래에 뜨는 프리셋 칩 줄(비율·정렬·폭).
+ * 위젯 데코레이션이 문서 흐름을 밀지 않도록 높이 0 앵커에 절대배치로 띄운다.
+ * 편집 모드 전용 — 읽기 전용에서는 확장 자체가 실리지 않는다.
+ */
+.tiptap .hce-media-toolbar-anchor {
+	position: relative;
+	display: block;
+	height: 0;
+}
+
+.tiptap .hce-media-toolbar {
+	position: absolute;
+	left: 50%;
+	top: 6px;
+	transform: translateX(-50%);
+	z-index: 30;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 4px;
+	border-radius: 8px;
+	border: 1px solid var(--border, #d1d5db);
+	background: var(--background, #ffffff);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	white-space: nowrap;
+}
+
+.hce-media-toolbar-chip {
+	border: 0;
+	background: transparent;
+	border-radius: 6px;
+	padding: 3px 8px;
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--foreground, #111827);
+	cursor: pointer;
+}
+
+.hce-media-toolbar-chip:hover {
+	background-color: color-mix(in srgb, var(--foreground, #111827) 8%, transparent);
+}
+
+/* 활성 표시는 툴바 버튼(`.hce-active`)과 같은 축 — 배경으로 보여준다. */
+.hce-media-toolbar-chip[aria-pressed="true"] {
+	background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+	color: var(--primary);
+}
+
+.hce-media-toolbar-separator {
+	width: 1px;
+	height: 16px;
+	margin: 0 4px;
+	background: var(--border, #d1d5db);
+}
+
+/* ── 이미지 정렬 (`data-align` 속성, 미디어 툴바) ────────────────────────
+ * 에디터 안에서는 `.hce-image` 래퍼의 마진이 정렬을 맡지만, 읽기 화면의 `<img>` 는
+ * 래퍼 없이 맨몸이라 여기서 받는다. ⚠️ 앱 layout.css 와 동기화 필요.
+ */
+.tiptap img[data-align="center"] {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.tiptap img[data-align="right"] {
+	display: block;
+	margin-left: auto;
+}

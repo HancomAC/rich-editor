@@ -28,6 +28,9 @@
  */
 import { Node, mergeAttributes, type Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { attachResize } from "../utils/resize";
+import { normalizeMediaHeight } from "../utils/media-size";
+import { getEditorTranslator } from "../i18n";
 
 /** 호스트 플레이어가 받는 것. 속성은 `node.attrs`(`id`·`start`·`uuid`·`width`·`height`). */
 export interface MidibusRenderContext {
@@ -148,7 +151,8 @@ export const TiptapMidibus = Node.create<TiptapMidibusOptions>({
 	},
 
 	addNodeView() {
-		return ({ node, editor }) => {
+		return ({ node, editor, getPos }) => {
+			const t = getEditorTranslator(editor);
 			const dom = document.createElement("div");
 			dom.setAttribute("data-type", "tiptapMidibus");
 			dom.setAttribute("data-node-view-wrapper", "");
@@ -189,10 +193,51 @@ export const TiptapMidibus = Node.create<TiptapMidibusOptions>({
 			const startRaw = Number(node.attrs.start ?? 0);
 			const start = Number.isFinite(startRaw) ? Math.max(0, Math.floor(startRaw)) : 0;
 
+			/*
+			 * 자리표시자도 저장된 `height` 를 따른다(prod 기본 600). `padding-top` 대신
+			 * `aspect-ratio` 를 쓰는 이유는 `VideoEmbed` 주석 참조 — 높이 드래그가 인라인
+			 * `height` 하나로 먹게 하기 위해서다.
+			 */
 			const aspect = document.createElement("div");
 			aspect.style.cssText =
-				"position:relative;width:100%;padding-top:56.25%;background:#0b1020;border-radius:8px;overflow:hidden;";
+				"position:relative;width:100%;aspect-ratio:16 / 9;background:#0b1020;border-radius:8px;overflow:hidden;";
+			const height = normalizeMediaHeight(node.attrs.height);
+			if (height != null) {
+				aspect.style.height = `${height}px`;
+				aspect.style.removeProperty("aspect-ratio");
+			}
 			dom.appendChild(aspect);
+
+			/*
+			 * 높이 드래그(main 은 `tiptap-midibus` 에 정확히 이것 하나만 준다 — 비율·정렬
+			 * 칩 없음). ⚠️ 이 노드는 `renderHTML` 이 `rawAttrs` 를 그대로 되뱉으므로,
+			 * `height` 만 바꾸면 저장본에는 **옛 높이가 남는다.** 커밋 때 `rawAttrs` 사본의
+			 * `height` 도 함께 맞춘다 — 다른 속성·순서는 그대로라 바이트 보존이 유지된다.
+			 */
+			let detachResize: (() => void) | null = null;
+			if (editor.isEditable) {
+				detachResize = attachResize({
+					dom: aspect,
+					handleParent: dom,
+					editor,
+					getPos: () => (typeof getPos === "function" ? getPos() : undefined),
+					getNode: () => node,
+					axis: "y",
+					attr: "height",
+					min: 160,
+					max: 1600,
+					label: t("lectureResizeHeight"),
+					buildAttrs: (current, value) => {
+						const nextHeight = String(Math.round(value));
+						const raw = current.attrs.rawAttrs as MidibusRawAttrs | null;
+						return {
+							...current.attrs,
+							height: nextHeight,
+							rawAttrs: raw ? { ...raw, height: nextHeight } : raw
+						};
+					}
+				});
+			}
 
 			const poster = document.createElement("div");
 			poster.style.cssText =
@@ -200,12 +245,12 @@ export const TiptapMidibus = Node.create<TiptapMidibusOptions>({
 			aspect.appendChild(poster);
 
 			const label = document.createElement("span");
-			label.textContent = "강의 영상";
+			label.textContent = t("lectureVideo");
 			label.style.cssText = "font-size:13px;font-weight:600;line-height:1.5;";
 			poster.appendChild(label);
 
 			const hint = document.createElement("span");
-			hint.textContent = videoId ? videoId : "영상 주소가 비어 있습니다";
+			hint.textContent = videoId ? videoId : t("lectureEmptySrc");
 			hint.style.cssText = "font-size:12px;line-height:1.5;opacity:0.7;word-break:break-all;";
 			poster.appendChild(hint);
 
@@ -214,13 +259,23 @@ export const TiptapMidibus = Node.create<TiptapMidibusOptions>({
 				open.href = `${this.options.playerBaseUrl}/${videoId}?start=${start}&volume=50`;
 				open.target = "_blank";
 				open.rel = "noopener noreferrer";
-				open.textContent = "새 탭에서 보기";
+				open.textContent = t("openInNewTab");
 				open.style.cssText =
 					"font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,0.16);border-radius:6px;padding:6px 14px;text-decoration:none;";
 				poster.appendChild(open);
 			}
 
-			return { dom };
+			/*
+			 * `update` 는 두지 않는다 — 속성이 바뀌면 노드뷰를 새로 세운다(렌더러 주입
+			 * 경로와 같은 이유). 그래서 위 `getNode` 가 클로저의 `node` 를 그대로 써도
+			 * 낡을 새가 없다: 낡아지는 순간 이 뷰 자체가 버려진다.
+			 */
+			return {
+				dom,
+				destroy: () => {
+					detachResize?.();
+				}
+			};
 		};
 	},
 
