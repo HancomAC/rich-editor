@@ -16,6 +16,10 @@
       "svelte": "./dist/toolbars.js",
       "default": "./dist/toolbars.js"
     },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "default": "./dist/static/index.js"
+    },
     "./lowlight": {
       "types": "./dist/utils/lowlight.d.ts",
       "default": "./dist/utils/lowlight.js"
