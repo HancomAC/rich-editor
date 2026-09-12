@@ -28,15 +28,19 @@
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import type { ToolbarFeature, PromptHandler } from "../types";
+  import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
 
   let {
     editor,
     features,
     onPromptLink,
+    t = defaultTranslator,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
     onPromptLink?: PromptHandler;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   /*
@@ -72,27 +76,27 @@
   let colorMenuEl: HTMLDivElement | undefined = $state();
   const iconSize = 14;
 
-  const TEXT_COLORS = [
-    { label: "기본", value: "" },
-    { label: "검정", value: "#000000" },
-    { label: "회색", value: "#6b7280" },
-    { label: "빨강", value: "#dc2626" },
-    { label: "주황", value: "#ea580c" },
-    { label: "노랑", value: "#ca8a04" },
-    { label: "초록", value: "#16a34a" },
-    { label: "파랑", value: "#2563eb" },
-    { label: "보라", value: "#7c3aed" }
+  const TEXT_COLORS: { labelKey: EditorMessageKey; value: string }[] = [
+    { labelKey: "colorDefault", value: "" },
+    { labelKey: "colorBlack", value: "#000000" },
+    { labelKey: "colorGray", value: "#6b7280" },
+    { labelKey: "colorRed", value: "#dc2626" },
+    { labelKey: "colorOrange", value: "#ea580c" },
+    { labelKey: "colorYellow", value: "#ca8a04" },
+    { labelKey: "colorGreen", value: "#16a34a" },
+    { labelKey: "colorBlue", value: "#2563eb" },
+    { labelKey: "colorPurple", value: "#7c3aed" }
   ];
 
   function getCurrentBlockLabel(): string {
-    if (isActive("heading", { level: 1 })) return "제목 1";
-    if (isActive("heading", { level: 2 })) return "제목 2";
-    if (isActive("heading", { level: 3 })) return "제목 3";
-    if (isActive("bulletList")) return "글머리 목록";
-    if (isActive("orderedList")) return "번호 목록";
-    if (isActive("taskList")) return "체크리스트";
-    if (isActive("blockquote")) return "인용문";
-    return "본문";
+    if (isActive("heading", { level: 1 })) return t("heading1");
+    if (isActive("heading", { level: 2 })) return t("heading2");
+    if (isActive("heading", { level: 3 })) return t("heading3");
+    if (isActive("bulletList")) return t("bulletList");
+    if (isActive("orderedList")) return t("orderedList");
+    if (isActive("taskList")) return t("taskList");
+    if (isActive("blockquote")) return t("blockquote");
+    return t("paragraph");
   }
 
   function isParagraphActive(): boolean {
@@ -109,7 +113,7 @@
     const previousUrl = editor.getAttributes("link").href || "";
     const url = onPromptLink
       ? await onPromptLink(previousUrl)
-      : window.prompt("링크 URL을 입력하세요", previousUrl);
+      : window.prompt(t("promptLinkUrl"), previousUrl);
     if (url === null) return;
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -265,7 +269,7 @@
                 showBlockMenu = false;
               }}
             >
-              <Type size={12} /> 본문
+              <Type size={12} /> {t('paragraph')}
             </button>
             {#each [1, 2, 3] as level}
               {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
@@ -287,7 +291,7 @@
                     showBlockMenu = false;
                   }}
                 >
-                  <Icon size={12} /> 제목 {level}
+                  <Icon size={12} /> {t(level === 1 ? 'heading1' : level === 2 ? 'heading2' : 'heading3')}
                 </button>
               {/if}
             {/each}
@@ -305,7 +309,7 @@
                   showBlockMenu = false;
                 }}
               >
-                <List size={12} /> 글머리 목록
+                <List size={12} /> {t('bulletList')}
               </button>
             {/if}
             {#if has('ordered-list')}
@@ -322,7 +326,7 @@
                   showBlockMenu = false;
                 }}
               >
-                <ListOrdered size={12} /> 번호 목록
+                <ListOrdered size={12} /> {t('orderedList')}
               </button>
             {/if}
             {#if has('checklist')}
@@ -339,7 +343,7 @@
                   showBlockMenu = false;
                 }}
               >
-                <ListChecks size={12} /> 체크리스트
+                <ListChecks size={12} /> {t('taskList')}
               </button>
             {/if}
             {#if has('blockquote')}
@@ -356,7 +360,7 @@
                   showBlockMenu = false;
                 }}
               >
-                <Quote size={12} /> 인용문
+                <Quote size={12} /> {t('blockquote')}
               </button>
             {/if}
           </div>
@@ -371,7 +375,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
-      aria-label="굵게"
+      aria-label={t('bold')}
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("bold")
@@ -386,7 +390,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
-      aria-label="기울임"
+      aria-label={t('italic')}
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("italic")
@@ -401,7 +405,7 @@
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleUnderline().run()}
-        aria-label="밑줄"
+        aria-label={t('underline')}
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("underline")
@@ -416,7 +420,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
-      aria-label="취소선"
+      aria-label={t('strike')}
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("strike")
@@ -433,7 +437,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleCode().run()}
-      aria-label="코드"
+      aria-label={t('code')}
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("code")
@@ -454,7 +458,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleMathInline().run()}
-      aria-label="인라인 수식"
+      aria-label={t('mathInline')}
       class={cn(
         "p-1.5 rounded-full transition-colors",
         isActive("math_inline")
@@ -474,7 +478,7 @@
       <button
         type="button"
         onclick={() => editor.chain().focus().toggleHighlight().run()}
-        aria-label="하이라이트"
+        aria-label={t('highlight')}
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("highlight")
@@ -490,7 +494,7 @@
         <button
           type="button"
           onclick={() => (showColors = !showColors)}
-          aria-label="글자색"
+          aria-label={t('textColor')}
           class={cn(
             "p-1.5 rounded-full transition-colors",
             editor.getAttributes("textStyle").color
@@ -512,7 +516,7 @@
               {#each TEXT_COLORS as c}
                 <button
                   type="button"
-                  title={c.label}
+                  title={t(c.labelKey)}
                   class="h-7 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
                   style="color: {c.value || '#000'}; background: #fff"
                   onclick={() => {
@@ -531,7 +535,7 @@
             <label
               class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
             >
-              <span>직접 선택</span>
+              <span>{t('customColor')}</span>
               <input
                 type="color"
                 class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
@@ -553,7 +557,7 @@
       <button
         type="button"
         onclick={addLink}
-        aria-label="링크"
+        aria-label={t('link')}
         class={cn(
           "p-1.5 rounded-full transition-colors",
           isActive("link")

@@ -21,6 +21,7 @@
  * 같은 경로(`getHTML()`)로 만들어져 이미 `=""` 꼴이라 실사용에서는 어긋나지 않는다.
  */
 import { Node, type Editor } from "@tiptap/core";
+import { getEditorTranslator, type EditorMessageKey } from "../i18n";
 import type { DOMOutputSpec, Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 /** ProseMirror `DOMOutputSpec` 과 같은 모양이되 **JSON 으로 저장 가능한** 형태. */
@@ -134,10 +135,10 @@ function detectKind(el: Element): LegacyBlockKind {
 	return "iframe";
 }
 
-const KIND_LABEL: Record<LegacyBlockKind, string> = {
-	youtube: "유튜브 영상",
-	iframe: "임베드",
-	columns: "단 나누기"
+const KIND_LABEL_KEY: Record<LegacyBlockKind, EditorMessageKey> = {
+	youtube: "legacyYoutube",
+	iframe: "legacyIframe",
+	columns: "legacyColumns"
 };
 
 /** 자리표시자의 "새 탭에서 보기" 주소. 없으면 링크를 안 만든다. */
@@ -199,6 +200,7 @@ export const LegacyBlock = Node.create<LegacyBlockOptions>({
 
 	addNodeView() {
 		return ({ node, editor }) => {
+			const t = getEditorTranslator(editor);
 			const kind = (node.attrs.kind ?? "iframe") as LegacyBlockKind;
 			const spec = node.attrs.spec as LegacySpecElement | null;
 
@@ -234,7 +236,7 @@ export const LegacyBlock = Node.create<LegacyBlockOptions>({
 				"margin:8px 0;padding:16px;border:1px dashed rgba(120,130,150,0.5);border-radius:8px;background:rgba(120,130,150,0.06);box-sizing:border-box;max-width:100%;display:flex;flex-direction:column;gap:6px;align-items:flex-start;";
 
 			const label = document.createElement("span");
-			label.textContent = `${KIND_LABEL[kind]} (옛 형식 · 편집 불가)`;
+			label.textContent = t("legacyNotice", { kind: t(KIND_LABEL_KEY[kind]) });
 			label.style.cssText = "font-size:13px;font-weight:600;opacity:0.8;";
 			dom.appendChild(label);
 
@@ -256,7 +258,7 @@ export const LegacyBlock = Node.create<LegacyBlockOptions>({
 				open.href = url;
 				open.target = "_blank";
 				open.rel = "noopener noreferrer";
-				open.textContent = "새 탭에서 보기";
+				open.textContent = t("openInNewTab");
 				open.style.cssText = "font-size:13px;font-weight:600;text-decoration:underline;";
 				dom.appendChild(open);
 			}

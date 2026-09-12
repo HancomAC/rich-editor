@@ -31,40 +31,48 @@
   import { insertTableSized } from "../utils/table";
   import type { SlashMenuItem, ToolbarFeature, PromptHandler } from "../types";
   import type { Component } from "svelte";
+  import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
 
   const SI = 14;
 
-  /** 각 feature가 속하는 섹션 라벨 */
-  const SECTION_MAP: Record<string, string> = {
-    "code-block": "자주 쓰는",
-    math: "자주 쓰는",
-    file: "미디어",
-    pdf: "미디어",
-    paragraph: "기본",
-    h1: "기본",
-    h2: "기본",
-    h3: "기본",
-    mbus: "미디어",
-    video: "미디어",
-    card: "블록",
-    "bullet-list": "리스트",
-    "ordered-list": "리스트",
-    checklist: "리스트",
-    toggle: "리스트",
-    blockquote: "블록",
-    "horizontal-rule": "블록",
-    table: "레이아웃",
-    "columns-2": "레이아웃",
-    "columns-3": "레이아웃",
-    tabs: "레이아웃",
-    link: "미디어",
-    image: "미디어",
+  /** 각 feature가 속하는 섹션(메시지 키 — 라벨은 렌더 시 `t()` 로 푼다) */
+  const SECTION_MAP: Record<string, EditorMessageKey> = {
+    "code-block": "sectionFrequent",
+    math: "sectionFrequent",
+    file: "sectionMedia",
+    pdf: "sectionMedia",
+    paragraph: "sectionBasic",
+    h1: "sectionBasic",
+    h2: "sectionBasic",
+    h3: "sectionBasic",
+    mbus: "sectionMedia",
+    video: "sectionMedia",
+    card: "sectionBlock",
+    "bullet-list": "sectionList",
+    "ordered-list": "sectionList",
+    checklist: "sectionList",
+    toggle: "sectionList",
+    blockquote: "sectionBlock",
+    "horizontal-rule": "sectionBlock",
+    table: "sectionLayout",
+    "columns-2": "sectionLayout",
+    "columns-3": "sectionLayout",
+    tabs: "sectionLayout",
+    link: "sectionMedia",
+    image: "sectionMedia",
   };
-  const SECTION_ORDER = ["자주 쓰는", "기본", "리스트", "블록", "레이아웃", "미디어"];
+  const SECTION_ORDER: EditorMessageKey[] = [
+    "sectionFrequent",
+    "sectionBasic",
+    "sectionList",
+    "sectionBlock",
+    "sectionLayout",
+    "sectionMedia",
+  ];
 
   const SLASH_MENU_ITEMS_DATA: {
     feature: ToolbarFeature;
-    label: string;
+    labelKey: EditorMessageKey;
     keywords: string;
     icon: Component<{ size?: number }>;
     /** 항목 오른쪽에 작게 보여 줄 입력 규칙. 없으면 안 그린다. */
@@ -74,19 +82,21 @@
      * ⚠️ 토글 제목처럼 **같은 feature 인데 다른 자리**에 놓아야 하는 것 때문에 필요하다
      * (셋 다 `toggle` 이지만 토글은 리스트, 토글 제목은 제목 옆이 맞다).
      */
-    section?: string;
-    command: (editor: Editor) => void;
+    /** `labelKey` 의 `{…}` 자리 값 (토글 제목 1~3 처럼 같은 키를 나눠 쓸 때). */
+    labelParams?: Record<string, string | number>;
+    section?: EditorMessageKey;
+    command: (editor: Editor, t: EditorTranslator) => void;
   }[] = [
     {
       feature: "paragraph",
-      label: "본문",
+      labelKey: "paragraph",
       keywords: "paragraph text 본문 단락",
       icon: Type,
       command: (editor) => editor.chain().focus().setParagraph().run(),
     },
     {
       feature: "h1",
-      label: "제목 1",
+      labelKey: "heading1",
       keywords: "heading h1 제목",
       icon: Heading1,
       shortcut: "# ",
@@ -95,7 +105,7 @@
     },
     {
       feature: "h2",
-      label: "제목 2",
+      labelKey: "heading2",
       keywords: "heading h2 제목",
       icon: Heading2,
       shortcut: "## ",
@@ -104,7 +114,7 @@
     },
     {
       feature: "h3",
-      label: "제목 3",
+      labelKey: "heading3",
       keywords: "heading h3 제목",
       icon: Heading3,
       shortcut: "### ",
@@ -113,7 +123,7 @@
     },
     {
       feature: "bullet-list",
-      label: "글머리 목록",
+      labelKey: "bulletList",
       keywords: "bullet list 목록 리스트",
       icon: List,
       shortcut: "- ",
@@ -121,7 +131,7 @@
     },
     {
       feature: "ordered-list",
-      label: "번호 목록",
+      labelKey: "orderedList",
       keywords: "ordered number list 번호 리스트",
       icon: ListOrdered,
       shortcut: "1. ",
@@ -129,7 +139,7 @@
     },
     {
       feature: "checklist",
-      label: "체크리스트",
+      labelKey: "taskList",
       keywords: "checklist task todo 체크 할일",
       icon: CheckSquare,
       shortcut: "[] ",
@@ -137,7 +147,7 @@
     },
     {
       feature: "blockquote",
-      label: "인용문",
+      labelKey: "blockquote",
       keywords: "quote blockquote 인용",
       icon: Quote,
       shortcut: "\" ",
@@ -145,7 +155,7 @@
     },
     {
       feature: "horizontal-rule",
-      label: "구분선",
+      labelKey: "divider",
       keywords: "divider hr horizontal rule 구분",
       icon: Minus,
       shortcut: "---",
@@ -153,7 +163,7 @@
     },
     {
       feature: "code-block",
-      label: "코드",
+      labelKey: "code",
       keywords: "code 코드 블록 cpp c++ python 파이썬",
       icon: Code2,
       shortcut: "```",
@@ -162,7 +172,7 @@
     },
     {
       feature: "math",
-      label: "수식",
+      labelKey: "math",
       keywords: "math latex tex 수식 공식 수학 katex 시그마 분수",
       icon: Sigma,
       shortcut: "$$",
@@ -172,7 +182,7 @@
     },
     {
       feature: "toggle",
-      label: "토글",
+      labelKey: "toggle",
       keywords: "toggle details 접기 펼치기 토글",
       icon: ChevronRight,
       shortcut: "> ",
@@ -188,8 +198,9 @@
      */
     {
       feature: "toggle",
-      label: "토글 제목 1",
-      section: "기본",
+      labelKey: "toggleHeading",
+      labelParams: { level: 1 },
+      section: "sectionBasic",
       keywords: "toggle heading 접기 제목 토글제목 h1",
       icon: ToggleHeading1,
       shortcut: "# > ",
@@ -197,8 +208,9 @@
     },
     {
       feature: "toggle",
-      label: "토글 제목 2",
-      section: "기본",
+      labelKey: "toggleHeading",
+      labelParams: { level: 2 },
+      section: "sectionBasic",
       keywords: "toggle heading 접기 제목 토글제목 h2",
       icon: ToggleHeading2,
       shortcut: "## > ",
@@ -206,8 +218,9 @@
     },
     {
       feature: "toggle",
-      label: "토글 제목 3",
-      section: "기본",
+      labelKey: "toggleHeading",
+      labelParams: { level: 3 },
+      section: "sectionBasic",
       keywords: "toggle heading 접기 제목 토글제목 h3",
       icon: ToggleHeading3,
       shortcut: "### > ",
@@ -215,7 +228,7 @@
     },
     {
       feature: "table",
-      label: "표",
+      labelKey: "table",
       keywords: "table 표 테이블",
       icon: TableIcon,
       command: (editor) =>
@@ -223,59 +236,59 @@
     },
     {
       feature: "columns-2",
-      label: "2단 컬럼",
+      labelKey: "columns2",
       keywords: "column 컬럼 2단 분할",
       icon: Columns2,
       command: (editor) => editor.chain().focus().setColumns(2).run(),
     },
     {
       feature: "columns-3",
-      label: "3단 컬럼",
+      labelKey: "columns3",
       keywords: "column 컬럼 3단 분할",
       icon: Columns3,
       command: (editor) => editor.chain().focus().setColumns(3).run(),
     },
     {
       feature: "tabs",
-      label: "탭",
+      labelKey: "tabs",
       keywords: "tab tabs 탭 탭블록 전환 분할",
       icon: PanelTop,
       command: (editor) => editor.chain().focus().setTabs(3).run(),
     },
     {
       feature: "image",
-      label: "이미지",
+      labelKey: "image",
       keywords: "image 이미지 사진 img",
       icon: ImageIcon,
-      command: (editor) => {
-        const url = window.prompt("이미지 URL을 입력하세요");
+      command: (editor, t) => {
+        const url = window.prompt(t("promptImageUrl"));
         if (url) editor.chain().focus().setImage({ src: url }).run();
       },
     },
     {
       feature: "video",
-      label: "영상",
+      labelKey: "video",
       keywords: "video 영상 유튜브 youtube vimeo 동영상",
       icon: Youtube,
-      command: (editor) => {
+      command: (editor, t) => {
         // 붙여넣은 주소는 `setVideoEmbed` 가 임베드용으로 바꿔 준다.
-        const url = window.prompt("영상 URL을 입력하세요 (유튜브·Vimeo 등)");
+        const url = window.prompt(t("promptVideoUrl"));
         if (url) editor.chain().focus().setVideoEmbed({ src: url }).run();
       },
     },
     {
       feature: "mbus",
-      label: "미디버스 영상",
+      labelKey: "mbusVideo",
       keywords: "mbus video 미디버스 영상",
       icon: Tv,
-      command: (editor) => {
-        const url = window.prompt("미디버스 영상 URL을 입력하세요");
+      command: (editor, t) => {
+        const url = window.prompt(t("promptMbusUrl"));
         if (url) editor.chain().focus().setMbusVideo({ src: url }).run();
       },
     },
     {
       feature: "card",
-      label: "카드",
+      labelKey: "card",
       keywords: "card 카드 상자 박스 강조 배경",
       icon: SquareDashed,
       command: (editor) => {
@@ -284,11 +297,11 @@
     },
     {
       feature: "link",
-      label: "링크",
+      labelKey: "link",
       keywords: "link url 링크 하이퍼",
       icon: LinkIcon,
-      command: (editor) => {
-        const url = window.prompt("링크 URL을 입력하세요");
+      command: (editor, t) => {
+        const url = window.prompt(t("promptLinkUrl"));
         if (url)
           editor
             .chain()
@@ -311,6 +324,7 @@
     onPromptLink,
     onPromptMbus,
     onPromptVideo,
+    t = defaultTranslator,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -330,6 +344,8 @@
      * 기본 대화상자라 화면이 멈추고 앱과 모양이 따로 논다(사용자 지적).
      */
     onPromptVideo?: PromptHandler;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   async function runItem(item: (typeof SLASH_MENU_ITEMS_DATA)[number]) {
@@ -358,7 +374,7 @@
       if (url) editor.chain().focus().setMbusVideo({ src: url }).run();
       return;
     }
-    item.command(editor);
+    item.command(editor, t);
   }
 
   let selectedIndex = $state(0);
@@ -370,7 +386,7 @@
     if (onFileUpload) {
       items.push({
         feature: "file" as ToolbarFeature,
-        label: "파일 첨부",
+        labelKey: "fileAttach",
         keywords: "file attach 파일 첨부",
         icon: Paperclip,
         command: () => onFileUpload!(),
@@ -379,7 +395,7 @@
     if (onPdfUpload) {
       items.push({
         feature: "pdf" as ToolbarFeature,
-        label: "PDF 파일",
+        labelKey: "pdfFile",
         keywords: "pdf 파일 문서",
         icon: FileText,
         command: () => onPdfUpload!(),
@@ -393,7 +409,7 @@
     return q
       ? allItems.filter(
           (item) =>
-            item.label.toLowerCase().includes(q) ||
+            t(item.labelKey, item.labelParams).toLowerCase().includes(q) ||
             item.keywords.toLowerCase().includes(q),
         )
       : allItems;
@@ -458,7 +474,7 @@
     bind:this={menuEl}
     class="slash-menu z-50 bg-popover border border-border rounded-xl shadow-xl p-2"
   >
-    <p class="text-xs text-muted-foreground px-2 py-1">결과 없음</p>
+    <p class="text-xs text-muted-foreground px-2 py-1">{t('noResult')}</p>
   </div>
 {:else}
   <div
@@ -467,10 +483,10 @@
   >
     {#each SECTION_ORDER as section}
       {@const sectionItems = filtered.filter(
-        (it) => (it.section ?? SECTION_MAP[it.feature] ?? '기본') === section,
+        (it) => (it.section ?? SECTION_MAP[it.feature] ?? 'sectionBasic') === section,
       )}
       {#if sectionItems.length > 0}
-        <p class="slash-section">{section}</p>
+        <p class="slash-section">{t(section)}</p>
         {#each sectionItems as item}
           {@const i = filtered.indexOf(item)}
           <button
@@ -492,7 +508,7 @@
             <span class="slash-icon">
               <item.icon size={SI} />
             </span>
-            <span class="slash-label">{item.label}</span>
+            <span class="slash-label">{t(item.labelKey, item.labelParams)}</span>
             {#if item.shortcut}
               <!--
                 쳐서 만드는 법을 항목 옆에 적어 둔다(사용자 요청). 메뉴를 한 번 쓰고 나면

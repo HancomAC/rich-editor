@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { getEditorTranslator, type EditorTranslator } from "../i18n";
 import { Selection } from "@tiptap/pm/state";
 // ⚠️ `MutationRecord` 가 아니다. ProseMirror 는 `{ type: "selection" }` 이라는 가짜 기록도
 //    같은 자리로 흘려보내서, DOM 타입만 받으면 시그니처가 맞지 않는다.
@@ -38,7 +39,7 @@ import type { ViewMutationRecord } from "@tiptap/pm/view";
  */
 
 /** 이름을 따로 주지 않은 탭이 보여줄 기본 이름. */
-const defaultTitle = (index: number) => `탭 ${index + 1}`;
+const defaultTitle = (t: EditorTranslator, index: number) => t("tabDefaultTitle", { n: index + 1 });
 
 /**
  * 여기까지는 **클릭이다.** 손가락·마우스는 누를 때 몇 px 씩 흔들리므로, 이만큼 넘어야
@@ -136,6 +137,7 @@ export const TabsBlock = Node.create({
 
 	addNodeView() {
 		return ({ node, editor, getPos }) => {
+			const t = getEditorTranslator(editor);
 			let currentNode = node;
 			/** 지금 보고 있는 탭. 문서에 저장하지 않는다(파일 첫머리 주석 참고). */
 			let active = 0;
@@ -199,7 +201,7 @@ export const TabsBlock = Node.create({
 
 			const titleOf = (index: number) => {
 				const raw = String(currentNode.child(index).attrs.title ?? "").trim();
-				return raw || defaultTitle(index);
+				return raw || defaultTitle(t, index);
 			};
 
 			/** `index` 번째 탭 노드의 문서상 위치. `tabs` 가 문서에서 빠졌으면 null. */
@@ -309,7 +311,7 @@ export const TabsBlock = Node.create({
 				if (!type) return;
 				const index = currentNode.childCount;
 				// `content: "block+"` 이라 `createAndFill` 이 빈 문단 하나를 채워 준다.
-				const created = type.createAndFill({ title: defaultTitle(index) });
+				const created = type.createAndFill({ title: defaultTitle(t, index) });
 				if (!created) return;
 				active = index;
 				// `tabs` 가 닫히기 직전 = 마지막 탭 뒤.
@@ -581,7 +583,7 @@ export const TabsBlock = Node.create({
 						setActive(index);
 					});
 					if (editable) {
-						label.title = "두 번 누르면 이름을 고칩니다";
+						label.title = t("tabRenameTip");
 						label.addEventListener("dblclick", (e) => {
 							e.preventDefault();
 							e.stopPropagation();
@@ -606,7 +608,7 @@ export const TabsBlock = Node.create({
 						close.className = deletable
 							? "hce-tab-chip-close"
 							: "hce-tab-chip-close is-disabled";
-						close.setAttribute("aria-label", `${titleOf(index)} 삭제`);
+						close.setAttribute("aria-label", t("tabDelete", { title: titleOf(index) }));
 						close.textContent = "×";
 						if (deletable) {
 							close.addEventListener("mousedown", (e) => e.preventDefault());
@@ -630,8 +632,8 @@ export const TabsBlock = Node.create({
 					const add = document.createElement("button");
 					add.type = "button";
 					add.className = "hce-tabs-add";
-					add.setAttribute("aria-label", "탭 추가");
-					add.title = "탭 추가";
+					add.setAttribute("aria-label", t("tabAdd"));
+					add.title = t("tabAdd");
 					add.textContent = "+";
 					add.addEventListener("mousedown", (e) => e.preventDefault());
 					add.addEventListener("click", (e) => {
@@ -700,7 +702,8 @@ export const TabsBlock = Node.create({
 		return {
 			setTabs:
 				(count = 3) =>
-				({ chain }) => {
+				({ chain, editor }) => {
+					const t = getEditorTranslator(editor);
 					const total = Math.max(1, Math.floor(count));
 					return (
 						chain()
@@ -708,7 +711,7 @@ export const TabsBlock = Node.create({
 								type: this.name,
 								content: Array.from({ length: total }, (_unused, i) => ({
 									type: "tab",
-									attrs: { title: defaultTitle(i) },
+									attrs: { title: defaultTitle(t, i) },
 									content: [{ type: "paragraph" }]
 								}))
 							})

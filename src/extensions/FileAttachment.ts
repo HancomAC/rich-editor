@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { getEditorTranslator } from "../i18n";
 
 export type FileResolveResult = { src: string; name?: string; size?: number };
 export type FileResolver = (fileId: string) => Promise<FileResolveResult>;
@@ -256,7 +257,7 @@ export const FileAttachment = Node.create<FileAttachmentOptions>({
         // resolver가 있으면 이름/크기 메타데이터를 채운다.
         const resolver = editor.storage.fileAttachment?.resolver as FileResolver | undefined;
         if (resolver) {
-          sizeEl.textContent = "loading...";
+          sizeEl.textContent = getEditorTranslator(editor)("fileSizeLoading");
           resolver(node.attrs.fileId)
             .then((result) => {
               resolvedSrc = result.src;
