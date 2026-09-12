@@ -189,6 +189,20 @@ function sanitizeAttributes(tag: string, attrString: string): string {
   return result.join("");
 }
 
+/*
+ * 업로드 스켈레톤(`extensions/UploadSkeleton`)의 직렬화 태그. 스켈레톤은 "업로드 중"
+ * 이라는 화면 상태지 내용이 아니라서 **저장 HTML 에 남으면 안 된다** — 이 패턴 하나를
+ * 내보내기(`stripUploadSkeletonHtml`)와 읽기(`transformLegacyHtml`)가 같이 쓴다.
+ * 태그 이름은 그쪽 `UPLOAD_SKELETON_NODE` 와 짝이다.
+ */
+const UPLOAD_SKELETON_PATTERN = /<tiptap-upload-skeleton[^>]*>(?:<\/tiptap-upload-skeleton>)?/gi;
+
+/** 저장 직전 HTML 에서 업로드 스켈레톤을 걷어낸다. 없으면 원본 그대로. */
+export function stripUploadSkeletonHtml(html: string): string {
+  if (!html || !html.includes("<tiptap-upload-skeleton")) return html;
+  return html.replace(UPLOAD_SKELETON_PATTERN, "");
+}
+
 /**
  * 레거시 TipTap v2 커스텀 태그를 현재 형식으로 변환.
  * 에디터 content 로드 전, 또는 게시물 렌더링 전에 호출.
@@ -263,11 +277,8 @@ export function transformLegacyHtml(html: string): string {
        * prod 에디터가 그 형식을 몰라 단이 통째로 사라진다. 손해를 반대로 옮길 뿐이다.
        * 지금은 `LegacyBlock` 이 원본 마크업 그대로 품고 되쓴다(우선순위 100).
        */
-      // <tiptap-upload-skeleton ...> 제거
-      .replace(
-        /<tiptap-upload-skeleton[^>]*>(?:<\/tiptap-upload-skeleton>)?/gi,
-        "",
-      )
+      // <tiptap-upload-skeleton ...> 제거 — 위 `UPLOAD_SKELETON_PATTERN` 하나로 관리
+      .replace(UPLOAD_SKELETON_PATTERN, "")
   );
 }
 
