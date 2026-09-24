@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Snippet } from "svelte";
 import type { ToolbarFeature, PromptHandler } from "../types";
+import { type EditorTranslator } from "../i18n";
 type $$ComponentProps = {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -25,6 +26,8 @@ type $$ComponentProps = {
      * 여기에 넣으면 툴바의 flex 행에 그대로 얹혀 정렬이 저절로 맞는다.
      */
     toolbarEnd?: Snippet;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
 };
 declare const FixedToolbar: import("svelte").Component<$$ComponentProps, {}, "">;
 type FixedToolbar = ReturnType<typeof FixedToolbar>;

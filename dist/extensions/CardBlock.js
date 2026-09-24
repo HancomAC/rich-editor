@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { attachResize } from "../utils/resize";
+import { getEditorTranslator } from "../i18n";
 /**
  * 카드 블록 — 본문 중간에 넣는 **배경 있는 상자**.
  *
@@ -96,6 +97,7 @@ export const CardBlock = Node.create({
     },
     addNodeView() {
         return ({ node, editor, getPos }) => {
+            const t = getEditorTranslator(editor);
             let currentNode = node;
             let detachResize = null;
             const dom = document.createElement("div");
@@ -145,7 +147,7 @@ export const CardBlock = Node.create({
                 titleInput = document.createElement("input");
                 titleInput.type = "text";
                 titleInput.className = "hce-card-title-input";
-                titleInput.placeholder = "카드 제목";
+                titleInput.placeholder = t("cardTitlePlaceholder");
                 titleInput.contentEditable = "false";
                 // ProseMirror 가 입력칸의 키/포인터를 가져가지 않도록 막는다.
                 titleInput.setAttribute("data-card-control", "");
@@ -158,7 +160,7 @@ export const CardBlock = Node.create({
                 pick.className = "hce-card-bg-button";
                 pick.setAttribute("data-card-control", "");
                 pick.contentEditable = "false";
-                pick.textContent = "배경 변경";
+                pick.textContent = t("cardChangeBackground");
                 pick.addEventListener("click", async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -171,7 +173,7 @@ export const CardBlock = Node.create({
                     const current = String(currentNode.attrs.background ?? "");
                     const next = prompt
                         ? await prompt(current)
-                        : window.prompt("카드 배경 (CSS background 값)", current);
+                        : window.prompt(t("cardBackgroundPrompt"), current);
                     if (next == null)
                         return;
                     setAttr({ background: next });
@@ -186,7 +188,7 @@ export const CardBlock = Node.create({
                     attr: "height",
                     min: MIN_HEIGHT,
                     max: MAX_HEIGHT,
-                    label: "카드 높이 조절",
+                    label: t("cardResizeHeight"),
                     // 원본과 같은 저장 형식 — 단위 없는 숫자 문자열.
                     format: (v) => String(Math.round(v))
                 });

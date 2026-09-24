@@ -48,6 +48,20 @@ describe("코드 하이라이터 언어 목록", () => {
         expect(lowlight.registered("ts")).toBe(true);
         expect(lowlight.registered("c++")).toBe(true);
     });
+    /*
+     * ⚠️ 이게 빠지면 증상이 "색이 없다"가 아니라 **"엉뚱한 색이 붙는다"** 라 눈에 안 띈다.
+     * 등록되지 않은 이름은 자동 감지로 떨어지므로, 색을 빼려고 ```text 로 적은 예시
+     * 입출력에 문법 색이 칠해졌다. `disableAutodetect` 라 다른 언어의 감지는 안 건드린다.
+     */
+    it("plaintext 가 text·txt 별칭으로 등록돼 있다", () => {
+        for (const lang of ["plaintext", "text", "txt"]) {
+            expect(lowlight.registered(lang)).toBe(true);
+        }
+    });
+    it("plaintext 는 색을 입히지 않는다", () => {
+        const tree = lowlight.highlight("text", "3 1\n1 2 3");
+        expect(tree.children.every((node) => node.type === "text")).toBe(true);
+    });
     it("등록하지 않은 언어는 색이 없다(깨지지는 않는다)", () => {
         expect(lowlight.registered("ruby")).toBe(false);
         // 색을 못 입혀도 예외를 던지지 않고 평범한 텍스트로 남는지

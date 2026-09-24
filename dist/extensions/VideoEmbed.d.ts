@@ -21,6 +21,14 @@ declare module "@tiptap/core" {
     }
 }
 /**
+ * 유튜브 주소면 임베드 주소를, 아니면 null 을 돌려준다.
+ *
+ * `toEmbedUrl` 의 유튜브 갈래를 떼어 낸 것 — 붙여넣기 자동 임베드(아래
+ * `addProseMirrorPlugins`)가 **유튜브 판별기로도** 써야 해서다. "변환 결과가 달라졌는가"
+ * 로 어림하면 이미 임베드 꼴인 주소(`youtube.com/embed/ID`)를 놓친다.
+ */
+export declare function youTubeEmbedUrl(raw: string): string | null;
+/**
  * 붙여넣은 주소를 **iframe 에 넣을 수 있는 주소**로 바꾼다.
  *
  * ⚠️ 이 변환이 이 확장의 핵심이다. 사람들이 붙여넣는 `youtube.com/watch?v=…` 를 그대로

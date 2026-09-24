@@ -34,6 +34,7 @@ import { InputRule, Node, mergeAttributes, type Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PMNode, type NodeType } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import katex from "katex";
+import { getEditorTranslator } from "../i18n";
 
 /** 현재 LaTeX 원문을 받아 새 값(취소면 null)을 돌려주는 호스트 훅. */
 export type MathPrompt = (latex: string, displayMode: boolean) => Promise<string | null>;
@@ -137,7 +138,8 @@ async function askMath(
 ): Promise<string | null> {
   const prompt = getPrompt(editor);
   if (prompt) return prompt(current, displayMode);
-  return window.prompt(displayMode ? "수식 (LaTeX)" : "인라인 수식 (LaTeX)", current);
+  const t = getEditorTranslator(editor);
+  return window.prompt(t(displayMode ? "mathPromptDisplay" : "mathPromptInline"), current);
 }
 
 /** 프롬프트를 띄워 새 수식을 넣는다. 취소·빈 입력이면 아무것도 하지 않는다. */
@@ -215,7 +217,8 @@ function buildNodeView(displayMode: boolean) {
       const latex = current.textContent.trim();
       if (!latex) {
         dom.classList.add("empty-math");
-        dom.innerHTML = `<span class="math-placeholder">${displayMode ? "수식 입력" : "수식"}</span>`;
+        const t = getEditorTranslator(editor);
+        dom.innerHTML = `<span class="math-placeholder">${t(displayMode ? "mathEmpty" : "math")}</span>`;
         return;
       }
       dom.classList.remove("empty-math");

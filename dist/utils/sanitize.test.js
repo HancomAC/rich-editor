@@ -49,13 +49,16 @@ describe('transformLegacyHtml', () => {
         expect(result).toContain('data-pdf-src="https://example.com/doc.pdf"');
         expect(result).toContain('data-pdf-name="doc.pdf"');
     });
-    it('converts <div class="tiptap-columns"> to <div data-type="columns">', () => {
+    /*
+     * ⚠️ **예전엔 여기서 `data-type="columns"` 로 갈아 끼웠다.** 그러면 lms 에서는 단이
+     * 편집 가능해지지만, 정올 prod 와 lms 는 **같은 Datastore 를 공유**하므로 그렇게 저장한
+     * 순간 이번엔 prod 에디터가 그 형식을 몰라 단이 통째로 사라진다 — 손해를 반대편으로
+     * 옮길 뿐이었다. 지금은 `LegacyBlock` 이 원본 마크업 그대로 품고 되쓴다.
+     */
+    it('leaves <div class="tiptap-columns"> untouched for LegacyBlock', () => {
         const input = '<div class="tiptap-columns"><div class="tiptap-column">A</div></div>';
         const result = transformLegacyHtml(input);
-        expect(result).toContain('data-type="columns"');
-        expect(result).toContain('data-type="column"');
-        expect(result).not.toContain('tiptap-columns');
-        expect(result).not.toContain('tiptap-column');
+        expect(result).toBe(input);
     });
     it('removes <tiptap-upload-skeleton>', () => {
         const input = '<p>Before</p><tiptap-upload-skeleton data-id="x"></tiptap-upload-skeleton><p>After</p>';
@@ -140,6 +143,17 @@ describe('sanitizeHtml', () => {
         const result = sanitizeHtml(input);
         expect(result).toContain('src=');
         expect(result).toContain('alt=');
+    });
+    /*
+     * 이미지 리사이즈(`ResizableImage`)가 폭을 **`width` 속성**으로 저장하는 근거다.
+     * 인라인 `style` 로 저장하면 여기서 조용히 지워져, 정적 렌더(`{@html}` + 살균)에서는
+     * 원래 크기로 나왔다가 에디터가 뜨는 순간 조절한 크기로 화면이 튄다.
+     */
+    it('keeps img width but drops inline style', () => {
+        const input = '<img src="https://example.com/img.png" width="480" style="width: 480px">';
+        const result = sanitizeHtml(input);
+        expect(result).toContain('width="480"');
+        expect(result).not.toContain('style=');
     });
     it('preserves data-pdf-src on div', () => {
         const input = '<div data-pdf-src="https://example.com/file.pdf" data-pdf-name="file.pdf"></div>';

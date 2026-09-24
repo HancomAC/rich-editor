@@ -1,6 +1,6 @@
 {
   "name": "@teriusu/rich-editor",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "TipTap 기반 Notion-style 리치 텍스트 에디터 (Svelte)",
   "type": "module",
   "svelte": "./dist/index.js",
@@ -11,18 +11,27 @@
       "svelte": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./toolbars": {
+      "types": "./dist/toolbars.d.ts",
+      "svelte": "./dist/toolbars.js",
+      "default": "./dist/toolbars.js"
+    },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "default": "./dist/static/index.js"
+    },
     "./lowlight": {
       "types": "./dist/utils/lowlight.d.ts",
       "default": "./dist/utils/lowlight.js"
     },
-    "./static": {
-      "types": "./dist/static/index.d.ts",
-      "svelte": "./dist/static/index.js",
-      "default": "./dist/static/index.js"
-    },
     "./styles": {
       "style": "./dist/styles/editor.css",
       "default": "./dist/styles/editor.css"
+    },
+    "./static/component": {
+      "types": "./dist/static/component.d.ts",
+      "svelte": "./dist/static/component.js",
+      "default": "./dist/static/component.js"
     }
   },
   "files": [
@@ -52,6 +61,7 @@
     "@tiptap/extension-highlight": "^3.20.4",
     "@tiptap/extension-image": "^3.20.4",
     "@tiptap/extension-link": "^3.20.4",
+    "@tiptap/extension-list": "3.22.2",
     "@tiptap/extension-placeholder": "^3.20.4",
     "@tiptap/extension-subscript": "^3.21.0",
     "@tiptap/extension-superscript": "^3.21.0",
@@ -68,6 +78,8 @@
     "@tiptap/pm": "^3.20.4",
     "@tiptap/starter-kit": "^3.22.0",
     "clsx": "^2.1.1",
+    "emojis-keywords": "2.0.0",
+    "emojis-list": "3.0.0",
     "highlight.js": "^11.11.1",
     "hls.js": "^1.6.16",
     "katex": "^0.16.45",

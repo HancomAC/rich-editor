@@ -1,12 +1,14 @@
 // 컴포넌트
-export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
 export { default as StaticTipTap } from "./components/StaticTipTap.svelte";
-export { default as FixedToolbar } from "./components/FixedToolbar.svelte";
-export { default as BubbleToolbar } from "./components/BubbleToolbar.svelte";
-export { default as SlashCommandMenu } from "./components/SlashCommandMenu.svelte";
-export { default as InputModal } from "./components/InputModal.svelte";
-export { default as MathModal } from "./components/MathModal.svelte";
-export { default as TableBubbleMenu } from "./components/TableBubbleMenu.svelte";
+export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
+/*
+ * ⚠️ **툴바·메뉴·모달 여섯은 여기서 re-export 하지 않는다** → `@teriusu/rich-editor/toolbars`.
+ * `TipTapEditor` 가 그것들을 `editable` 일 때만 동적으로 받도록 해 놨는데(그쪽
+ * `loadEditorChrome` 주석), 배럴이 정적으로 참조하면 **지연이 통째로 무효가 된다** —
+ * 배럴을 가져오는 순간 다시 그래프에 들어오기 때문이다. 실측으로 그 여섯만 쓰는
+ * lucide 아이콘 53 개가 75KB(gzip) 짜리 청크 하나였고, 툴바가 평생 뜨지 않는
+ * 읽기 전용 라우트가 정올 176 개 중 91 개다.
+ */
 
 // 익스텐션
 export { PdfBlock } from "./extensions/PdfBlock";
@@ -15,28 +17,77 @@ export { FixedDetails } from "./extensions/FixedDetails";
 export { FileAttachment } from "./extensions/FileAttachment";
 export type { FileResolver, FileResolveResult } from "./extensions/FileAttachment";
 export { MbusVideo } from "./extensions/MbusVideo";
+/*
+ * 정올 prod 저장 형식 보존용. `MbusVideo`(lms 형식 `div[data-mbus-src]`) 와 **다른 노드**다 —
+ * 이쪽은 prod 커스텀 태그 `<tiptap-midibus>` 를 그대로 읽고 그대로 되쓴다.
+ */
+export { TiptapMidibus } from "./extensions/TiptapMidibus";
+export type {
+  TiptapMidibusOptions,
+  MidibusRawAttrs,
+  MidibusRenderContext,
+  MidibusRenderResult,
+  MidibusRenderer
+} from "./extensions/TiptapMidibus";
+export { LegacyBlock, elementToSpec } from "./extensions/LegacyBlock";
+export type {
+  LegacySpec,
+  LegacySpecElement,
+  LegacyBlockKind,
+  LegacyBlockOptions,
+  LegacyBlockRenderContext,
+  LegacyBlockRenderResult,
+  LegacyBlockRenderer
+} from "./extensions/LegacyBlock";
+export { ResizableImage, normalizeImageWidth } from "./extensions/ResizableImage";
 export { CardBlock } from "./extensions/CardBlock";
 export type { CardBackgroundPrompt, CardBlockOptions } from "./extensions/CardBlock";
 export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
+export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
 export type { MathPrompt, MathOptions } from "./extensions/Math";
+/*
+ * 업로드 스켈레톤·미디어 툴바. 둘 다 순수 vanilla(DOM + ProseMirror)라 lucide 같은
+ * 무거운 그래프를 끌지 않는다 — 위 지연 로딩 경고와 무관하다.
+ */
+export {
+  UploadSkeleton,
+  insertUploadSkeleton,
+  UPLOAD_SKELETON_NODE
+} from "./extensions/UploadSkeleton";
+export type {
+  UploadSkeletonHandle,
+  UploadSkeletonKind,
+  InsertUploadSkeletonOptions
+} from "./extensions/UploadSkeleton";
+export { MediaResizeToolbar, applyMediaToolbarAction } from "./extensions/MediaToolbar";
+export type { MediaResizeToolbarOptions, MediaToolbarTypeConfig } from "./extensions/MediaToolbar";
+
+/*
+ * 에디터 UI i18n. 순수 TS(사전 + 번역기 + storage 확장)라 lucide 그래프와 무관하다.
+ * 보통은 `TipTapEditor` 의 `locale` prop 만 쓰면 되고, 확장을 직접 조립하는 호스트만
+ * `EditorI18n.configure({ locale })` / `getEditorTranslator(editor)` 를 쓴다.
+ */
+export { createTranslator, defaultTranslator, getEditorTranslator, EditorI18n } from "./i18n";
+export type {
+  EditorMessages,
+  EditorMessageKey,
+  EditorLocaleInput,
+  EditorTranslator
+} from "./i18n";
 
 // 유틸리티
-export { sanitizeHtml, stripHtmlToExcerpt, transformLegacyHtml } from "./utils/sanitize";
+export {
+  sanitizeHtml,
+  stripHtmlToExcerpt,
+  stripUploadSkeletonHtml,
+  transformLegacyHtml
+} from "./utils/sanitize";
 export { configurePdfJs, getPdfJs } from "./utils/pdf";
 export { attachResize } from "./utils/resize";
 export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
-export { createStaticSanitizePolicy } from "./static/policy";
-export type {
-  StaticHydrationMatch,
-  StaticHydrationNodeType,
-  StaticHydrationRule,
-  StaticNodePlan,
-} from "tiptap-static/hydrate";
-export type { StaticNodeViewProps } from "tiptap-static/protocol";
-export type { StaticSanitizeOptions } from "tiptap-static";
 /*
  * 코드 하이라이터. **소비 앱도 이걸 가져다 쓴다** — 앱이 따로 `createLowlight(all)` 을
  * 부르면 언어 목록이 두 벌이 되고(번들에도 두 벌), 어느 쪽을 고쳐야 하는지 흐려진다.
@@ -64,3 +115,8 @@ export type {
   SlashMenuItem,
 } from "./types";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
+
+export { createStaticSanitizePolicy } from "./static/policy";
+export type { StaticHydrationMatch, StaticHydrationNodeType, StaticHydrationRule, StaticNodePlan } from "tiptap-static/hydrate";
+export type { StaticNodeViewProps } from "tiptap-static/protocol";
+export type { StaticSanitizeOptions } from "tiptap-static";

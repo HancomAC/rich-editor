@@ -28,6 +28,7 @@
     Paperclip,
     Columns2,
     Columns3,
+    PanelTop,
     SquareDashed,
     Tv,
     Youtube,
@@ -37,8 +38,10 @@
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
   import { insertTableSized } from "../utils/table";
+  import ToggleHeadingIcon from "./icons/ToggleHeadingIcon.svelte";
   import InputModal from "./InputModal.svelte";
   import type { ToolbarFeature, PromptHandler } from "../types";
+  import { defaultTranslator, type EditorTranslator } from "../i18n";
 
   let {
     editor,
@@ -50,6 +53,7 @@
     onPromptMbus,
     onPromptVideo,
     toolbarEnd,
+    t = defaultTranslator,
   }: {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -74,6 +78,8 @@
      * 여기에 넣으면 툴바의 flex 행에 그대로 얹혀 정렬이 저절로 맞는다.
      */
     toolbarEnd?: Snippet;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   /*
@@ -169,21 +175,21 @@
   }
 
   const currentBlockLabel = $derived.by(() => {
-    if (isActive("heading", { level: 1 })) return "제목 1";
-    if (isActive("heading", { level: 2 })) return "제목 2";
-    if (isActive("heading", { level: 3 })) return "제목 3";
-    if (isActive("bulletList")) return "글머리 목록";
-    if (isActive("orderedList")) return "번호 목록";
-    if (isActive("taskList")) return "체크리스트";
-    if (isActive("blockquote")) return "인용문";
+    if (isActive("heading", { level: 1 })) return t("heading1");
+    if (isActive("heading", { level: 2 })) return t("heading2");
+    if (isActive("heading", { level: 3 })) return t("heading3");
+    if (isActive("bulletList")) return t("bulletList");
+    if (isActive("orderedList")) return t("orderedList");
+    if (isActive("taskList")) return t("taskList");
+    if (isActive("blockquote")) return t("blockquote");
     if (isActive("details")) {
       // 토글 제목이면 단계까지 보여 준다 — 그냥 "토글" 이면 무엇을 고른 건지 안 보인다.
       for (const lv of [1, 2, 3]) {
-        if (isActive("detailsSummary", { level: lv })) return `토글 제목 ${lv}`;
+        if (isActive("detailsSummary", { level: lv })) return t("toggleHeading", { level: lv });
       }
-      return "토글";
+      return t("toggle");
     }
-    return "본문";
+    return t("paragraph");
   });
 
   function runBlock(fn: () => void) {
@@ -206,6 +212,7 @@
       has("table") ||
       has("columns-2") ||
       has("columns-3") ||
+      has("tabs") ||
       has("horizontal-rule") ||
       has("code-block") ||
       has("math"),
@@ -235,7 +242,7 @@
       type="button"
       onclick={() => editor.chain().focus().undo().run()}
       disabled={!canDo((c) => c.undo())}
-      aria-label="실행 취소"
+      aria-label={t('undo')}
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
         !canDo((c) => c.undo()) && "opacity-30 pointer-events-none",
@@ -249,7 +256,7 @@
       type="button"
       onclick={() => editor.chain().focus().redo().run()}
       disabled={!canDo((c) => c.redo())}
-      aria-label="다시 실행"
+      aria-label={t('redo')}
       class={cn(
         "p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
         !canDo((c) => c.redo()) && "opacity-30 pointer-events-none",
@@ -268,7 +275,7 @@
       <button
         type="button"
         onclick={() => (blockMenuOpen = !blockMenuOpen)}
-        aria-label="블록 타입"
+        aria-label={t('blockType')}
         class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground min-w-[96px]"
       >
         <span class="text-sm">{currentBlockLabel}</span>
@@ -298,7 +305,7 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().setParagraph().run())}
           >
-            <Pilcrow size={14} /> 본문
+            <Pilcrow size={14} /> {t('paragraph')}
           </button>
           {#if has('h1')}
           <button
@@ -312,7 +319,7 @@
                 editor.chain().focus().toggleHeading({ level: 1 }).run(),
               )}
           >
-            <Heading1 size={14} /> 제목 1
+            <Heading1 size={14} /> {t('heading1')}
             <span class="hce-menu-shortcut"># </span>
           </button>
           {/if}
@@ -328,7 +335,7 @@
                 editor.chain().focus().toggleHeading({ level: 2 }).run(),
               )}
           >
-            <Heading2 size={14} /> 제목 2
+            <Heading2 size={14} /> {t('heading2')}
             <span class="hce-menu-shortcut">## </span>
           </button>
           {/if}
@@ -344,7 +351,7 @@
                 editor.chain().focus().toggleHeading({ level: 3 }).run(),
               )}
           >
-            <Heading3 size={14} /> 제목 3
+            <Heading3 size={14} /> {t('heading3')}
             <span class="hce-menu-shortcut">### </span>
           </button>
           {/if}
@@ -361,7 +368,7 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleBulletList().run())}
           >
-            <List size={14} /> 글머리 목록
+            <List size={14} /> {t('bulletList')}
             <span class="hce-menu-shortcut">- </span>
           </button>
           {/if}
@@ -375,7 +382,7 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleOrderedList().run())}
           >
-            <ListOrdered size={14} /> 번호 목록
+            <ListOrdered size={14} /> {t('orderedList')}
             <span class="hce-menu-shortcut">1. </span>
           </button>
           {/if}
@@ -389,7 +396,7 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleTaskList().run())}
           >
-            <CheckSquare size={14} /> 체크리스트
+            <CheckSquare size={14} /> {t('taskList')}
             <span class="hce-menu-shortcut">[] </span>
           </button>
           {/if}
@@ -406,7 +413,7 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().toggleBlockquote().run())}
           >
-            <Quote size={14} /> 인용문
+            <Quote size={14} /> {t('blockquote')}
             <span class="hce-menu-shortcut">" </span>
           </button>
           {/if}
@@ -420,16 +427,18 @@
             onclick={() =>
               runBlock(() => editor.chain().focus().setDetails().run())}
           >
-            <ChevronRight size={14} /> 토글
+            <ChevronRight size={14} /> {t('toggle')}
             <span class="hce-menu-shortcut">> </span>
           </button>
           <!--
             토글 제목 — 접히는 제목. 만드는 일은 입력 규칙(`# > `)과 **같은 커맨드**가 한다.
             제목 바로 아래에 두는 게 맞지만 이 메뉴는 `본문 → 제목 → 목록 → 블록` 순이라,
             토글 옆에 붙여 **접히는 것끼리** 모은다.
+
+            ⚠️ 아이콘은 `제목 N` 과 **달라야 한다.** 한동안 둘 다 lucide `HeadingN` 이라 메뉴에서
+            구분이 안 됐다(사용자 지적) — 삼각형이 붙은 `ToggleHeadingIcon` 을 쓴다.
           -->
           {#each [1, 2, 3] as level}
-            {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
             <button
               type="button"
               class={cn(
@@ -445,7 +454,7 @@
                     .run(),
                 )}
             >
-              <Icon size={14} /> 토글 제목 {level}
+              <ToggleHeadingIcon size={14} level={level as 1 | 2 | 3} /> {t('toggleHeading', { level })}
               <span class="hce-menu-shortcut">{'#'.repeat(level)} &gt; </span>
             </button>
           {/each}
@@ -470,7 +479,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleBold().run()}
-      aria-label="굵게"
+      aria-label={t('bold')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive("bold")
@@ -485,7 +494,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleItalic().run()}
-      aria-label="기울임"
+      aria-label={t('italic')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive("italic")
@@ -500,7 +509,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleUnderline().run()}
-      aria-label="밑줄"
+      aria-label={t('underline')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive("underline")
@@ -515,7 +524,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().toggleStrike().run()}
-      aria-label="취소선"
+      aria-label={t('strike')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive("strike")
@@ -547,7 +556,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('left').run()}
-      aria-label="왼쪽 정렬"
+      aria-label={t('alignLeft')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive({ textAlign: 'left' })
@@ -562,7 +571,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('center').run()}
-      aria-label="가운데 정렬"
+      aria-label={t('alignCenter')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive({ textAlign: 'center' })
@@ -577,7 +586,7 @@
     <button
       type="button"
       onclick={() => editor.chain().focus().setTextAlign('right').run()}
-      aria-label="오른쪽 정렬"
+      aria-label={t('alignRight')}
       class={cn(
         "p-1.5 rounded-md transition-colors",
         isActive({ textAlign: 'right' })
@@ -598,11 +607,11 @@
       <button
         type="button"
         onclick={() => (insertMenuOpen = !insertMenuOpen)}
-        aria-label="삽입"
+        aria-label={t('insert')}
         class="flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Plus size={iconSize} />
-        <span class="text-sm">삽입</span>
+        <span class="text-sm">{t('insert')}</span>
         <ChevronDown size={12} />
       </button>
       {#if insertMenuOpen}
@@ -617,7 +626,7 @@
             onclick={() =>
               runInsert(() => editor.chain().focus().setCodeBlock().run())}
           >
-            <Code2 size={14} /> 코드 블록
+            <Code2 size={14} /> {t('codeBlock')}
             <span class="hce-menu-shortcut">```</span>
           </button>
           {/if}
@@ -628,7 +637,7 @@
             onclick={() =>
               runInsert(() => editor.chain().focus().promptMathDisplay().run())}
           >
-            <Sigma size={14} /> 수식 블록
+            <Sigma size={14} /> {t('mathBlock')}
             <span class="hce-menu-shortcut">$$</span>
           </button>
           <!--
@@ -643,7 +652,7 @@
             onclick={() =>
               runInsert(() => editor.chain().focus().promptMathInline().run())}
           >
-            <Sigma size={14} /> 인라인 수식
+            <Sigma size={14} /> {t('mathInline')}
             <span class="hce-menu-shortcut">$ $</span>
           </button>
           {/if}
@@ -662,7 +671,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() => runInsert(onFileClick!)}
           >
-            <Paperclip size={14} /> 파일
+            <Paperclip size={14} /> {t('file')}
           </button>
           {/if}
           {#if has('table')}
@@ -674,11 +683,11 @@
                 insertTableSized(editor, { rows: 3, cols: 3, withHeaderRow: true }),
               )}
           >
-            <TableIcon size={14} /> 표 (3x3)
+            <TableIcon size={14} /> {t('table3x3')}
           </button>
           {/if}
 
-          {#if has('horizontal-rule') || has('columns-2') || has('columns-3') || has('card')}
+          {#if has('horizontal-rule') || has('columns-2') || has('columns-3') || has('tabs') || has('card')}
           <div class="h-px bg-border my-1"></div>
           {/if}
           {#if has('horizontal-rule')}
@@ -690,7 +699,7 @@
                 editor.chain().focus().setHorizontalRule().run(),
               )}
           >
-            <Minus size={14} /> 구분선
+            <Minus size={14} /> {t('divider')}
             <span class="hce-menu-shortcut">---</span>
           </button>
           {/if}
@@ -701,7 +710,7 @@
             onclick={() =>
               runInsert(() => editor.chain().focus().setColumns(2).run())}
           >
-            <Columns2 size={14} /> 2단 컬럼
+            <Columns2 size={14} /> {t('columns2')}
           </button>
           {/if}
           {#if has('columns-3')}
@@ -711,7 +720,17 @@
             onclick={() =>
               runInsert(() => editor.chain().focus().setColumns(3).run())}
           >
-            <Columns3 size={14} /> 3단 컬럼
+            <Columns3 size={14} /> {t('columns3')}
+          </button>
+          {/if}
+          {#if has('tabs')}
+          <button
+            type="button"
+            class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
+            onclick={() =>
+              runInsert(() => editor.chain().focus().setTabs(3).run())}
+          >
+            <PanelTop size={14} /> {t('tabs')}
           </button>
           {/if}
           {#if has('card')}
@@ -720,7 +739,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={() => runInsert(() => editor.chain().focus().setCard().run())}
           >
-            <SquareDashed size={14} /> 카드
+            <SquareDashed size={14} /> {t('card')}
           </button>
           {/if}
 
@@ -733,7 +752,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addImage}
           >
-            <ImageIcon size={14} /> 이미지
+            <ImageIcon size={14} /> {t('image')}
           </button>
           {/if}
           {#if has('video')}
@@ -746,7 +765,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addVideo}
           >
-            <Youtube size={14} /> 영상
+            <Youtube size={14} /> {t('video')}
           </button>
           {/if}
           {#if has('mbus')}
@@ -755,7 +774,7 @@
             class="w-full text-left px-2.5 py-1.5 text-xs transition-colors flex items-center gap-2 hover:bg-muted"
             onclick={addMbus}
           >
-            <Tv size={14} /> 미디버스 영상
+            <Tv size={14} /> {t('mbusVideo')}
           </button>
           {/if}
         </div>
@@ -768,24 +787,26 @@
   <!-- (이미지 모달은 없다 — 에디터가 업로드/링크 탭 모달을 띄운다. `onImageClick` 참고.) -->
   {#if modalState?.type === "video"}
     <InputModal
-      title="영상 URL"
+      title={t('videoUrl')}
       placeholder="https://www.youtube.com/watch?v=..."
       onConfirm={(url) => {
         editor.chain().focus().setVideoEmbed({ src: url }).run();
         modalState = null;
       }}
       onCancel={() => (modalState = null)}
+      {t}
     />
   {/if}
   {#if modalState?.type === "mbus"}
     <InputModal
-      title="미디버스 영상 URL"
+      title={t('mbusVideoUrl')}
       placeholder="https://play.mbus.tv/v1/hls/..."
       onConfirm={(url) => {
         editor.chain().focus().setMbusVideo({ src: url }).run();
         modalState = null;
       }}
       onCancel={() => (modalState = null)}
+      {t}
     />
   {/if}
 

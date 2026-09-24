@@ -44,12 +44,15 @@ Tailwind CSS v4 사용 시 `@source` 추가:
 
 ```svelte
 <script>
-  import { StaticTipTap } from '@teriusu/rich-editor/static';
+  import { StaticTipTap } from '@teriusu/rich-editor/static/component';
   import '@teriusu/rich-editor/styles';
 </script>
 
 <StaticTipTap content={post.content} placeholder="내용이 없습니다." />
 ```
+
+`@teriusu/rich-editor/static`의 기존 `renderStaticHtml`, `sanitizeHtml`,
+`transformLegacyHtml`, `stripHtmlToExcerpt` API는 그대로 유지됩니다.
 
 앱 전용 TipTap 확장이 있으면 `extensions`로 넘길 수 있고, 추가 태그나 속성은 `sanitize`로
 명시적으로 허용할 수 있습니다. `iframe`, `embed`, `object` 같은 active content는 기본적으로

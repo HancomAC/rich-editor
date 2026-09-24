@@ -9,6 +9,7 @@
  */
 import { Details } from "@tiptap/extension-details";
 import { mergeAttributes } from "@tiptap/core";
+import { getEditorTranslator } from "../i18n";
 export const FixedDetails = Details.extend({
     addOptions() {
         return {
@@ -19,6 +20,7 @@ export const FixedDetails = Details.extend({
     },
     addNodeView() {
         return ({ editor, getPos, node: initialNode, HTMLAttributes }) => {
+            const t = getEditorTranslator(editor);
             let currentNode = initialNode;
             const dom = document.createElement("div");
             const attributes = mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
@@ -28,7 +30,7 @@ export const FixedDetails = Details.extend({
             // 토글 버튼
             const toggle = document.createElement("button");
             toggle.type = "button";
-            toggle.setAttribute("aria-label", "Expand details content");
+            toggle.setAttribute("aria-label", t("detailsExpand"));
             dom.append(toggle);
             // 콘텐츠 래퍼
             const content = document.createElement("div");
@@ -37,11 +39,11 @@ export const FixedDetails = Details.extend({
             const applyState = () => {
                 if (isOpen) {
                     dom.classList.add(this.options.openClassName);
-                    toggle.setAttribute("aria-label", "Collapse details content");
+                    toggle.setAttribute("aria-label", t("detailsCollapse"));
                 }
                 else {
                     dom.classList.remove(this.options.openClassName);
-                    toggle.setAttribute("aria-label", "Expand details content");
+                    toggle.setAttribute("aria-label", t("detailsExpand"));
                 }
                 const detailsContent = content.querySelector(':scope > div[data-type="detailsContent"]');
                 if (detailsContent) {

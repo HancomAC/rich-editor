@@ -11,6 +11,7 @@
    * 업로드 함수도, 노드를 만드는 방법도 거기 있기 때문이다.
    */
   import { X } from "lucide-svelte";
+  import { defaultTranslator, type EditorTranslator } from "../i18n";
 
   let {
     title,
@@ -22,6 +23,7 @@
     onUpload,
     onLink,
     onCancel,
+    t = defaultTranslator,
   }: {
     title: string;
     /** 파일 선택창에서 거를 확장자. 파일 첨부처럼 아무거나 받는 곳은 비운다. */
@@ -35,6 +37,8 @@
     onUpload: (file: File) => void;
     onLink: (url: string) => void;
     onCancel: () => void;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
   } = $props();
 
   let tab: "upload" | "link" = $state("upload");
@@ -82,7 +86,7 @@
         type="button"
         class="p-1 rounded-md hover:bg-muted text-muted-foreground"
         onclick={onCancel}
-        aria-label="닫기"
+        aria-label={t('close')}
       >
         <X size={14} />
       </button>
@@ -101,7 +105,7 @@
         class:hce-picker-tab-on={tab === "upload"}
         onclick={() => (tab = "upload")}
       >
-        업로드
+        {t('upload')}
       </button>
       <button
         type="button"
@@ -111,7 +115,7 @@
         class:hce-picker-tab-on={tab === "link"}
         onclick={() => (tab = "link")}
       >
-        링크
+        {t('link')}
       </button>
     </div>
 

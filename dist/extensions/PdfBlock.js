@@ -2,6 +2,7 @@ import { Node as TiptapNode, mergeAttributes } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { getPdfJs } from "../utils/pdf";
 import { attachResize } from "../utils/resize";
+import { getEditorTranslator } from "../i18n";
 /**
  * 방향키 → 쪽 넘김. 노드뷰가 쪽 상태를 쥐고 있으므로 **이벤트로 건넨다** —
  * 확장이 노드뷰 내부를 직접 들여다보지 않게 하는 게 목적이다.
@@ -90,6 +91,7 @@ export const PdfBlock = TiptapNode.create({
     },
     addNodeView() {
         return ({ node, getPos, editor }) => {
+            const t = getEditorTranslator(editor);
             let destroyed = false;
             let resizeObserver = null;
             let resizeTimeout;
@@ -123,7 +125,7 @@ export const PdfBlock = TiptapNode.create({
              */
             frame.tabIndex = 0;
             frame.setAttribute("role", "group");
-            frame.setAttribute("aria-label", "PDF 문서 — 좌우 방향키로 쪽 넘김");
+            frame.setAttribute("aria-label", t("pdfViewerAria"));
             dom.appendChild(frame);
             // 리사이즈 핸들 (편집 가능 모드에서만)
             if (editor.isEditable) {
@@ -133,7 +135,7 @@ export const PdfBlock = TiptapNode.create({
                     getPos,
                     getNode: () => currentNode,
                     axis: "x",
-                    label: "PDF 너비 조절",
+                    label: t("pdfResizeWidth"),
                 });
             }
             /*
@@ -213,10 +215,10 @@ export const PdfBlock = TiptapNode.create({
              * 쉬운데 실제로는 페이지 원본 대비다 — 호버 설명에서 그걸 먼저 말한다.
              */
             const ZOOM_TIPS = {
-                0.5: "원본 크기의 50% — 썸네일. 글자는 읽기 어렵습니다",
-                0.75: "원본 크기의 75% — 그림·도표 확인용",
-                1: "원본 크기 그대로 (100%)",
-                1.5: "원본 크기의 150% — 읽기 편한 크기",
+                0.5: t("pdfZoom50"),
+                0.75: t("pdfZoom75"),
+                1: t("pdfZoom100"),
+                1.5: t("pdfZoom150"),
             };
             /** 저장값이 이것이면 창 높이에 맞춰 푼다. */
             const FIT_SCREEN = "fit";
@@ -275,7 +277,7 @@ export const PdfBlock = TiptapNode.create({
                     const btn = document.createElement("button");
                     btn.type = "button";
                     btn.className = PRESET_IDLE;
-                    btn.dataset.tip = ZOOM_TIPS[zoom] ?? `원본 크기의 ${label}`;
+                    btn.dataset.tip = ZOOM_TIPS[zoom] ?? t("pdfZoomOther", { label });
                     btn.setAttribute("aria-label", btn.dataset.tip);
                     btn.textContent = label;
                     // 원본 폭을 알기 전(로딩 중)에는 누를 수 없다 — 계산할 근거가 없다.
@@ -307,12 +309,12 @@ export const PdfBlock = TiptapNode.create({
                 const FITS = [
                     {
                         value: FIT_WIDTH,
-                        tip: "너비에 맞춤 — 본문 너비를 가득 채웁니다",
+                        tip: t("pdfFitWidth"),
                         paths: '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/>'
                     },
                     {
                         value: FIT_SCREEN,
-                        tip: "화면에 맞춤 — 한 쪽이 화면에 들어오는 크기",
+                        tip: t("pdfFitPage"),
                         paths: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
                     }
                 ];
@@ -372,8 +374,8 @@ export const PdfBlock = TiptapNode.create({
             downloadLink.rel = "noopener noreferrer";
             downloadLink.setAttribute("download", cleanName(node.attrs.name));
             downloadLink.className = "pdf-ctl";
-            downloadLink.dataset.tip = "\uB2E4\uC6B4\uB85C\uB4DC";
-            downloadLink.setAttribute("aria-label", "\uB2E4\uC6B4\uB85C\uB4DC");
+            downloadLink.dataset.tip = t("download");
+            downloadLink.setAttribute("aria-label", t("download"));
             downloadLink.innerHTML = icon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>');
             downloadLink.addEventListener("click", async (e) => {
                 if (!downloadLink.href)
@@ -407,16 +409,16 @@ export const PdfBlock = TiptapNode.create({
             openLink.target = "_blank";
             openLink.rel = "noopener noreferrer";
             openLink.className = "pdf-ctl";
-            openLink.dataset.tip = "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30 \u2014 \uBE0C\uB77C\uC6B0\uC800 \uBDF0\uC5B4\uB85C \uD06C\uAC8C \uBD05\uB2C8\uB2E4";
-            openLink.setAttribute("aria-label", "\uC0C8 \uD0ED\uC5D0\uC11C \uC5F4\uAE30");
+            openLink.dataset.tip = t("pdfOpenNewTabTip");
+            openLink.setAttribute("aria-label", t("pdfOpenNewTab"));
             openLink.innerHTML = icon('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
             endCluster.appendChild(openLink);
             if (editor.isEditable) {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.type = "button";
                 deleteBtn.className = "pdf-ctl pdf-ctl-danger";
-                deleteBtn.dataset.tip = "\uC0AD\uC81C";
-                deleteBtn.setAttribute("aria-label", "\uC0AD\uC81C");
+                deleteBtn.dataset.tip = t("delete");
+                deleteBtn.setAttribute("aria-label", t("delete"));
                 deleteBtn.innerHTML = icon('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>');
                 deleteBtn.addEventListener("click", () => {
                     const pos = getPos();
@@ -433,7 +435,7 @@ export const PdfBlock = TiptapNode.create({
             frame.appendChild(canvas);
             const statusDiv = document.createElement("div");
             statusDiv.className = "pdf-status";
-            statusDiv.textContent = "PDF \uB85C\uB529 \uC911...";
+            statusDiv.textContent = t("pdfLoading");
             frame.appendChild(statusDiv);
             canvas.style.display = "none";
             // \uC870\uC791\uBD80\uB294 \uB9C8\uC9C0\uB9C9 \u2014 `position:absolute` \uB77C \uC21C\uC11C\uC640 \uBB34\uAD00\uD558\uAC8C \uC704\uC5D0 \uADF8\uB824\uC9C0\uC9C0\uB9CC,
@@ -443,14 +445,14 @@ export const PdfBlock = TiptapNode.create({
             const prevBtn = document.createElement("button");
             prevBtn.type = "button";
             prevBtn.className = "pdf-ctl pdf-nav pdf-nav-prev pdf-cluster";
-            prevBtn.title = "\uC774\uC804 \uD398\uC774\uC9C0";
-            prevBtn.setAttribute("aria-label", "\uC774\uC804 \uD398\uC774\uC9C0");
+            prevBtn.title = t("pdfPrevPage");
+            prevBtn.setAttribute("aria-label", t("pdfPrevPage"));
             prevBtn.innerHTML = icon('<path d="m15 18-6-6 6-6"/>');
             const nextBtn = document.createElement("button");
             nextBtn.type = "button";
             nextBtn.className = "pdf-ctl pdf-nav pdf-nav-next pdf-cluster";
-            nextBtn.title = "\uB2E4\uC74C \uD398\uC774\uC9C0";
-            nextBtn.setAttribute("aria-label", "\uB2E4\uC74C \uD398\uC774\uC9C0");
+            nextBtn.title = t("pdfNextPage");
+            nextBtn.setAttribute("aria-label", t("pdfNextPage"));
             nextBtn.innerHTML = icon('<path d="m9 18 6-6-6-6"/>');
             /*
              * \uD310\uC774 \uD654\uBA74\uBCF4\uB2E4 \uAE38 \uB54C \uC77D\uAE30 \uC870\uC791\uBD80\uAC00 \uB530\uB77C\uC624\uAC8C \uD558\uB294 \uB808\uC77C. `position: sticky` \uB77C
@@ -464,7 +466,7 @@ export const PdfBlock = TiptapNode.create({
             const pageBtn = document.createElement("button");
             pageBtn.type = "button";
             pageBtn.className = "pdf-page";
-            pageBtn.title = "\uCABD \uBC88\uD638\uB85C \uC774\uB3D9";
+            pageBtn.title = t("pdfGoToPage");
             pageCluster.appendChild(pageBtn);
             /*
              * \uCABD\uC218\uB97C \uB20C\uB7EC **\uBC88\uD638\uB85C \uAC74\uB108\uB6F4\uB2E4.** \uC774\uAC8C \uC5C6\uC73C\uBA74 30\uCABD\uC9DC\uB9AC \uC790\uB8CC\uC5D0\uC11C \uB4A4\uB85C \uAC00\uB824\uBA74
@@ -474,7 +476,7 @@ export const PdfBlock = TiptapNode.create({
             pageInput.type = "text";
             pageInput.inputMode = "numeric";
             pageInput.className = "pdf-page-input";
-            pageInput.setAttribute("aria-label", "\uCABD \uBC88\uD638");
+            pageInput.setAttribute("aria-label", t("pdfPageNumber"));
             pageInput.style.display = "none";
             pageCluster.appendChild(pageInput);
             let currentPage = 1;
@@ -707,7 +709,7 @@ export const PdfBlock = TiptapNode.create({
                     resizeObserver.observe(dom);
                 }
                 catch {
-                    statusDiv.textContent = "PDF\uB97C \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                    statusDiv.textContent = t("pdfLoadFailed");
                 }
             }
             // URL 해결 후 PDF 로드

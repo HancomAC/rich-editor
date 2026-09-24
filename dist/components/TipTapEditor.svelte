@@ -4,6 +4,8 @@
   import { TableCell } from "@tiptap/extension-table-cell";
   import { Extension } from "@tiptap/core";
   import { TextSelection } from "@tiptap/pm/state";
+  import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+  import { guardVSCodePaste } from "../utils/guard-vscode-paste";
   import { lowlight } from "../utils/lowlight";
 
   /*
@@ -88,6 +90,87 @@
       };
     },
   });
+
+  /*
+   * ⚠️ 업스트림 `codeBlockVSCodeHandler` 는 클립보드의 `vscode-editor-data` 를 검증 없이
+   * `JSON.parse` 한다 — VS Code 계열이 아닌 앱이 같은 타입에 깨진 값을 실으면 붙여넣기
+   * 한 번에 handlePaste 가 던져 에디터가 멈춘다. 부모 플러그인을 그대로 두고
+   * 메타데이터 검증만 앞에 끼운다(`utils/guard-vscode-paste.ts`).
+   */
+  const GuardedCodeBlockLowlight = CodeBlockLowlight.extend({
+    addProseMirrorPlugins() {
+      return (this.parent?.() ?? []).map((plugin) => guardVSCodePaste(plugin));
+    },
+  });
+
+  /**
+   * 편집 크롬(툴바 2 · 메뉴 3 · 헬퍼 1 · 모달 3)은 **`editable` 일 때만 그려지는데**
+   * 정적 import 면 읽기 전용 페이지도 통째로 받는다.
+   *
+   * 실측(정올 prod 빌드, `apps/jungol/.svelte-kit/output/client`): 이 일곱만 쓰는
+   * lucide 아이콘 53 개가 **270KB raw / 75KB gzip** 짜리 청크 하나로 앉아 있고,
+   * rich-editor 가 끌고 오는 그래프 전체는 2.06MB raw / 599KB gzip 이다. 그리고
+   * 그 그래프를 끌고 오는 라우트가 **176 개 중 91 개** — 문제 지문·글·댓글처럼
+   * 툴바가 평생 뜨지 않는 화면이 대부분이다.
+   *
+   * 그래서 **필요해질 때 한 번만** 받아 모든 인스턴스가 나눠 쓴다.
+   *
+   * ⚠️ **인스턴스마다 `import()` 를 걸지 않는다.** 모듈 자체는 캐시되니 손해가 없어
+   *    보이지만 `.then()` 이 인스턴스 수만큼 생긴다. 그 콜백들이 제각각 풀리면 툴바가
+   *    한 번에 서지 못하고 줄줄이 늘어선다 — 한 화면에 에디터가 20~27 개 서는 곳
+   *    (정올 기출 퀴즈)에서 눈에 띈다. 소비 앱 래퍼(`ui/tiptap/TipTap.svelte`)가 같은
+   *    이유로 이미 모듈 스코프 공유 import 를 쓰고 있고, 그 주석에 실측이 남아 있다.
+   *
+   * ⚠️ 배럴(`index.ts`)에서 이 일곱을 **re-export 하면 안 된다.** 여기서 지연시켜도
+   *    배럴이 정적으로 참조하면 그래프에 그대로 남아 이 지연이 아무 효과가 없다.
+   *    필요하면 `@teriusu/rich-editor/toolbars` 서브패스로 가져간다.
+   */
+  /*
+   * ⚠️ 타입은 `typeof import(...)` 로 **원본 컴포넌트에서 그대로 가져온다.**
+   * `Component<any>` 로 뭉개면 마크업의 콜백 인자(`onConfirm={(url) => …}`)가
+   * `implicit any` 로 떨어져 타입 검사에서 걸린다. 타입 위치의 `import()` 는
+   * 컴파일 뒤 사라지므로 **번들에는 영향이 없다** — 지연 로드는 그대로다.
+   */
+  type EditorChrome = {
+    FixedToolbar: typeof import("./FixedToolbar.svelte").default;
+    BubbleToolbar: typeof import("./BubbleToolbar.svelte").default;
+    TableBubbleMenu: typeof import("./TableBubbleMenu.svelte").default;
+    SlashCommandMenu: typeof import("./SlashCommandMenu.svelte").default;
+    EmojiSuggestionMenu: typeof import("./EmojiSuggestionMenu.svelte").default;
+    FloatingHelper: typeof import("./FloatingHelper.svelte").default;
+    MediaPickerModal: typeof import("./MediaPickerModal.svelte").default;
+    InputModal: typeof import("./InputModal.svelte").default;
+    MathModal: typeof import("./MathModal.svelte").default;
+  };
+  let sharedChrome = $state<EditorChrome | null>(null);
+  let chromePending = false;
+  function loadEditorChrome() {
+    if (sharedChrome || chromePending) return;
+    chromePending = true;
+    Promise.all([
+      import("./FixedToolbar.svelte"),
+      import("./BubbleToolbar.svelte"),
+      import("./TableBubbleMenu.svelte"),
+      import("./SlashCommandMenu.svelte"),
+      import("./EmojiSuggestionMenu.svelte"),
+      import("./FloatingHelper.svelte"),
+      import("./MediaPickerModal.svelte"),
+      import("./InputModal.svelte"),
+      import("./MathModal.svelte"),
+    ]).then(([fixed, bubble, table, slash, emoji, floating, media, input, math]) => {
+      sharedChrome = {
+        FixedToolbar: fixed.default,
+        BubbleToolbar: bubble.default,
+        TableBubbleMenu: table.default,
+        SlashCommandMenu: slash.default,
+        EmojiSuggestionMenu: emoji.default,
+        FloatingHelper: floating.default,
+        MediaPickerModal: media.default,
+        InputModal: input.default,
+        MathModal: math.default,
+      };
+    });
+  }
 </script>
 
 <script lang="ts">
@@ -95,9 +178,7 @@
   import { onMount, onDestroy } from "svelte";
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
-  import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
   import Placeholder from "@tiptap/extension-placeholder";
-  import Image from "@tiptap/extension-image";
   import Link from "@tiptap/extension-link";
   import Underline from "@tiptap/extension-underline";
   import TextAlign from "@tiptap/extension-text-align";
@@ -118,33 +199,40 @@
     LeveledDetailsSummary,
     NotionToggleInputRule,
   } from "../extensions/NotionInputRules";
+  import { OrderedListMarker } from "../extensions/OrderedListMarker";
   import FileHandler from "@tiptap/extension-file-handler";
-  import type { AnyExtension } from "@tiptap/core";
+  import type { AnyExtension, JSONContent } from "@tiptap/core";
   import { PdfBlock } from "../extensions/PdfBlock";
   import { Columns } from "../extensions/Columns";
   import { Column } from "../extensions/Column";
-  import { transformLegacyHtml } from "../utils/sanitize";
+  import { TabsBlock, Tab } from "../extensions/TabsBlock";
+  import { transformLegacyHtml, stripUploadSkeletonHtml } from "../utils/sanitize";
+  import {
+    UploadSkeleton,
+    insertUploadSkeleton,
+    type UploadSkeletonKind,
+  } from "../extensions/UploadSkeleton";
+  import { MediaResizeToolbar } from "../extensions/MediaToolbar";
   import { Indent } from "../extensions/Indent";
+  import { TableKeymap } from "../extensions/TableKeymap";
   import { FileAttachment } from "../extensions/FileAttachment";
   import { MbusVideo } from "../extensions/MbusVideo";
+  import { ResizableImage } from "../extensions/ResizableImage";
   import { VideoEmbed } from "../extensions/VideoEmbed";
+  import { TiptapMidibus, type MidibusRenderer } from "../extensions/TiptapMidibus";
+  import { LegacyBlock, type LegacyBlockRenderer } from "../extensions/LegacyBlock";
   import { CardBlock } from "../extensions/CardBlock";
   import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
-  import FixedToolbar from "./FixedToolbar.svelte";
-  import BubbleToolbar from "./BubbleToolbar.svelte";
-  import SlashCommandMenu from "./SlashCommandMenu.svelte";
-  import TableBubbleMenu from "./TableBubbleMenu.svelte";
-  import MathModal from "./MathModal.svelte";
-  import MediaPickerModal from "./MediaPickerModal.svelte";
-  import InputModal from "./InputModal.svelte";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
+  import { createTranslator, EditorI18n, type EditorLocaleInput } from "../i18n";
   import type { FileResolver } from "../extensions/FileAttachment";
 
   let {
     content = "",
     onChange,
-    placeholder = "'/'를 눌러 명령어를 입력하세요...",
+    placeholder,
+    locale,
     onUploadFile,
     onResolveFile,
     fileDownloadBaseUrl,
@@ -154,6 +242,8 @@
     onPromptVideo,
     onPromptCardBackground,
     onPromptMath,
+    onRenderMidibus,
+    onRenderLegacyBlock,
     toolbarEnd,
     extensions: extraExtensions = [],
     editable = true,
@@ -162,7 +252,13 @@
   }: {
     content: string;
     onChange: (html: string) => void;
+    /** 본문 안내문. 미지정 시 로케일의 기본 안내문(ko: "'/'를 눌러 명령어를 입력하세요..."). */
     placeholder?: string;
+    /**
+     * 에디터 UI 로케일 — 코드('ko'·'en'·'ja'·'es'·'zh-hans'·'zh-hant', 지역 변형 허용) 또는
+     * 부분 메시지 오버라이드 객체. **미주입 시 ko** — 기존 호스트와 픽셀 단위 동일(하위호환).
+     */
+    locale?: EditorLocaleInput;
     onUploadFile?: UploadHandler;
     onResolveFile?: FileResolver;
     fileDownloadBaseUrl?: string;
@@ -175,6 +271,19 @@
     onPromptCardBackground?: PromptHandler;
     /** LaTeX 수식 편집. 미제공 시 내장 MathModal(실시간 미리보기) 폴백 */
     onPromptMath?: MathPrompt;
+    /**
+     * 정올 prod 형식 `<tiptap-midibus>` 를 **실제로 재생**할 플레이어.
+     *
+     * 패키지는 노드와 마크업만 책임지고, 플레이어는 호스트가 준다 — prod 플레이어가
+     * 로그인 계정 id·`GET /midibus/start/{id}`·PIP 헬퍼를 쓰기 때문이다(`resolver` 와
+     * 같은 패턴). 미제공 시 읽기 전용 자리표시자로 폴백한다.
+     */
+    onRenderMidibus?: MidibusRenderer;
+    /**
+     * 옛 블록(`lite-youtube`·`div.iframe-wrapper`·`div.tiptap-columns`)을 실제로 그릴 렌더러.
+     * `kind` 를 보고 아는 것만 그리고 나머지는 `false` 로 사양하면 된다.
+     */
+    onRenderLegacyBlock?: LegacyBlockRenderer;
     /** 고정 툴바 오른쪽 끝에 끼워 넣을 조각 */
     toolbarEnd?: Snippet;
     extensions?: AnyExtension[];
@@ -185,8 +294,35 @@
 
   const features = $derived(resolveFeatures(toolbar, featuresOverride));
 
+  /*
+   * 에디터 UI 번역기. 크롬 컴포넌트에는 prop 으로, vanilla NodeView 에는 `EditorI18n`
+   * 확장(→ `editor.storage.editorI18n.t`)으로 내려간다. 미주입 시 ko — 하위호환 계약.
+   */
+  const t = $derived(createTranslator(locale));
+
   let editorElement: HTMLDivElement | undefined = $state();
   let editor: Editor | undefined = $state();
+
+  /*
+   * 편집 크롬을 **필요해질 때** 받아 온다(사유·실측은 모듈 블록의 `loadEditorChrome` 주석).
+   * `$effect` 라 SSR 에서는 돌지 않는다 — 크롬은 어차피 `editor` 가 선 뒤에만 그려지고
+   * `editor` 는 `onMount` 에서 만들어지므로 서버에서는 그릴 일이 없다.
+   *
+   * 아래 일곱은 **원래 이름 그대로** 두어 마크업이 그대로 읽히게 한다. 도착 전에는
+   * `undefined` 이고, 마크업이 `sharedChrome` 유무로 이미 갈라져 있어 그때는 그리지 않는다.
+   */
+  $effect(() => {
+    if (editable) loadEditorChrome();
+  });
+  const FixedToolbar = $derived(sharedChrome?.FixedToolbar);
+  const BubbleToolbar = $derived(sharedChrome?.BubbleToolbar);
+  const TableBubbleMenu = $derived(sharedChrome?.TableBubbleMenu);
+  const SlashCommandMenu = $derived(sharedChrome?.SlashCommandMenu);
+  const EmojiSuggestionMenu = $derived(sharedChrome?.EmojiSuggestionMenu);
+  const FloatingHelper = $derived(sharedChrome?.FloatingHelper);
+  const MediaPickerModal = $derived(sharedChrome?.MediaPickerModal);
+  const InputModal = $derived(sharedChrome?.InputModal);
+  const MathModal = $derived(sharedChrome?.MathModal);
 
   /*
    * 글자수는 `editor.storage` 에서 읽는데 그건 `$state` 가 아니라, 그냥 부르면 첫 값에
@@ -229,6 +365,19 @@
     pending?.resolve(value);
   }
 
+  /*
+   * 플레이어 주입 다리 둘. `promptMath` 와 **같은 이유로 함수를 직접 넘기지 않는다** —
+   * 확장은 `onMount` 에서 한 번만 만들어지므로, prop 을 그대로 넘기면 호스트가 나중에
+   * 붙인 렌더러를 영영 못 본다. 여기서 호출 시점에 읽는다.
+   *
+   * 안 준 호스트(코드패스)에게는 `false` 를 돌려 확장이 자리표시자로 되돌아가게 한다.
+   */
+  const renderMidibus: MidibusRenderer = (context) =>
+    onRenderMidibus ? onRenderMidibus(context) : false;
+
+  const renderLegacyBlock: LegacyBlockRenderer = (context) =>
+    onRenderLegacyBlock ? onRenderLegacyBlock(context) : false;
+
   let uploading = $state(false);
   let pdfInputEl: HTMLInputElement | undefined = $state();
   let fileInputEl: HTMLInputElement | undefined = $state();
@@ -249,9 +398,9 @@
     try {
       const path = new URL(raw, "http://x").pathname;
       const last = decodeURIComponent(path.split("/").filter(Boolean).pop() || "");
-      return last || "파일";
+      return last || t("file");
     } catch {
-      return "파일";
+      return t("file");
     }
   }
 
@@ -285,20 +434,49 @@
    * ⚠️ 업로드는 **실패해도 모달을 닫는다.** 열어 둔 채로 두면 `업로드 중...` 오버레이가
    * 모달 뒤에 깔려 무슨 일이 일어나는지 안 보인다. 실패는 아래 `catch` 가 알린다.
    */
-  function insertImageFile(file: File) {
-    mediaPicker = null;
+  /*
+   * ── 업로드 스켈레톤 흐름 ──────────────────────────────────────────────────
+   * 업로드가 시작되면 **삽입 지점에** 스켈레톤을 세우고, 끝나면 그 자리를 실제 노드로
+   * 바꾼다(실패하면 제거). 전체 오버레이와 달리 문서를 막지 않아서, 업로드가 도는
+   * 동안에도 커서를 옮기고 다른 곳을 계속 편집할 수 있다. 그 사이 위쪽 편집으로 자리가
+   * 밀려도 핸들이 id 로 다시 찾고, 사용자가 스켈레톤을 지워 버렸으면 결과를 현재 커서
+   * 자리에 넣는다 — 업로드까지 끝난 파일을 버리지 않는다. 스켈레톤을 못 세우는 드문
+   * 경우(스키마 미등록)에만 예전 전체 오버레이(`uploading`)로 물러난다.
+   */
+  function uploadWithSkeleton(opts: {
+    file: File;
+    kind: UploadSkeletonKind;
+    at?: number;
+    makeContent: (result: string) => JSONContent;
+    errorMessage: string;
+  }) {
     if (!editor || !onUploadFile) return;
-    uploading = true;
-    onUploadFile(file)
-      .then((url) => {
-        editor!.chain().focus().setImage({ src: url }).run();
+    const handle = insertUploadSkeleton(editor, { kind: opts.kind, at: opts.at });
+    if (!handle) uploading = true;
+    onUploadFile(opts.file)
+      .then((result) => {
+        const content = opts.makeContent(result);
+        if (!handle || !handle.replaceWith(content)) {
+          editor?.chain().focus().insertContent(content).run();
+        }
       })
       .catch(() => {
-        alert("이미지 업로드에 실패했습니다.");
+        handle?.remove();
+        alert(opts.errorMessage);
       })
       .finally(() => {
-        uploading = false;
+        if (!handle) uploading = false;
       });
+  }
+
+  function insertImageFile(file: File) {
+    mediaPicker = null;
+    uploadWithSkeleton({
+      file,
+      kind: "image",
+      makeContent: (url) => ({ type: "image", attrs: { src: url } }),
+      errorMessage: t("imageUploadFailed"),
+    });
   }
 
   function insertImageUrl(url: string) {
@@ -328,6 +506,13 @@
   let slashQuery = $state("");
   let slashStartPos: number | null = null;
   const MENU_HEIGHT = 320;
+
+  /*
+   * 이모지 메뉴 열림 여부. 그 메뉴는 상태를 스스로 들고 있어(해당 파일 주석) 여기서는
+   * 알림만 받는다 — 빈 줄 플로팅 헬퍼가 슬래시·이모지 팝업과 **동시에 뜨지 않게** 끄는
+   * 데에만 쓴다(좌표계가 달라 자동 회피가 안 된다. `FloatingHelper.svelte` 주석 참고).
+   */
+  let emojiMenuOpen = $state(false);
 
   function updateSlashMenuPosition() {
     if (!editor || slashStartPos === null) return;
@@ -385,54 +570,36 @@
   }
 
   function uploadPdf(file: File) {
-    if (!editor || !onUploadFile) return;
-    uploading = true;
-    onUploadFile(file)
-      .then((url) => {
-        editor!
-          .chain()
-          .focus()
-          .insertContent({
-            type: "pdfBlock",
-            attrs: { src: url, name: file.name },
-          })
-          .run();
-      })
-      .catch(() => {
-        alert("PDF 업로드에 실패했습니다.");
-      })
-      .finally(() => {
-        uploading = false;
-      });
+    uploadWithSkeleton({
+      file,
+      kind: "pdf",
+      makeContent: (url) => ({
+        type: "pdfBlock",
+        attrs: { src: url, name: file.name },
+      }),
+      errorMessage: t("pdfUploadFailed"),
+    });
   }
 
   function uploadFile(file: File) {
-    if (!editor || !onUploadFile) return;
-    uploading = true;
     const size = file.size;
-    onUploadFile(file)
-      .then((result) => {
+    uploadWithSkeleton({
+      file,
+      kind: "file",
+      makeContent: (result) => {
         const isFileId = result && !result.includes("/") && !result.includes(":");
-        editor!
-          .chain()
-          .focus()
-          .insertContent({
-            type: "fileAttachment",
-            attrs: {
-              src: isFileId ? null : result,
-              fileId: isFileId ? result : null,
-              name: file.name,
-              size,
-            },
-          })
-          .run();
-      })
-      .catch(() => {
-        alert("파일 업로드에 실패했습니다.");
-      })
-      .finally(() => {
-        uploading = false;
-      });
+        return {
+          type: "fileAttachment",
+          attrs: {
+            src: isFileId ? null : result,
+            fileId: isFileId ? result : null,
+            name: file.name,
+            size,
+          },
+        };
+      },
+      errorMessage: t("fileUploadFailed"),
+    });
   }
 
   // Slash command handlers (component-level for cleanup access)
@@ -495,6 +662,13 @@
       element: editorElement,
       extensions: [
         /*
+         * UI 번역기를 storage 로 나르는 확장 — vanilla NodeView 가 `getEditorTranslator` 로
+         * 읽는다. 호스트가 직접 넘겼으면 비켜선다(`math` 와 같은 꼴).
+         */
+        ...(extraExtensions.some((ext) => (ext as any).name === "editorI18n")
+          ? []
+          : [EditorI18n.configure({ locale })]),
+        /*
          * `link`·`underline` 을 끄는 것은 **v3 이전의 뒷정리**다.
          *
          * ⚠️ StarterKit v2 에는 이 둘이 없어서 아래에 `Link`·`Underline` 을 따로 달았다.
@@ -524,11 +698,18 @@
           blockquote: false,
           link: false,
           underline: false,
+          /*
+           * `codeBlock: false` 와 같은 꼴 — **끄고 자기 것을 단다.** `a.`·`가.` 같은
+           * 마커 입력 규칙은 `configure` 로 못 넣어서 확장을 갈아 끼우는 수밖에 없다
+           * (`OrderedListMarker` 주석 참고).
+           */
+          orderedList: false,
         }),
+        OrderedListMarker,
         NotionBlockquote,
         ...(extraExtensions.some((ext) => (ext as any).name === 'codeBlock')
           ? []
-          : [CodeBlockLowlight.configure({
+          : [GuardedCodeBlockLowlight.configure({
               lowlight,
               defaultLanguage: "cpp",
             })]),
@@ -546,18 +727,22 @@
                   if (node.type.name === "codeBlock") return "";
                   if (node.type.name === "heading") {
                     const level = node.attrs.level;
-                    if (level === 1) return "제목 1";
-                    if (level === 2) return "제목 2";
-                    if (level === 3) return "제목 3";
+                    if (level === 1) return t("heading1");
+                    if (level === 2) return t("heading2");
+                    if (level === 3) return t("heading3");
                   }
-                  return placeholder;
+                  return placeholder ?? t("placeholder");
                 },
                 showOnlyWhenEditable: true,
                 showOnlyCurrent: true,
               }),
             ]
           : []),
-        Image.configure({ inline: false }),
+        /*
+         * 기본 `Image` 대신 확장본을 쓴다 — 노드 타입은 그대로 `image` 이고
+         * 드래그 손잡이(`width` 속성으로 저장)만 얹은 것이다. `ResizableImage.ts` 참고.
+         */
+        ResizableImage.configure({ inline: false }),
         Link.configure({
           openOnClick: false,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
@@ -586,6 +771,19 @@
         TableRow,
         CustomTableHeader,
         CustomTableCell,
+        /*
+         * Tab 셀 이동·행 추가·빈 표 삭제. 업스트림 `Table` 에도 Tab 단축키가 있지만
+         * 아래 `Indent` 의 Tab(NBSP 삽입)이 키맵 순서상 먼저 먹어 죽는다 —
+         * `TableKeymap`(priority 110)이 표 안에서만 그걸 이긴다. 경위는 그 파일 주석.
+         */
+        TableKeymap,
+        /*
+         * 업로드 자리표시자. 스키마에 항상 실어 둔다 — 저장에 안 남으므로 읽기 전용
+         * 문서에 나타날 일은 없지만, 편집·읽기의 스키마가 갈리면 다른 데서 탈이 난다.
+         */
+        UploadSkeleton,
+        /* 미디어(이미지·영상) 선택 시 비율·정렬·폭 프리셋 칩. 읽기 전용엔 싣지 않는다. */
+        ...(editable ? [MediaResizeToolbar] : []),
         PdfBlock,
         FileAttachment.configure({
           resolver: onResolveFile ?? null,
@@ -593,6 +791,15 @@
         }),
         MbusVideo,
         VideoEmbed,
+        /*
+         * ⚠️ **정올 prod 저장 형식을 잃지 않기 위한 둘.** prod(`@seorii/tiptap`)와 lms 는
+         * 같은 Datastore 를 쓰는데, 여기 없으면 prod 글을 lms 에서 여는 것만으로 해당
+         * 블록이 통째로 증발한다(강의영상 글이 `<p>` 하나만 남은 적이 있다).
+         * `TiptapMidibus` 는 `<tiptap-midibus>` 를, `LegacyBlock` 은 `lite-youtube`·
+         * `div.iframe-wrapper`·`div.tiptap-columns` 를 **원본 그대로** 읽고 되쓴다.
+         */
+        TiptapMidibus.configure({ renderer: renderMidibus }),
+        LegacyBlock.configure({ renderer: renderLegacyBlock }),
         CardBlock.configure({ promptBackground: onPromptCardBackground ?? null }),
         /*
          * ⚠️ **수학은 여기서 등록한다.** 예전엔 `MathInline`/`MathDisplay` 를 내보내기만 하고
@@ -611,6 +818,12 @@
           : [MathDisplay.configure({ promptMath })]),
         Columns,
         Column,
+        /*
+         * 탭 블록도 `Columns`/`Column` 처럼 **컨테이너와 자식을 함께** 등록한다.
+         * 한쪽만 넣으면 스키마가 서지 않는다(`tabs` 의 내용이 `tab+` 다).
+         */
+        TabsBlock,
+        Tab,
         CodeBlockTopEscape,
         Indent,
         FixedDetails,
@@ -630,60 +843,48 @@
                   "application/pdf",
                 ],
                 onDrop: (_currentEditor, files, pos) => {
+                  /* 파일마다 스켈레톤(1) + 뒤에 심는 빈 문단(2)만큼 다음 자리를 민다. */
+                  let at = pos;
                   for (const file of files) {
                     if (file.type.startsWith("image/")) {
-                      uploading = true;
-                      onUploadFile!(file)
-                        .then((url) => {
-                          _currentEditor
-                            .chain()
-                            .focus()
-                            .insertContentAt(pos, {
-                              type: "image",
-                              attrs: { src: url },
-                            })
-                            .run();
-                        })
-                        .catch(() =>
-                          alert("이미지 업로드에 실패했습니다."),
-                        )
-                        .finally(() => (uploading = false));
+                      uploadWithSkeleton({
+                        file,
+                        kind: "image",
+                        at,
+                        makeContent: (url) => ({
+                          type: "image",
+                          attrs: { src: url },
+                        }),
+                        errorMessage: t("imageUploadFailed"),
+                      });
+                      at += 3;
                     } else if (file.type === "application/pdf") {
-                      uploading = true;
-                      onUploadFile!(file)
-                        .then((url) => {
-                          _currentEditor
-                            .chain()
-                            .focus()
-                            .insertContentAt(pos, {
-                              type: "pdfBlock",
-                              attrs: { src: url, name: file.name },
-                            })
-                            .run();
-                        })
-                        .catch(() =>
-                          alert("PDF 업로드에 실패했습니다."),
-                        )
-                        .finally(() => (uploading = false));
+                      uploadWithSkeleton({
+                        file,
+                        kind: "pdf",
+                        at,
+                        makeContent: (url) => ({
+                          type: "pdfBlock",
+                          attrs: { src: url, name: file.name },
+                        }),
+                        errorMessage: t("pdfUploadFailed"),
+                      });
+                      at += 3;
                     }
                   }
                 },
                 onPaste: (_currentEditor, files) => {
                   for (const file of files) {
                     if (file.type.startsWith("image/")) {
-                      uploading = true;
-                      onUploadFile!(file)
-                        .then((url) => {
-                          _currentEditor
-                            .chain()
-                            .focus()
-                            .setImage({ src: url })
-                            .run();
-                        })
-                        .catch(() =>
-                          alert("이미지 업로드에 실패했습니다."),
-                        )
-                        .finally(() => (uploading = false));
+                      uploadWithSkeleton({
+                        file,
+                        kind: "image",
+                        makeContent: (url) => ({
+                          type: "image",
+                          attrs: { src: url },
+                        }),
+                        errorMessage: t("imageUploadFailed"),
+                      });
                     }
                   }
                 },
@@ -698,10 +899,10 @@
       editable,
       onUpdate: ({ editor: e }) => {
         // 빈 paragraph는 <p></p>로 저장 (ProseMirror가 편집기 DOM에 넣는 trailing <br>는 출력에서 제거).
-        const html = e
-          .getHTML()
-          .replace(/<p><br\s*\/?><\/p>/g, "<p></p>")
-          .replace(/(<p><\/p>\s*)+$/, "");
+        // 업로드 스켈레톤은 화면 상태지 내용이 아니다 — 저장 HTML 에서 걷어낸다.
+        const html = stripUploadSkeletonHtml(
+          e.getHTML().replace(/<p><br\s*\/?><\/p>/g, "<p></p>"),
+        ).replace(/(<p><\/p>\s*)+$/, "");
         lastEmittedHtml = html;
         onChange(html);
       },
@@ -754,6 +955,18 @@
     });
   });
 
+  /*
+   * 로케일이 마운트 뒤에 바뀌면 storage 의 번역기를 갈아 끼운다. 이미 그려진 NodeView 는
+   * 예전 문자열을 유지한다(다시 그려질 때 반영) — 크롬 컴포넌트는 prop 이라 즉시 따라온다.
+   */
+  $effect(() => {
+    const translator = t;
+    const storage = editor?.storage as
+      | { editorI18n?: { t: typeof translator } }
+      | undefined;
+    if (storage?.editorI18n) storage.editorI18n.t = translator;
+  });
+
   // Scroll handler for slash menu position
   $effect(() => {
     if (!slashMenuOpen) return;
@@ -792,10 +1005,11 @@
 	ondragover={(e) => e.preventDefault()}
 	ondrop={(e) => { if (!onUploadFile) e.preventDefault(); }}
 >
-	{#if editor && editable && features.has('fixed-toolbar')}
+	{#if editor && editable && FixedToolbar && features.has('fixed-toolbar')}
 		<FixedToolbar
 			{editor}
 			{features}
+			{t}
 			{onPromptLink}
 			{onPromptMbus}
 			{onPromptVideo}
@@ -814,12 +1028,12 @@
 	<div class="hce-editor-body" bind:this={editorElement}></div>
 
 	{#if editor && editable}
-		{#if features.has('bubble-toolbar')}
-			<BubbleToolbar {editor} {features} {onPromptLink} />
+		{#if BubbleToolbar && features.has('bubble-toolbar')}
+			<BubbleToolbar {editor} {features} {onPromptLink} {t} />
 		{/if}
 
-		{#if features.has('table-menu')}
-			<TableBubbleMenu {editor} />
+		{#if TableBubbleMenu && features.has('table-menu')}
+			<TableBubbleMenu {editor} {t} />
 		{/if}
 
 		{#if features.has('upload-overlay') && uploading}
@@ -827,12 +1041,12 @@
 				class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl"
 			>
 				<p class="text-sm text-muted-foreground animate-pulse">
-					업로드 중...
+					{t('uploading')}
 				</p>
 			</div>
 		{/if}
 
-		{#if features.has('slash-menu') && slashMenuOpen}
+		{#if SlashCommandMenu && features.has('slash-menu') && slashMenuOpen}
 			<div
 				style="top: {slashMenuPos.top}px; left: {slashMenuPos.left}px"
 				class="fixed z-50"
@@ -840,6 +1054,7 @@
 				<SlashCommandMenu
 					{editor}
 					{features}
+					{t}
 					{onPromptLink}
 					{onPromptMbus}
 					{onPromptVideo}
@@ -857,6 +1072,24 @@
 		{/if}
 
 		<!--
+			이모지 `:` 자동완성. 슬래시 메뉴와 한 벌이라 같은 feature 로 켠다.
+			열림·위치·검색어를 컴포넌트가 스스로 판정하므로(에디터 이벤트 직접 구독)
+			여기는 마운트만 한다. 열림 여부만 받아 둔다 — 아래 플로팅 헬퍼 상호배제용.
+		-->
+		{#if EmojiSuggestionMenu && features.has('slash-menu')}
+			<EmojiSuggestionMenu {editor} onOpenChange={(open) => (emojiMenuOpen = open)} />
+		{/if}
+
+		<!--
+			빈 줄 플로팅 헬퍼. "/" 안내가 본체라 슬래시 메뉴와 같은 feature 로 켠다.
+			표시 판정·위치는 컴포넌트가 스스로 하고(에디터 이벤트 직접 구독), 여기는
+			슬래시·이모지 팝업이 열려 있는 동안만 꺼 달라는 신호를 넘긴다.
+		-->
+		{#if FloatingHelper && features.has('slash-menu')}
+			<FloatingHelper {editor} {features} {t} suppressed={slashMenuOpen || emojiMenuOpen} />
+		{/if}
+
+		<!--
 			수식 프롬프트. `onPromptMath` 를 준 호스트에겐 열리지 않는다(그쪽이 직접 띄운다).
 			`features` 로 막지 않는다 — `$…$` 입력 규칙과 붙여넣기 변환은 feature 와 무관하게
 			항상 살아 있어서, 그렇게 만든 수식을 고치려면 이 모달이 필요하다.
@@ -865,25 +1098,27 @@
 			이미지·파일 고르기. 둘이 **같은 모달**을 쓰고 문구만 다르다
 			(`MediaPickerModal` 주석 참고).
 		-->
-		{#if mediaPicker === 'image'}
+		{#if MediaPickerModal && mediaPicker === 'image'}
 			<MediaPickerModal
-				title="이미지 추가"
+				title={t('addImage')}
 				accept="image/*"
-				uploadLabel="파일 업로드"
-				linkPlaceholder="이미지 링크 붙여넣기"
-				linkConfirmLabel="이미지 임베드"
-				linkHint="웹에 있는 모든 이미지와 호환됨"
+				uploadLabel={t('uploadFile')}
+				linkPlaceholder={t('imageLinkPlaceholder')}
+				linkConfirmLabel={t('imageEmbed')}
+				linkHint={t('imageLinkHint')}
+				{t}
 				onUpload={insertImageFile}
 				onLink={insertImageUrl}
 				onCancel={() => (mediaPicker = null)}
 			/>
 		{/if}
-		{#if mediaPicker === 'file'}
+		{#if MediaPickerModal && mediaPicker === 'file'}
 			<MediaPickerModal
-				title="파일 추가"
-				uploadLabel="파일을 선택하세요"
-				linkPlaceholder="파일 링크 붙여넣기"
-				linkConfirmLabel="파일 임베드"
+				title={t('addFile')}
+				uploadLabel={t('chooseFile')}
+				linkPlaceholder={t('fileLinkPlaceholder')}
+				linkConfirmLabel={t('fileEmbed')}
+				{t}
 				onUpload={insertFileUpload}
 				onLink={insertFileUrl}
 				onCancel={() => (mediaPicker = null)}
@@ -891,9 +1126,10 @@
 		{/if}
 
 		<!-- 업로드를 못 하는 호스트용 폴백(URL 만 받는다). 위 `pickImage` 참고. -->
-		{#if imageUrlPrompt}
+		{#if InputModal && imageUrlPrompt}
 			<InputModal
-				title="이미지 URL 입력"
+				title={t('imageUrlTitle')}
+				{t}
 				placeholder="https://example.com/image.png"
 				onConfirm={(url) => {
 					imageUrlPrompt = false;
@@ -903,9 +1139,10 @@
 			/>
 		{/if}
 
-		{#if mathPrompt}
+		{#if MathModal && mathPrompt}
 			<MathModal
 				latex={mathPrompt.latex}
+				{t}
 				displayMode={mathPrompt.displayMode}
 				onConfirm={(value) => closeMathPrompt(value)}
 				onCancel={() => closeMathPrompt(null)}
@@ -916,7 +1153,7 @@
 			<div
 				class="flex justify-end px-4 py-2 text-xs text-muted-foreground border-t border-border"
 			>
-				{counts.chars} 자 · {counts.words} 단어
+				{t('characterCount', { chars: counts.chars, words: counts.words })}
 			</div>
 		{/if}
 

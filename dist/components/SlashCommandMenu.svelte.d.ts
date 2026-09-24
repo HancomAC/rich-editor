@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { ToolbarFeature, PromptHandler } from "../types";
 import type { Component } from "svelte";
+import { type EditorTranslator } from "../i18n";
 type $$ComponentProps = {
     editor: Editor;
     features: Set<ToolbarFeature>;
@@ -20,6 +21,8 @@ type $$ComponentProps = {
      * 기본 대화상자라 화면이 멈추고 앱과 모양이 따로 논다(사용자 지적).
      */
     onPromptVideo?: PromptHandler;
+    /** 에디터 UI 번역 함수. 미주입 시 ko. */
+    t?: EditorTranslator;
 };
 declare const SlashCommandMenu: Component<$$ComponentProps, {}, "">;
 type SlashCommandMenu = ReturnType<typeof SlashCommandMenu>;
