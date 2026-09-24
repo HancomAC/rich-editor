@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Attachment } from "svelte/attachments";
   import { createRawSnippet } from "svelte";
+  import "katex/dist/katex.css";
   import { createHydrator } from "tiptap-static/hydrate";
   import { sanitizeTiptapHTML } from "tiptap-static";
   import { transformLegacyHtml } from "../utils/sanitize";
@@ -175,11 +176,61 @@
     border: 0;
   }
 
-  .hce-static-content :global(.hce-static-pdf embed) {
+  .hce-static-content :global(.hce-static-pdf-toolbar) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-toolbar a) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-toolbar button) {
+    padding: 4px 8px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 6px;
+    background: var(--background, #fff);
+    cursor: pointer;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-toolbar button:disabled) {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-page) {
+    min-width: 3.5em;
+    text-align: center;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-frame) {
+    overflow: auto;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0 0 8px 8px;
+    background: var(--muted, #f7fafc);
+    text-align: center;
+  }
+
+  .hce-static-content :global(.hce-static-pdf canvas) {
     display: block;
     width: 100%;
-    min-height: 480px;
-    margin-top: 8px;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .hce-static-content :global(.hce-static-pdf-status) {
+    margin: 0;
+    padding: 32px 16px;
+    color: var(--muted-foreground, #718096);
   }
 
   .hce-static-content :global(.hce-card-frame) {

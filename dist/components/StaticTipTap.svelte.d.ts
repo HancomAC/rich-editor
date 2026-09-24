@@ -1,3 +1,4 @@
+import "katex/dist/katex.css";
 import type { StaticTipTapProps } from "../types";
 declare const StaticTipTap: import("svelte").Component<StaticTipTapProps, {}, "loaded" | "ref">;
 type StaticTipTap = ReturnType<typeof StaticTipTap>;
