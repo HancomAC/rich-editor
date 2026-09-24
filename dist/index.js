@@ -1,4 +1,5 @@
 // 컴포넌트
+export { default as StaticTipTap } from "./components/StaticTipTap.svelte";
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
 /*
  * ⚠️ **툴바·메뉴·모달 여섯은 여기서 re-export 하지 않는다** → `@teriusu/rich-editor/toolbars`.
@@ -57,3 +58,4 @@ export { cn } from "./utils/cn";
  */
 export { lowlight, CODE_LANGUAGES } from "./utils/lowlight";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
+export { createStaticSanitizePolicy } from "./static/policy";
