@@ -222,12 +222,13 @@ function pdfView({ node, extension }: StaticNodeViewProps) {
   let documentProxy: PdfDocument | null = null;
   let currentPage = 1;
   let renderSequence = 0;
+  let rendering = false;
 
   const syncPageControls = () => {
     const total = documentProxy?.numPages ?? 1;
     pageStatus.textContent = `${currentPage} / ${total}`;
-    previous.disabled = !documentProxy || currentPage <= 1;
-    next.disabled = !documentProxy || currentPage >= total;
+    previous.disabled = rendering || !documentProxy || currentPage <= 1;
+    next.disabled = rendering || !documentProxy || currentPage >= total;
   };
 
   const showError = (message: string) => {
@@ -238,30 +239,37 @@ function pdfView({ node, extension }: StaticNodeViewProps) {
 
   const renderPage = async () => {
     if (!documentProxy || destroyed) return;
-    const sequence = ++renderSequence;
-    const page = await documentProxy.getPage(currentPage);
-    if (destroyed || sequence !== renderSequence) return;
-    const initialViewport = page.getViewport({ scale: 1 });
-    const availableWidth = frame.clientWidth || dom.clientWidth || initialViewport.width;
-    const scale = Math.min(1, availableWidth / initialViewport.width);
-    const viewport = page.getViewport({ scale });
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas 2D context is unavailable.");
-    const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = Math.ceil(viewport.width * pixelRatio);
-    canvas.height = Math.ceil(viewport.height * pixelRatio);
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    context.clearRect(0, 0, viewport.width, viewport.height);
-    await page.render({ canvasContext: context, viewport }).promise;
-    if (destroyed || sequence !== renderSequence) return;
-    canvas.hidden = false;
-    status.hidden = true;
+    rendering = true;
+    syncPageControls();
+    try {
+      const sequence = ++renderSequence;
+      const page = await documentProxy.getPage(currentPage);
+      if (destroyed || sequence !== renderSequence) return;
+      const initialViewport = page.getViewport({ scale: 1 });
+      const availableWidth = frame.clientWidth || dom.clientWidth || initialViewport.width;
+      const scale = Math.min(1, availableWidth / initialViewport.width);
+      const viewport = page.getViewport({ scale });
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas 2D context is unavailable.");
+      const pixelRatio = window.devicePixelRatio || 1;
+      canvas.width = Math.ceil(viewport.width * pixelRatio);
+      canvas.height = Math.ceil(viewport.height * pixelRatio);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, viewport.width, viewport.height);
+      await page.render({ canvasContext: context, viewport }).promise;
+      if (destroyed || sequence !== renderSequence) return;
+      canvas.hidden = false;
+      status.hidden = true;
+    } finally {
+      rendering = false;
+      if (!destroyed) syncPageControls();
+    }
   };
 
   const goToPage = (offset: number) => {
-    if (!documentProxy) return;
+    if (!documentProxy || rendering || destroyed) return;
     const target = Math.min(documentProxy.numPages, Math.max(1, currentPage + offset));
     if (target === currentPage) return;
     currentPage = target;

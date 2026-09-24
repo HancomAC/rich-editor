@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHydrator } from "tiptap-static/hydrate";
 import { createBuiltinStaticNodes } from "./builtin-nodes";
 
-const pdfFixture = vi.hoisted(() => ({ sources: [] as string[], pages: [] as number[] }));
+const pdfFixture = vi.hoisted(() => ({
+  sources: [] as string[],
+  pages: [] as number[],
+  render: vi.fn(() => ({ promise: Promise.resolve() })),
+}));
 
 vi.mock("../utils/pdf", () => ({
   getPdfJs: async () => ({
@@ -18,7 +22,7 @@ vi.mock("../utils/pdf", () => ({
                 width: 600 * scale,
                 height: 800 * scale,
               }),
-              render: () => ({ promise: Promise.resolve() }),
+              render: pdfFixture.render,
             };
           },
         }),
@@ -31,6 +35,8 @@ describe("rich editor static rendering", () => {
   beforeEach(() => {
     pdfFixture.sources.length = 0;
     pdfFixture.pages.length = 0;
+    pdfFixture.render.mockReset();
+    pdfFixture.render.mockImplementation(() => ({ promise: Promise.resolve() }));
   });
 
   it("mounts an existing NodeView without creating a Tiptap Editor", () => {
@@ -112,5 +118,77 @@ describe("rich editor static rendering", () => {
       expect(target.querySelector(".hce-static-pdf-page")?.textContent).toBe("2 / 2");
       expect(pdfFixture.pages).toContain(2);
     });
+  });
+
+  it("blocks button and keyboard navigation until the active PDF render finishes", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    let finishRender!: () => void;
+    const pendingRender = new Promise<void>((resolve) => {
+      finishRender = resolve;
+    });
+    pdfFixture.render.mockReturnValueOnce({ promise: pendingRender });
+    const target = document.createElement("div");
+    const renderer = createHydrator({ nodes: createBuiltinStaticNodes() });
+    const session = renderer.mount(target, '<div data-pdf-id="document-1"></div>');
+
+    await vi.waitFor(() => expect(pdfFixture.render).toHaveBeenCalledTimes(1));
+    const buttons = target.querySelectorAll<HTMLButtonElement>("button");
+    const viewer = target.querySelector<HTMLElement>('[role="group"]')!;
+    expect(buttons[0].disabled).toBe(true);
+    expect(buttons[1].disabled).toBe(true);
+    buttons[1].click();
+    viewer.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await Promise.resolve();
+    expect(pdfFixture.pages).toEqual([1]);
+    expect(pdfFixture.render).toHaveBeenCalledTimes(1);
+    expect(target.querySelector(".hce-static-pdf-page")?.textContent).toBe("1 / 2");
+
+    finishRender();
+    await vi.waitFor(() => expect(buttons[1].disabled).toBe(false));
+    buttons[1].click();
+    await vi.waitFor(() => {
+      expect(pdfFixture.pages).toEqual([1, 2]);
+      expect(pdfFixture.render).toHaveBeenCalledTimes(2);
+      expect(buttons[0].disabled).toBe(false);
+    });
+    expect(target.querySelector(".hce-static-pdf-page")?.textContent).toBe("2 / 2");
+    session.destroy();
+  });
+
+  it("unlocks PDF navigation after a render fails", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    let failRender!: (reason: Error) => void;
+    const pendingRender = new Promise<void>((_resolve, reject) => {
+      failRender = reject;
+    });
+    pdfFixture.render.mockReturnValueOnce({ promise: pendingRender });
+    const target = document.createElement("div");
+    const renderer = createHydrator({ nodes: createBuiltinStaticNodes() });
+    const session = renderer.mount(target, '<div data-pdf-id="document-1"></div>');
+
+    await vi.waitFor(() => expect(pdfFixture.render).toHaveBeenCalledTimes(1));
+    failRender(new Error("PDF render failed"));
+    const buttons = target.querySelectorAll<HTMLButtonElement>("button");
+    await vi.waitFor(() => {
+      expect(buttons[1].disabled).toBe(false);
+      expect(target.querySelector(".hce-static-pdf-status")?.textContent).toBe(
+        "PDF를 불러올 수 없습니다.",
+      );
+    });
+    target
+      .querySelector('[role="group"]')!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await vi.waitFor(() => {
+      expect(pdfFixture.pages).toEqual([1, 2]);
+      expect(target.querySelector<HTMLCanvasElement>("canvas")?.hidden).toBe(false);
+      expect(target.querySelector<HTMLElement>(".hce-static-pdf-status")?.hidden).toBe(true);
+    });
+    session.destroy();
   });
 });
