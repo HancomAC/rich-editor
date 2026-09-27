@@ -24,6 +24,7 @@
     ListChecks,
     Quote,
     ChevronDown,
+    Check,
     Sigma,
   } from "lucide-svelte";
   import { cn } from "../utils/cn";
@@ -102,16 +103,6 @@
     return t("paragraph");
   }
 
-  function isParagraphActive(): boolean {
-    return (
-      !isActive("heading") &&
-      !isActive("bulletList") &&
-      !isActive("orderedList") &&
-      !isActive("taskList") &&
-      !isActive("blockquote")
-    );
-  }
-
   async function addLink() {
     const selection = editor.state.selection.getBookmark();
     const documentBeforePrompt = editor.state.doc;
@@ -175,7 +166,9 @@
     const themeTokens = [
       '--border', '--background', '--foreground', '--popover', '--muted',
       '--muted-foreground', '--primary', '--primary-foreground', '--accent',
-      '--accent-foreground', '--ring', '--hce-menu-z', '--hce-menu-surface'
+      '--accent-foreground', '--ring', '--hce-menu-z', '--hce-menu-surface',
+      '--wh-100', '--wh-500', '--gray-500', '--gray-700', '--gray-900',
+      '--primary-500', '--color-line', '--radius-8', '--radius-2xl', '--shadow-popup'
     ];
     const syncTheme = () => {
       const hostStyle = getComputedStyle(editor.view.dom);
@@ -192,7 +185,7 @@
       const left = viewport?.offsetLeft ?? 0;
       const top = viewport?.offsetTop ?? 0;
       anchor.style.left = `${left + width / 2}px`;
-      anchor.style.top = `${top + height}px`;
+      anchor.style.top = `calc(${top + height}px - env(safe-area-inset-bottom, 0px))`;
       element.style.maxWidth = mobile ? `${Math.max(0, width - 16)}px` : '';
       element.style.setProperty('--bubble-popup-height', `${Math.max(44, height - element.getBoundingClientRect().height - 24)}px`);
     };
@@ -329,125 +322,55 @@
   );
 </script>
 
+{#snippet blockItem(labelKey: EditorMessageKey, Icon: typeof Type, select: () => void)}
+  {@const selected = getCurrentBlockLabel() === t(labelKey)}
+  <button
+    type="button"
+    class="block-menu-item"
+    role="menuitemradio"
+    aria-checked={selected}
+    onclick={() => { select(); showBlockMenu = false; }}
+  >
+    <span class="block-menu-icon"><Icon size={16} /></span>
+    <span class="block-menu-label">{t(labelKey)}</span>
+    {#if selected}<span class="block-menu-check"><Check size={16} /></span>{/if}
+  </button>
+{/snippet}
+
 {#snippet blockPopover()}
-        {#if showBlockMenu}
-          <div
-            bind:this={blockPopupEl}
-            class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl py-1"
-            style="min-width: 140px"
-            onmousedown={(e) => e.preventDefault()}
-            role="menu"
-            tabindex="-1"
-          >
-            <button
-              type="button"
-              class={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                isParagraphActive()
-                  ? "hce-active"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
-              onclick={() => {
-                editor.chain().focus().setParagraph().run();
-                showBlockMenu = false;
-              }}
-            >
-              <Type size={12} /> {t('paragraph')}
-            </button>
-            {#each [1, 2, 3] as level (level)}
-              {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
-                {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
-                <button
-                  type="button"
-                  class={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                    isActive("heading", { level })
-                      ? "hce-active"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                  )}
-                  onclick={() => {
-                    editor
-                      .chain()
-                      .focus()
-                      .toggleHeading({ level: level as 1 | 2 | 3 })
-                      .run();
-                    showBlockMenu = false;
-                  }}
-                >
-                  <Icon size={12} /> {t(level === 1 ? 'heading1' : level === 2 ? 'heading2' : 'heading3')}
-                </button>
-              {/if}
-            {/each}
-            {#if has('bullet-list')}
-              <button
-                type="button"
-                class={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive("bulletList")
-                    ? "hce-active"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-                onclick={() => {
-                  editor.chain().focus().toggleBulletList().run();
-                  showBlockMenu = false;
-                }}
-              >
-                <List size={12} /> {t('bulletList')}
-              </button>
-            {/if}
-            {#if has('ordered-list')}
-              <button
-                type="button"
-                class={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive("orderedList")
-                    ? "hce-active"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-                onclick={() => {
-                  editor.chain().focus().toggleOrderedList().run();
-                  showBlockMenu = false;
-                }}
-              >
-                <ListOrdered size={12} /> {t('orderedList')}
-              </button>
-            {/if}
-            {#if has('checklist')}
-              <button
-                type="button"
-                class={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive("taskList")
-                    ? "hce-active"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-                onclick={() => {
-                  editor.chain().focus().toggleTaskList().run();
-                  showBlockMenu = false;
-                }}
-              >
-                <ListChecks size={12} /> {t('taskList')}
-              </button>
-            {/if}
-            {#if has('blockquote')}
-              <button
-                type="button"
-                class={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive("blockquote")
-                    ? "hce-active"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-                onclick={() => {
-                  editor.chain().focus().toggleBlockquote().run();
-                  showBlockMenu = false;
-                }}
-              >
-                <Quote size={12} /> {t('blockquote')}
-              </button>
-            {/if}
-          </div>
+  {#if showBlockMenu}
+    <div
+      bind:this={blockPopupEl}
+      class="bubble-popover bubble-block-menu absolute bottom-full left-0 mb-1"
+      onmousedown={(e) => e.preventDefault()}
+      role="menu"
+      aria-orientation="vertical"
+      tabindex="-1"
+    >
+      {@render blockItem('paragraph', Type, () => { editor.chain().focus().setParagraph().run(); })}
+      {#each [1, 2, 3] as level (level)}
+        {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
+          {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
+          {@render blockItem(
+            level === 1 ? 'heading1' : level === 2 ? 'heading2' : 'heading3', Icon,
+            () => { editor.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 }).run(); }
+          )}
         {/if}
+      {/each}
+      {#if has('bullet-list')}
+        {@render blockItem('bulletList', List, () => { editor.chain().focus().toggleBulletList().run(); })}
+      {/if}
+      {#if has('ordered-list')}
+        {@render blockItem('orderedList', ListOrdered, () => { editor.chain().focus().toggleOrderedList().run(); })}
+      {/if}
+      {#if has('checklist')}
+        {@render blockItem('taskList', ListChecks, () => { editor.chain().focus().toggleTaskList().run(); })}
+      {/if}
+      {#if has('blockquote')}
+        {@render blockItem('blockquote', Quote, () => { editor.chain().focus().toggleBlockquote().run(); })}
+      {/if}
+    </div>
+  {/if}
 {/snippet}
 
 {#snippet colorPopover()}
@@ -509,12 +432,13 @@
           type="button"
           onclick={() => (showBlockMenu = !showBlockMenu)}
           aria-haspopup="menu"
+          aria-label={getCurrentBlockLabel()}
           aria-expanded={showBlockMenu}
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          class="bubble-block-trigger flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
-          <Type size={12} />
-          {getCurrentBlockLabel()}
-          <ChevronDown size={12} />
+          <Type size={mobile ? 14 : 12} />
+          {#if !mobile}{getCurrentBlockLabel()}{/if}
+          <ChevronDown size={mobile ? 8 : 12} />
         </button>
         {#if !mobile}{@render blockPopover()}{/if}
       </div>
@@ -688,28 +612,30 @@
 
 <style>
   .mobile .hce-floating-panel {
-    border-radius: 12px;
-    padding: 4px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    border-radius: 8px;
+    padding: 1px 3px;
   }
   .mobile .bubble-toolbar-rail {
     display: flex;
     flex-wrap: nowrap;
     max-width: 100%;
-    overflow-x: auto;
+    gap: 1px;
     padding: 0;
-    scrollbar-width: none;
-    touch-action: pan-x;
   }
-  .mobile .bubble-toolbar-rail::-webkit-scrollbar { display: none; }
   .mobile .bubble-toolbar-rail > * { flex-shrink: 0; }
-  .mobile button {
-    min-width: 44px;
-    min-height: 44px;
+  .mobile .bubble-toolbar-rail button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
+  .mobile .bubble-toolbar-rail .bubble-block-trigger {
+    width: 32px;
+    gap: 1px;
+  }
+  .mobile .bubble-popover:not(.bubble-block-menu) button { min-width: 44px; min-height: 44px; }
   .mobile input[type="color"] { min-width: 44px; min-height: 44px; }
   .mobile .bubble-divider { display: none; }
   .mobile .bubble-popover-anchor { position: static; }
@@ -719,4 +645,39 @@
     max-height: min(var(--bubble-popup-height, 50dvh), 300px);
     overflow-y: auto;
   }
+  .bubble-block-menu {
+    width: 200px;
+    box-sizing: border-box;
+    padding: 4px;
+    background: var(--wh-100, var(--popover, var(--background, #fff)));
+    border: 1px solid var(--color-line, var(--border));
+    border-radius: var(--radius-2xl, 12px);
+    box-shadow: var(--shadow-popup, 0 8px 24px rgb(0 0 0 / 12%));
+  }
+  .mobile .bubble-block-menu { right: auto; max-width: 100%; }
+  .block-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 32px;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-8, 8px);
+    color: var(--gray-700, var(--foreground));
+    font: inherit;
+    font-size: 13px;
+    line-height: 20px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .block-menu-item:hover, .block-menu-item:focus-visible {
+    background: var(--wh-500, var(--muted));
+  }
+  .block-menu-item[aria-checked='true'] {
+    color: var(--gray-900, var(--foreground));
+    font-weight: 600;
+  }
+  .block-menu-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .block-menu-icon { display: inline-flex; flex: none; color: var(--gray-500, var(--muted-foreground)); }
+  .block-menu-check { display: inline-flex; flex: none; color: var(--primary-500, var(--primary)); }
 </style>
