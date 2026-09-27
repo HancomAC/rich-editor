@@ -75,6 +75,8 @@
   let menuEl: HTMLDivElement | undefined = $state();
   let blockMenuEl: HTMLDivElement | undefined = $state();
   let colorMenuEl: HTMLDivElement | undefined = $state();
+  let blockPopupEl: HTMLDivElement | undefined = $state();
+  let colorPopupEl: HTMLDivElement | undefined = $state();
   const iconSize = 14;
 
   const TEXT_COLORS: { labelKey: EditorMessageKey; value: string }[] = [
@@ -142,10 +144,10 @@
     if (mobile && menuEl && !menuEl.contains(target) && !editor.view.dom.contains(target)) {
       editor.view.dispatch(editor.state.tr.setMeta(bubbleToolbarKey, 'hide'));
     }
-    if (showBlockMenu && blockMenuEl && !blockMenuEl.contains(target)) {
+    if (showBlockMenu && blockMenuEl && !blockMenuEl.contains(target) && !blockPopupEl?.contains(target)) {
       showBlockMenu = false;
     }
-    if (showColors && colorMenuEl && !colorMenuEl.contains(target)) {
+    if (showColors && colorMenuEl && !colorMenuEl.contains(target) && !colorPopupEl?.contains(target)) {
       showColors = false;
     }
   }
@@ -327,24 +329,10 @@
   );
 </script>
 
-<div bind:this={menuEl} class="bubble-toolbar-container" class:mobile style="visibility: hidden">
-  <div class="flex items-center gap-0.5 px-1.5 py-1 rounded-full hce-floating-panel">
-    {#if hasBlockMenu}
-      <!-- Block type selector -->
-      <div class="relative bubble-popover-anchor" bind:this={blockMenuEl}>
-        <button
-          type="button"
-          onclick={() => (showBlockMenu = !showBlockMenu)}
-          aria-haspopup="menu"
-          aria-expanded={showBlockMenu}
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Type size={12} />
-          {getCurrentBlockLabel()}
-          <ChevronDown size={12} />
-        </button>
+{#snippet blockPopover()}
         {#if showBlockMenu}
           <div
+            bind:this={blockPopupEl}
             class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl py-1"
             style="min-width: 140px"
             onmousedown={(e) => e.preventDefault()}
@@ -460,6 +448,75 @@
             {/if}
           </div>
         {/if}
+{/snippet}
+
+{#snippet colorPopover()}
+        {#if showColors}
+          <div
+            bind:this={colorPopupEl}
+            class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl p-2"
+            style="min-width: 160px"
+            onmousedown={(e) => e.preventDefault()}
+            role="menu"
+            tabindex="-1"
+          >
+            <div class="grid grid-cols-3 gap-1.5">
+              {#each TEXT_COLORS as c (c.value)}
+                <button
+                  type="button"
+                  title={t(c.labelKey)}
+                  class="h-7 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
+                  style="color: {c.value || '#000'}; background: #fff"
+                  onclick={() => {
+                    if (c.value) {
+                      editor.chain().focus().setColor(c.value).run();
+                    } else {
+                      editor.chain().focus().unsetColor().run();
+                    }
+                    showColors = false;
+                  }}
+                >
+                  {c.value ? "A" : "×"}
+                </button>
+              {/each}
+            </div>
+            <label
+              class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+            >
+              <span>{t('customColor')}</span>
+              <input
+                type="color"
+                class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
+                value={(editor.getAttributes("textStyle").color as string) || "#000000"}
+                onclick={(e) => e.stopPropagation()}
+                oninput={(e) => {
+                  const v = (e.target as HTMLInputElement).value;
+                  editor.chain().focus().setColor(v).run();
+                }}
+              />
+            </label>
+          </div>
+        {/if}
+{/snippet}
+
+<div bind:this={menuEl} class="bubble-toolbar-container" class:mobile style="visibility: hidden">
+  <div class="rounded-full hce-floating-panel">
+    <div class="bubble-toolbar-rail flex items-center gap-0.5 px-1.5 py-1 rounded-full">
+    {#if hasBlockMenu}
+      <!-- Block type selector -->
+      <div class="relative bubble-popover-anchor" bind:this={blockMenuEl}>
+        <button
+          type="button"
+          onclick={() => (showBlockMenu = !showBlockMenu)}
+          aria-haspopup="menu"
+          aria-expanded={showBlockMenu}
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Type size={12} />
+          {getCurrentBlockLabel()}
+          <ChevronDown size={12} />
+        </button>
+        {#if !mobile}{@render blockPopover()}{/if}
       </div>
 
       <div class="bubble-divider w-px h-5 bg-border mx-0.5"></div>
@@ -601,51 +658,7 @@
         >
           <Palette size={iconSize} />
         </button>
-        {#if showColors}
-          <div
-            class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl p-2"
-            style="min-width: 160px"
-            onmousedown={(e) => e.preventDefault()}
-            role="menu"
-            tabindex="-1"
-          >
-            <div class="grid grid-cols-3 gap-1.5">
-              {#each TEXT_COLORS as c (c.value)}
-                <button
-                  type="button"
-                  title={t(c.labelKey)}
-                  class="h-7 rounded-md border border-border transition-transform hover:scale-105 flex items-center justify-center text-xs font-bold"
-                  style="color: {c.value || '#000'}; background: #fff"
-                  onclick={() => {
-                    if (c.value) {
-                      editor.chain().focus().setColor(c.value).run();
-                    } else {
-                      editor.chain().focus().unsetColor().run();
-                    }
-                    showColors = false;
-                  }}
-                >
-                  {c.value ? "A" : "×"}
-                </button>
-              {/each}
-            </div>
-            <label
-              class="hce-color-divider mt-2 pt-2 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground"
-            >
-              <span>{t('customColor')}</span>
-              <input
-                type="color"
-                class="h-6 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-                value={(editor.getAttributes("textStyle").color as string) || "#000000"}
-                onclick={(e) => e.stopPropagation()}
-                oninput={(e) => {
-                  const v = (e.target as HTMLInputElement).value;
-                  editor.chain().focus().setColor(v).run();
-                }}
-              />
-            </label>
-          </div>
-        {/if}
+        {#if !mobile}{@render colorPopover()}{/if}
       </div>
     {/if}
 
@@ -665,18 +678,31 @@
         <LinkIcon size={iconSize} />
       </button>
     {/if}
+    </div>
+    {#if mobile}
+      {@render blockPopover()}
+      {@render colorPopover()}
+    {/if}
   </div>
 </div>
 
 <style>
   .mobile .hce-floating-panel {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
     border-radius: 12px;
     padding: 4px;
     padding-bottom: max(4px, env(safe-area-inset-bottom));
   }
+  .mobile .bubble-toolbar-rail {
+    display: flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .mobile .bubble-toolbar-rail::-webkit-scrollbar { display: none; }
+  .mobile .bubble-toolbar-rail > * { flex-shrink: 0; }
   .mobile button {
     min-width: 44px;
     min-height: 44px;
