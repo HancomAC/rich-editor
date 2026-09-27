@@ -69,6 +69,7 @@
 
   const has = (f: ToolbarFeature) => features.has(f);
 
+  let mobile = $state(false);
   let showBlockMenu = $state(false);
   let showColors = $state(false);
   let menuEl: HTMLDivElement | undefined = $state();
@@ -110,11 +111,18 @@
   }
 
   async function addLink() {
+    const selection = editor.state.selection.getBookmark();
+    const documentBeforePrompt = editor.state.doc;
     const previousUrl = editor.getAttributes("link").href || "";
     const url = onPromptLink
       ? await onPromptLink(previousUrl)
       : window.prompt(t("promptLinkUrl"), previousUrl);
-    if (url === null) return;
+    if (url === null || editor.isDestroyed || editor.state.doc !== documentBeforePrompt) return;
+    try {
+      editor.view.dispatch(editor.state.tr.setSelection(selection.resolve(editor.state.doc)));
+    } catch {
+      return;
+    }
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
     } else {
@@ -127,8 +135,13 @@
     }
   }
 
-  function handleDocClick(e: MouseEvent) {
+  function handleDocClick(e: Event) {
     const target = e.target as Node;
+    // The upstream plugin treats any focus inside the menu's parent as internal.
+    // A body portal needs an explicit boundary so another input/editor dismisses it.
+    if (mobile && menuEl && !menuEl.contains(target) && !editor.view.dom.contains(target)) {
+      editor.view.dispatch(editor.state.tr.setMeta(bubbleToolbarKey, 'hide'));
+    }
     if (showBlockMenu && blockMenuEl && !blockMenuEl.contains(target)) {
       showBlockMenu = false;
     }
@@ -147,12 +160,74 @@
   onMount(() => {
     if (!menuEl) return;
 
+    const element = menuEl;
+    const media = window.matchMedia('(max-width: 767px), (pointer: coarse)');
+    const viewport = window.visualViewport;
+    const anchor = document.createElement('span');
+    anchor.style.cssText = 'position:fixed;width:0;height:0;pointer-events:none;visibility:hidden';
+    anchor.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(anchor);
+    mobile = media.matches;
+
+    // A portal leaves the host wrapper, where apps map their own theme to editor tokens.
+    const themeTokens = [
+      '--border', '--background', '--foreground', '--popover', '--muted',
+      '--muted-foreground', '--primary', '--primary-foreground', '--accent',
+      '--accent-foreground', '--ring', '--hce-menu-z', '--hce-menu-surface'
+    ];
+    const syncTheme = () => {
+      const hostStyle = getComputedStyle(editor.view.dom);
+      for (const token of themeTokens) {
+        const value = mobile ? hostStyle.getPropertyValue(token) : '';
+        if (value) element.style.setProperty(token, value);
+        else element.style.removeProperty(token);
+      }
+    };
+    const syncViewport = () => {
+      syncTheme();
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      const left = viewport?.offsetLeft ?? 0;
+      const top = viewport?.offsetTop ?? 0;
+      anchor.style.left = `${left + width / 2}px`;
+      anchor.style.top = `${top + height}px`;
+      element.style.maxWidth = mobile ? `${Math.max(0, width - 16)}px` : '';
+      element.style.setProperty('--bubble-popup-height', `${Math.max(44, height - element.getBoundingClientRect().height - 24)}px`);
+    };
+    syncViewport();
+
+    const positionOptions = () => mobile
+      ? { strategy: 'fixed' as const, placement: 'top' as const, flip: false, shift: false, offset: 8 }
+      : { strategy: 'absolute' as const, placement: 'top' as const, flip: true, shift: true, offset: 8 };
+    const updatePosition = () => {
+      if (editor.isDestroyed) return;
+      syncViewport();
+      editor.view.dispatch(editor.state.tr.setMeta(bubbleToolbarKey, 'updatePosition'));
+    };
+    const updateMode = () => {
+      mobile = media.matches;
+      syncViewport();
+      editor.view.dispatch(editor.state.tr.setMeta(bubbleToolbarKey, {
+        type: 'updateOptions', options: { options: positionOptions() }
+      }));
+      if (element.isConnected) {
+        (mobile ? document.body : editor.view.dom.parentElement)?.appendChild(element);
+      }
+      updatePosition();
+    };
+    // Prevent button focus from collapsing the text selection; native OS menus remain enabled.
+    const preserveSelection = (event: MouseEvent) => {
+      if (mobile && (event.target as HTMLElement).closest('button')) event.preventDefault();
+    };
     const plugin = BubbleMenuPlugin({
       pluginKey: bubbleToolbarKey,
       editor,
-      element: menuEl,
+      element,
+      appendTo: () => mobile ? document.body : editor.view.dom.parentElement!,
+      getReferencedVirtualElement: () => mobile ? anchor : null,
       shouldShow: ({ editor: e, state }) => {
         const { from, to } = state.selection;
+        if (!e.isEditable || (!e.view.hasFocus() && !element.contains(document.activeElement))) return false;
         if (from === to) return false;
         /*
          * ⚠️ **덩어리를 고른 것(NodeSelection)에는 뜨지 않는다.**
@@ -197,18 +272,36 @@
        * 마침 v3 기본값이 `placement: "top"` + `flip`·`shift` 활성이라 화면상 차이는 없었지만,
        * 죽은 설정을 남겨 두면 "위치를 지정해 뒀다"고 착각하게 된다.
        */
-      options: {
-        placement: "top",
-      },
+      options: { ...positionOptions(), onShow: syncTheme },
     });
 
     editor.registerPlugin(plugin);
-    document.addEventListener("mousedown", handleDocClick);
+    const themeObserver = new MutationObserver(syncTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(element);
+    media.addEventListener('change', updateMode);
+    viewport?.addEventListener('resize', updatePosition);
+    viewport?.addEventListener('scroll', updatePosition);
+    window.addEventListener('resize', updatePosition);
+    element.addEventListener('mousedown', preserveSelection);
+    document.addEventListener("pointerdown", handleDocClick);
+    document.addEventListener("focusin", handleDocClick);
     document.addEventListener("keydown", handleKeydown);
 
     return () => {
       editor.unregisterPlugin(bubbleToolbarKey);
-      document.removeEventListener("mousedown", handleDocClick);
+      observer.disconnect();
+      themeObserver.disconnect();
+      anchor.remove();
+      media.removeEventListener('change', updateMode);
+      viewport?.removeEventListener('resize', updatePosition);
+      viewport?.removeEventListener('scroll', updatePosition);
+      window.removeEventListener('resize', updatePosition);
+      element.removeEventListener('mousedown', preserveSelection);
+      document.removeEventListener("pointerdown", handleDocClick);
+      document.removeEventListener("focusin", handleDocClick);
       document.removeEventListener("keydown", handleKeydown);
     };
   });
@@ -234,14 +327,16 @@
   );
 </script>
 
-<div bind:this={menuEl} class="bubble-toolbar-container" style="visibility: hidden">
+<div bind:this={menuEl} class="bubble-toolbar-container" class:mobile style="visibility: hidden">
   <div class="flex items-center gap-0.5 px-1.5 py-1 rounded-full hce-floating-panel">
     {#if hasBlockMenu}
       <!-- Block type selector -->
-      <div class="relative" bind:this={blockMenuEl}>
+      <div class="relative bubble-popover-anchor" bind:this={blockMenuEl}>
         <button
           type="button"
           onclick={() => (showBlockMenu = !showBlockMenu)}
+          aria-haspopup="menu"
+          aria-expanded={showBlockMenu}
           class="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Type size={12} />
@@ -250,7 +345,7 @@
         </button>
         {#if showBlockMenu}
           <div
-            class="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl py-1"
+            class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl py-1"
             style="min-width: 140px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"
@@ -271,7 +366,7 @@
             >
               <Type size={12} /> {t('paragraph')}
             </button>
-            {#each [1, 2, 3] as level}
+            {#each [1, 2, 3] as level (level)}
               {#if has(level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3')}
                 {@const Icon = level === 1 ? Heading1 : level === 2 ? Heading2 : Heading3}
                 <button
@@ -367,7 +462,7 @@
         {/if}
       </div>
 
-      <div class="w-px h-5 bg-border mx-0.5"></div>
+      <div class="bubble-divider w-px h-5 bg-border mx-0.5"></div>
     {/if}
 
     <!-- Format buttons -->
@@ -471,7 +566,7 @@
     {/if}
 
     {#if has('highlight') || has('text-color')}
-      <div class="w-px h-5 bg-border mx-0.5"></div>
+      <div class="bubble-divider w-px h-5 bg-border mx-0.5"></div>
     {/if}
 
     {#if has('highlight')}
@@ -490,10 +585,12 @@
       </button>
     {/if}
     {#if has('text-color')}
-      <div class="relative" bind:this={colorMenuEl}>
+      <div class="relative bubble-popover-anchor" bind:this={colorMenuEl}>
         <button
           type="button"
           onclick={() => (showColors = !showColors)}
+          aria-haspopup="menu"
+          aria-expanded={showColors}
           aria-label={t('textColor')}
           class={cn(
             "p-1.5 rounded-full transition-colors",
@@ -506,14 +603,14 @@
         </button>
         {#if showColors}
           <div
-            class="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl p-2"
+            class="bubble-popover absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl p-2"
             style="min-width: 160px"
             onmousedown={(e) => e.preventDefault()}
             role="menu"
             tabindex="-1"
           >
             <div class="grid grid-cols-3 gap-1.5">
-              {#each TEXT_COLORS as c}
+              {#each TEXT_COLORS as c (c.value)}
                 <button
                   type="button"
                   title={t(c.labelKey)}
@@ -553,7 +650,7 @@
     {/if}
 
     {#if has('link')}
-      <div class="w-px h-5 bg-border mx-0.5"></div>
+      <div class="bubble-divider w-px h-5 bg-border mx-0.5"></div>
       <button
         type="button"
         onclick={addLink}
@@ -570,3 +667,30 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .mobile .hce-floating-panel {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: 12px;
+    padding: 4px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .mobile button {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mobile input[type="color"] { min-width: 44px; min-height: 44px; }
+  .mobile .bubble-divider { display: none; }
+  .mobile .bubble-popover-anchor { position: static; }
+  .mobile .bubble-popover {
+    left: 0;
+    right: 0;
+    max-height: min(var(--bubble-popup-height, 50dvh), 300px);
+    overflow-y: auto;
+  }
+</style>
