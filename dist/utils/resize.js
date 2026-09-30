@@ -45,6 +45,52 @@ export function attachResize(options) {
     let resizing = false;
     let start = 0;
     let startSize = 0;
+    /*
+     * ── 왜 프레임에 한 번만 쓰는가 ────────────────────────────────────────────────
+     *
+     * `pointermove` 는 **화면 주사율과 무관하게** 들어온다 — 고폴링 마우스는 한 프레임에
+     * 여러 번 던진다. 예전엔 들어오는 족족 `dom.style.width` 를 썼는데, 이 상자는 안에
+     * `aspect-ratio` 박스와 **교차 출처 iframe**(영상)을 품고 있어서 한 번 쓸 때마다
+     * 레이아웃이 iframe 까지 내려간다. 즉 한 프레임에 같은 일을 여러 번 하고, 마지막 값만
+     * 화면에 남는다 — 앞의 것들은 전부 버려지는 계산이다.
+     *
+     * 값은 즉시 받아 두되 **적용은 프레임당 한 번**으로 접는다. 끄는 감각(지연)은 그대로고
+     * 버려지던 레이아웃만 사라진다.
+     */
+    let pendingSize = 0;
+    let frame = 0;
+    const applyPending = () => {
+        frame = 0;
+        if (axis === "x")
+            dom.style.width = `${pendingSize}px`;
+        else
+            dom.style.height = `${pendingSize}px`;
+    };
+    const flushPending = () => {
+        if (!frame)
+            return;
+        cancelAnimationFrame(frame);
+        applyPending();
+    };
+    /*
+     * ⚠️ **드래그하는 동안 iframe 이 포인터를 가로채지 못하게 막는다.**
+     *
+     * 손잡이는 상자 오른쪽 12px 밖에 있고, 끌면 커서는 곧바로 상자 **안**(영상 iframe 위)을
+     * 지난다. 교차 출처 iframe 위에서는 그 이벤트가 iframe 문서로 가고 부모 window 에는
+     * 오지 않는다 — 위 `attachWindow` 가 window 에 걸어 둔 리스너도 마찬가지다. 그러면
+     * 끌던 도중에 크기가 멈췄다 튀었다 한다.
+     *
+     * `setPointerCapture` 로도 막히지만 이 코드는 그걸 일부러 피한다(아래 주석) — 대신
+     * **드래그 동안만** 자식 임베드의 포인터를 끈다. 드래그가 끝나면 되돌린다.
+     * ⚠️ 빈 문자열로 되돌린다(`none` → `''`). `auto` 로 되돌리면 원래 CSS 가 갖고 있던
+     * 값을 덮어쓴다.
+     */
+    const EMBEDS = "iframe, embed, object, video";
+    const shieldEmbeds = (on) => {
+        for (const el of Array.from(dom.querySelectorAll(EMBEDS))) {
+            el.style.pointerEvents = on ? "none" : "";
+        }
+    };
     const paint = (active) => {
         bar.style.background = active ? ACTIVE : IDLE;
     };
@@ -68,17 +114,21 @@ export function attachResize(options) {
         if (!resizing)
             return;
         const delta = (axis === "x" ? e.clientX : e.clientY) - start;
-        const next = Math.max(min, Math.min(max, startSize + delta));
-        if (axis === "x")
-            dom.style.width = `${next}px`;
-        else
-            dom.style.height = `${next}px`;
+        pendingSize = Math.max(min, Math.min(max, startSize + delta));
+        if (!frame)
+            frame = requestAnimationFrame(applyPending);
     };
     const endResize = () => {
         if (!resizing)
             return;
         resizing = false;
+        /*
+         * ⚠️ **밀린 프레임을 먼저 적용한다.** 아래에서 커밋할 값을 `dom.style` 에서 읽는데,
+         * 예약만 된 채 아직 안 쓴 값이 있으면 **직전 프레임의 크기로 저장**된다.
+         */
+        flushPending();
         paint(false);
+        shieldEmbeds(false);
         detachWindow();
         document.body.style.removeProperty("user-select");
         document.body.style.removeProperty("cursor");
@@ -117,6 +167,8 @@ export function attachResize(options) {
         start = axis === "x" ? e.clientX : e.clientY;
         startSize = axis === "x" ? rect.width : rect.height;
         paint(true);
+        pendingSize = startSize;
+        shieldEmbeds(true);
         // 드래그 중 텍스트가 선택되며 파랗게 물드는 것을 막는다.
         document.body.style.userSelect = "none";
         document.body.style.cursor = preset.cursor;
@@ -130,6 +182,13 @@ export function attachResize(options) {
         handle.removeEventListener("mouseenter", onEnter);
         handle.removeEventListener("mouseleave", onLeave);
         handle.removeEventListener("pointerdown", onPointerDown);
+        /* 드래그 도중에 노드가 사라질 수 있다 — 예약 프레임과 가림막을 반드시 걷는다. */
+        if (frame) {
+            cancelAnimationFrame(frame);
+            frame = 0;
+        }
+        if (resizing)
+            shieldEmbeds(false);
         detachWindow();
         handle.remove();
     };
