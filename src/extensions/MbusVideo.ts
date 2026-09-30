@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { attachResize } from "../utils/resize";
+import { applyCrossOriginEmbedAttrs, canEmbedCrossOrigin } from "../utils/embed";
 import { getEditorTranslator } from "../i18n";
 import {
 	mediaRatioCss,
@@ -120,15 +121,54 @@ export const MbusVideo = Node.create<MbusVideoOptions>({
 			};
 			applyLayout(node.attrs);
 
-			if (node.attrs.src) {
+			/*
+			 * ⚠️ **`credentialless` 를 반드시 붙인다** — `VideoEmbed` 와 같은 이유·같은
+			 * 레시피다(`utils/embed.ts`). 정올은 전 문서가 `COEP: require-corp` 라, 이
+			 * 속성이 없으면 mbus iframe 이 **크롬에서도 통째로 막히고** 그 자리에 크롬의
+			 * 오류 화면(`play.mbus.tv 에서 연결을 거부했습니다`)이 뜬다.
+			 *
+			 * 이 노드만 그 처리가 빠져 있었다. 저장한 뒤 읽는 화면은 호스트의 정적 렌더
+			 * (`trinity …/tiptap/static-enhance.ts` 의 `buildVideoBox`)가 같은 상자를 다시
+			 * 지으면서 속성을 붙이므로 **에디터에서만** 거부로 보였다 — "영상을 올리면
+			 * 연결이 거부된다"는 신고의 실체가 이 비대칭이다.
+			 * (브라우저 실측, 격리된 문서: 속성 없는 mbus iframe = COEP 위반 보고 1건,
+			 *  속성 있는 쪽 = 0건.)
+			 */
+			if (node.attrs.src && canEmbedCrossOrigin()) {
 				const iframe = document.createElement("iframe");
 				iframe.src = node.attrs.src;
 				iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
 				iframe.setAttribute("allowfullscreen", "");
 				iframe.setAttribute("loading", "lazy");
+				applyCrossOriginEmbedAttrs(iframe);
 				iframe.style.cssText =
 					"position:absolute;inset:0;width:100%;height:100%;border:0;display:block;";
 				aspect.appendChild(iframe);
+			} else if (node.attrs.src) {
+				/*
+				 * 실을 수 없는 브라우저(파폭·사파리 + 격리) — **빈 박스로 두지 않는다.**
+				 * 그러면 영상이 깨진 줄 알지 이유를 모른다. `VideoEmbed`·호스트 정적 렌더와
+				 * **같은 문구·같은 모양**의 포스터를 세운다.
+				 */
+				const poster = document.createElement("div");
+				poster.style.cssText =
+					"position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;text-align:center;color:#c7cbd4;";
+
+				const label = document.createElement("span");
+				label.textContent = t("videoCannotEmbed");
+				label.style.cssText = "font-size:13px;line-height:1.5;";
+				poster.appendChild(label);
+
+				const open = document.createElement("a");
+				open.href = node.attrs.src;
+				open.target = "_blank";
+				open.rel = "noopener noreferrer";
+				open.textContent = t("openInNewTab");
+				open.style.cssText =
+					"font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,0.16);border-radius:6px;padding:6px 14px;text-decoration:none;";
+				poster.appendChild(open);
+
+				aspect.appendChild(poster);
 			}
 
 			if (editor.isEditable) {
