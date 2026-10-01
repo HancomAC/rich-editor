@@ -2,8 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { FixedDetails } from './FixedDetails';
-import DetailsSummary from '@tiptap/extension-details-summary';
-import DetailsContent from '@tiptap/extension-details-content';
+import { DetailsSummary, DetailsContent } from '@tiptap/extension-details';
 describe('FixedDetails extension', () => {
     let editor;
     function createEditor(content = '<p></p>') {
