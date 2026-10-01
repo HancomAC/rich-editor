@@ -1,0 +1,184 @@
+const resizeDataAttributes = [
+    "data-resize-handler",
+    "data-resize-target",
+    "data-resize-min-height",
+    "data-resize-max-height",
+    "data-resize-aspect-ratio",
+    "data-resize-horizontal-align",
+    "data-bubble-menu",
+    "data-hide-bubble-menu",
+];
+const defaultTags = [
+    "img",
+    "math-inline",
+    "math-display",
+    "blockquote",
+    "mark",
+    "code",
+    "details",
+    "summary",
+    "input",
+];
+const defaultAttributes = {
+    "*": ["style", "class"],
+    a: ["href", "name", "target", "rel", "download"],
+    img: ["src", "srcset", "alt", "title", "width", "height", "loading", ...resizeDataAttributes],
+    div: [
+        "data-type",
+        "data-columns",
+        "data-pdf-src",
+        "data-pdf-name",
+        "data-pdf-id",
+        "data-pdf-width",
+        "data-pdf-label",
+        "data-file-id",
+        "data-file-src",
+        "data-file-name",
+        "data-file-size",
+        "data-mbus-src",
+        "data-mbus-width",
+        "data-video-src",
+        "data-video-width",
+        "data-card-title",
+        "data-card-background",
+        "data-card-height",
+        ...resizeDataAttributes,
+    ],
+    details: ["open", "data-type"],
+    summary: ["data-level"],
+    th: ["colwidth", "colspan", "rowspan"],
+    td: ["colwidth", "colspan", "rowspan"],
+    mark: ["style", "data-color"],
+    code: ["class"],
+    pre: ["class"],
+    ul: ["data-type"],
+    li: ["data-type", "data-checked"],
+    input: ["type", "checked", "disabled"],
+};
+const safeStyleValue = /^(?!.*\\)(?!.*(?:url\s*\(|expression\s*\(|@import\b|javascript:|data:))[\s\S]+$/i;
+const defaultStyles = {
+    "*": Object.fromEntries([
+        "background-color",
+        "border",
+        "border-color",
+        "border-style",
+        "border-width",
+        "color",
+        "display",
+        "font-family",
+        "font-size",
+        "font-style",
+        "font-weight",
+        "height",
+        "line-height",
+        "list-style-position",
+        "list-style-type",
+        "margin",
+        "margin-left",
+        "margin-right",
+        "max-height",
+        "max-width",
+        "min-height",
+        "min-width",
+        "overflow",
+        "overflow-wrap",
+        "padding",
+        "text-align",
+        "text-decoration",
+        "text-indent",
+        "vertical-align",
+        "white-space",
+        "width",
+        "word-break",
+    ].map((property) => [property, [safeStyleValue]])),
+};
+const safeStoredUrl = (value) => {
+    if (/^(?:\/|\.\/|\.\.\/)(?!\/)/.test(value))
+        return true;
+    try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+    }
+    catch {
+        return false;
+    }
+};
+const defaultAttributeValidators = {
+    div: {
+        "data-pdf-src": safeStoredUrl,
+        "data-file-src": safeStoredUrl,
+        "data-mbus-src": safeStoredUrl,
+        "data-video-src": safeStoredUrl,
+    },
+};
+function mergeAttributes(overrides) {
+    if (overrides === false)
+        return false;
+    const result = {};
+    for (const [tag, attributes] of Object.entries({
+        ...defaultAttributes,
+        ...(overrides ?? {}),
+    })) {
+        const seen = new Set();
+        result[tag] = [
+            ...(defaultAttributes[tag] ?? []),
+            ...(overrides?.[tag] ?? attributes),
+        ].filter((attribute) => {
+            const name = typeof attribute === "string" ? attribute : attribute.name;
+            if (seen.has(name))
+                return false;
+            seen.add(name);
+            return true;
+        });
+    }
+    return result;
+}
+export function createStaticSanitizePolicy(overrides = {}) {
+    const allowedStyles = {};
+    for (const source of [defaultStyles, overrides.allowedStyles ?? {}]) {
+        for (const [tag, declarations] of Object.entries(source)) {
+            allowedStyles[tag] = { ...(allowedStyles[tag] ?? {}), ...declarations };
+        }
+    }
+    const attributeValidators = {};
+    for (const source of [defaultAttributeValidators, overrides.attributeValidators ?? {}]) {
+        for (const [tag, validators] of Object.entries(source)) {
+            attributeValidators[tag] = {
+                ...(attributeValidators[tag] ?? {}),
+                ...validators,
+            };
+        }
+    }
+    const requestedInputTransform = overrides.transformTags?.input ?? overrides.transformTags?.["*"];
+    const transformTags = {
+        ...(overrides.transformTags ?? {}),
+        input(tagName, attributes) {
+            let transformedTagName = tagName;
+            let transformedAttributes = { ...attributes };
+            if (typeof requestedInputTransform === "string") {
+                transformedTagName = requestedInputTransform;
+            }
+            else if (requestedInputTransform) {
+                const transformed = requestedInputTransform(tagName, transformedAttributes);
+                transformedTagName = transformed.tagName;
+                transformedAttributes = { ...transformed.attribs };
+            }
+            if (transformedTagName.toLowerCase() === "input" &&
+                transformedAttributes.type?.toLowerCase() === "checkbox") {
+                transformedAttributes.disabled = "disabled";
+            }
+            return { tagName: transformedTagName, attribs: transformedAttributes };
+        },
+    };
+    return {
+        ...overrides,
+        allowedTags: overrides.allowedTags === false
+            ? false
+            : [...new Set([...defaultTags, ...(overrides.allowedTags ?? [])])],
+        allowedAttributes: mergeAttributes(overrides.allowedAttributes),
+        allowedStyles,
+        attributeValidators,
+        transformTags,
+        allowActiveContentTags: [...new Set(overrides.allowActiveContentTags ?? [])],
+    };
+}

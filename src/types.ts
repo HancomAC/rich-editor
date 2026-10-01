@@ -1,5 +1,6 @@
-import type { Editor } from "@tiptap/core";
+import type { AnyExtension, Editor } from "@tiptap/core";
 import type { Component } from "svelte";
+import type { StaticRenderSession, StaticSanitizeOptions } from "tiptap-static";
 import type { FileResolver } from "./extensions/FileAttachment";
 import type { MathPrompt } from "./extensions/Math";
 
@@ -12,6 +13,19 @@ export type UploadHandler = (file: File) => Promise<string>;
  * null 반환 = 취소.
  */
 export type PromptHandler = (defaultValue: string) => Promise<string | null>;
+
+export interface StaticTipTapProps {
+  content?: string;
+  placeholder?: string;
+  onResolveFile?: FileResolver;
+  fileDownloadBaseUrl?: string;
+  extensions?: readonly AnyExtension[];
+  sanitize?: StaticSanitizeOptions;
+  loaded?: boolean;
+  ref?: StaticRenderSession | null;
+  class?: string;
+  style?: string;
+}
 
 /** 툴바 모드 */
 export type ToolbarMode = 'minimal' | 'standard' | 'full';

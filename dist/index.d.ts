@@ -1,3 +1,4 @@
+export { default as StaticTipTap } from "./components/StaticTipTap.svelte";
 export { default as TipTapEditor } from "./components/TipTapEditor.svelte";
 export { PdfBlock } from "./extensions/PdfBlock";
 export { Indent } from "./extensions/Indent";
@@ -29,6 +30,10 @@ export { attachResize } from "./utils/resize";
 export type { AttachResizeOptions, ResizeAxis } from "./utils/resize";
 export { cn } from "./utils/cn";
 export { lowlight, CODE_LANGUAGES } from "./utils/lowlight";
-export type { TipTapEditorProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, SlashMenuItem, } from "./types";
+export type { TipTapEditorProps, StaticTipTapProps, UploadHandler, ToolbarMode, ToolbarFeature, FixedToolbarProps, BlockHandleProps, SlashCommandMenuProps, SlashMenuItem, } from "./types";
 export { TOOLBAR_PRESETS, resolveFeatures } from "./types";
+export { createStaticSanitizePolicy } from "./static/policy";
+export type { StaticHydrationMatch, StaticHydrationNodeType, StaticHydrationRule, StaticNodePlan } from "tiptap-static/hydrate";
+export type { StaticNodeViewProps } from "tiptap-static/protocol";
+export type { StaticSanitizeOptions } from "tiptap-static";
 //# sourceMappingURL=index.d.ts.map
