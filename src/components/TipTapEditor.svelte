@@ -754,8 +754,21 @@
         HighlightExt.configure({ multicolor: true }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        SubscriptExt,
-        SuperscriptExt,
+        /*
+         * 윗첨자·아랫첨자. **서로 배타로 맞물려 둔다** — 업스트림 두 확장에는 `excludes` 가
+         * 없어서 그냥 쓰면 `<sup><sub>2</sub></sup>` 처럼 겹쳐 붙는다. 그렇게 되면 바깥이
+         * 올린 만큼 안쪽이 다시 내려 **글자만 두 번 작아진 채 제자리**에 남아, 눌러서 껐다고
+         * 생각한 사용자가 왜 그대로인지 알 수 없는 상태가 된다.
+         *
+         * ⚠️ 자기 이름도 함께 적어야 한다. ProseMirror 의 `excludes` 는 **안 적으면 같은
+         * 종류끼리만 배타**인 기본값이 서는데, 여기서 값을 주는 순간 그 기본값이 통째로
+         * 대체되기 때문이다 — 상대 이름만 적으면 자기 자신에 대한 배타가 풀린다.
+         *
+         * 옛 문서에 겹쳐 든 것이 있으면 파싱 때 한쪽 마크만 남는다(**글자는 보존**).
+         * 단축키(`Mod+.`·`Mod+,`)도 같은 마크를 거치므로 버튼과 동작이 어긋나지 않는다.
+         */
+        SubscriptExt.extend({ excludes: "subscript superscript" }),
+        SuperscriptExt.extend({ excludes: "superscript subscript" }),
         /*
          * 둘 다 스키마에 관여하지 않으므로, 필요 없을 때 빼도 **렌더 결과가 같다**
          * (노드·마크 확장은 빼면 결과가 달라지니 그대로 둔다).

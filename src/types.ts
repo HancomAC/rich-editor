@@ -59,14 +59,23 @@ export type ToolbarFeature =
 export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 	full: [
 		/*
-		 * ⚠️ `'superscript'`·`'subscript'` 는 **일부러 뺐다**(`'card'` 와 같은 방식).
-		 * 여기는 수식(KaTeX)이 있어서 `x^2`·`a_i` 같은 표기를 수식이 거의 다 커버한다 —
-		 * 굳이 같은 일을 하는 버튼을 인라인 그룹에 하나 더 두면 줄만 길어진다(사용자 결정).
-		 * **확장은 계속 등록된다** — 빼면 이미 `<sup>`·`<sub>` 가 든 옛 문서를 열 때
-		 * 그 표기가 통째로 날아간다. 넣는 길만 닫은 것이라, 쓰려는 호스트는 `features` 에
-		 * 직접 넣으면 된다.
+		 * `'superscript'`·`'subscript'` 는 **한동안 일부러 빠져 있었다.** 수식(KaTeX)이
+		 * `x^2`·`a_i` 를 거의 다 덮으니 같은 일을 하는 버튼을 인라인 그룹에 하나 더 두면
+		 * 줄만 길어진다는 판단이었다. 다시 넣는다(사용자 요청) — 수식은 본문 글자가 아니라
+		 * **KaTeX 덩어리**가 되어 글꼴·굵기·글자색이 본문과 따로 놀고, `m³`·`H₂O`·`10⁹`
+		 * 처럼 수식이 아닌 표기에는 과하다.
+		 *
+		 * ⚠️ **확장은 처음부터 늘 등록돼 있었다**(`TipTapEditor`). 빠져 있던 것은 **버튼뿐**
+		 * 이라, 단축키(`Mod+.`·`Mod+,`)와 옛 문서의 `<sup>`·`<sub>` 보존은 그동안도 살아
+		 * 있었다. 즉 이 두 값은 **넣는 길을 여는 스위치**지 기능 자체의 on/off 가 아니다.
+		 *
+		 * ⚠️ **세 프리셋 모두**에 있다 — `'minimal'`(댓글)에도 넣었다(사용자 요청).
+		 * 거긴 고정 툴바가 없어 **버블이 유일한 입구**라, 빼면 모바일에서 손댈 길이 없다.
+		 * 대신 `minimal` 은 블록 선택 트리거가 서는 유일한 프리셋이라 모바일 도크가 가장
+		 * 넓다 — 버튼을 더 더할 때는 그쪽 폭부터 잰다(`BubbleToolbar` 주석의 셈).
 		 */
 		'bold', 'italic', 'underline', 'strike', 'highlight',
+		'superscript', 'subscript',
 		'code', 'text-color',
 		'align-left', 'align-center', 'align-right',
 		'paragraph', 'h1', 'h2', 'h3',
@@ -79,7 +88,8 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'table-menu', 'character-count', 'upload-overlay'
 	],
 	standard: [
-		'bold', 'italic', 'underline', 'strike', 'code', 'text-color',
+		'bold', 'italic', 'underline', 'strike', 'superscript', 'subscript',
+		'code', 'text-color',
 		'align-left', 'align-center', 'align-right',
 		'paragraph', 'h1', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
@@ -89,7 +99,8 @@ export const TOOLBAR_PRESETS: Record<ToolbarMode, ToolbarFeature[]> = {
 		'fixed-toolbar', 'bubble-toolbar', 'slash-menu', 'table-menu'
 	],
 	minimal: [
-		'bold', 'italic', 'underline', 'strike', 'code', 'text-color',
+		'bold', 'italic', 'underline', 'strike', 'superscript', 'subscript',
+		'code', 'text-color',
 		'paragraph', 'h2', 'h3',
 		'bullet-list', 'ordered-list', 'checklist',
 		'blockquote', 'code-block', 'math',

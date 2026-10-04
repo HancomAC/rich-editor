@@ -11,6 +11,8 @@
     Italic,
     Underline as UnderlineIcon,
     Strikethrough,
+    Superscript as SuperscriptIcon,
+    Subscript as SubscriptIcon,
     Highlighter,
     Code,
     LinkIcon,
@@ -78,7 +80,13 @@
   let colorMenuEl: HTMLDivElement | undefined = $state();
   let blockPopupEl: HTMLDivElement | undefined = $state();
   let colorPopupEl: HTMLDivElement | undefined = $state();
-  const iconSize = 14;
+  /*
+   * ⚠️ **고정 툴바(14)보다 작다.** 버블은 한 줄에 전부 서는데 서식이 늘수록 가로로만
+   * 길어져서, 고른 글자 위에 뜨는 판이 본문을 덮는 폭이 커진다(사용자 지적: 메뉴가
+   * 많아졌다). 블록 선택 트리거가 데스크톱에서 이미 12 를 쓰고 있었으므로, 이 값을
+   * 맞추면 판 안에서 아이콘 크기가 **한 벌로 통일**되기도 한다.
+   */
+  const iconSize = 12;
 
   const TEXT_COLORS: { labelKey: EditorMessageKey; value: string }[] = [
     { labelKey: "colorDefault", value: "" },
@@ -505,6 +513,57 @@
       )}
     >
       <Strikethrough size={iconSize} />
+    </button>
+    {/if}
+
+    <!--
+      윗첨자·아랫첨자. 고정 툴바와 **같은 자리**(취소선 다음)에 둔다.
+
+      ⚠️ **모바일 도크 폭을 먼저 쟀다.** 도크는 가로 스크롤 없이 한 줄에 들어가야 하고
+      상한이 `뷰포트 - 16px` 이라, 버튼을 더할 때마다 이 셈을 다시 해야 한다.
+      두 칸을 더한 뒤 실측(28px 버튼 기준) — 필요한 최소 뷰포트는 `폭 + 16px`:
+
+          standard  297px → 313px
+          full      326px → 342px
+          minimal   330px → **346px**   ← 가장 빡빡하다
+
+      360px 기기(상한 344px)에서 셋 다 통과한다. **다음 버튼은 `minimal` 기준으로 잰다.**
+
+      ⚠️ `minimal` 이 가장 넓은 이유는 **블록 선택 트리거(32px)가 거기만 서기 때문**이다
+      (`hasBlockMenu` 는 고정 툴바가 있으면 꺼진다). `full` 에 그 32px 이 있다고 치고
+      세면 넘친다고 잘못 판단한다 — 실제로 한 번 그렇게 셌다.
+
+      ⚠️ 도크 버튼 크기는 CSS(28px)가 못 박으므로 **아이콘을 줄여도 도크는 안 좁아진다.**
+      좁히려면 그쪽 `.mobile .bubble-toolbar-rail button` 을 건드려야 한다.
+    -->
+    {#if has('superscript')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleSuperscript().run()}
+      aria-label={t('superscript')}
+      class={cn(
+        "p-1.5 rounded-full transition-colors",
+        isActive("superscript")
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
+      )}
+    >
+      <SuperscriptIcon size={iconSize} />
+    </button>
+    {/if}
+    {#if has('subscript')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleSubscript().run()}
+      aria-label={t('subscript')}
+      class={cn(
+        "p-1.5 rounded-full transition-colors",
+        isActive("subscript")
+          ? "hce-active"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
+      )}
+    >
+      <SubscriptIcon size={iconSize} />
     </button>
     {/if}
 

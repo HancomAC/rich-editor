@@ -54,6 +54,8 @@ export const ko = {
 	italic: '기울임',
 	underline: '밑줄',
 	strike: '취소선',
+	superscript: '윗첨자',
+	subscript: '아랫첨자',
 	alignLeft: '왼쪽 정렬',
 	alignCenter: '가운데 정렬',
 	alignRight: '오른쪽 정렬',
@@ -94,8 +96,8 @@ export const ko = {
 	insertCodeBlock: '코드 블록 삽입',
 
 	// 수식 모달
-	mathSuperscript: '위첨자',
-	mathSubscript: '아래첨자',
+	mathSuperscript: '윗첨자',
+	mathSubscript: '아랫첨자',
 	mathFraction: '분수',
 	mathSqrt: '제곱근',
 	mathSum: '합',

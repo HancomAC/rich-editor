@@ -47,6 +47,8 @@ export const zhHans: EditorMessages = {
 	italic: '斜体',
 	underline: '下划线',
 	strike: '删除线',
+	superscript: '上标',
+	subscript: '下标',
 	alignLeft: '左对齐',
 	alignCenter: '居中对齐',
 	alignRight: '右对齐',

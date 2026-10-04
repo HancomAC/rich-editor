@@ -48,6 +48,8 @@ export const zhHant: EditorMessages = {
 	italic: '斜體',
 	underline: '底線',
 	strike: '刪除線',
+	superscript: '上標',
+	subscript: '下標',
 	alignLeft: '靠左對齊',
 	alignCenter: '置中對齊',
 	alignRight: '靠右對齊',

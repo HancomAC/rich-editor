@@ -6,6 +6,8 @@
     Italic,
     Underline as UnderlineIcon,
     Strikethrough,
+    Superscript as SuperscriptIcon,
+    Subscript as SubscriptIcon,
     AlignLeft,
     AlignCenter,
     AlignRight,
@@ -465,9 +467,10 @@
   </div>
   {/if}
 
-  {#if has('bold') || has('italic') || has('underline') || has('strike')}
+  {#if has('bold') || has('italic') || has('underline') || has('strike')
+    || has('superscript') || has('subscript')}
   <!--
-    인라인 서식. **글자에 붙는 것은 전부 여기 모은다** — 굵게·기울임·밑줄·취소선에
+    인라인 서식. **글자에 붙는 것은 전부 여기 모은다** — 굵게·기울임·밑줄·취소선·첨자에
     `코드`(`<code>`)와 `링크`가 더해진다.
 
     ⚠️ `링크` 는 원래 `삽입` 드롭다운에 있었다. 하지만 링크는 표·PDF 처럼 **새 덩어리를
@@ -533,6 +536,48 @@
       )}
     >
       <Strikethrough size={iconSize} />
+    </button>
+    {/if}
+    <!--
+      윗첨자·아랫첨자(`<sup>`·`<sub>`).
+
+      ⚠️ **아래 "버블에 있다" 목록과 달리 이 둘은 여기 있다.** 수식처럼 고른 글자에 씌우기도
+      하지만, `10` 을 치고 켠 뒤 `9` 를 치고 끄는 **이어 치는** 쓰임이 굵게·기울임과 같아서
+      늘 보이는 자리가 필요하다. (버블에도 같은 자리에 둔다 — 그쪽은 고른 글자 바로 위라
+      손이 덜 움직인다.)
+
+      ⚠️ 서로 **배타(exclusive)** 다 — 업스트림 두 확장은 서로를 모르지만(`excludes` 가 없다)
+      이 패키지가 `TipTapEditor` 에서 맞물려 두었다. 그래서 윗첨자에 아랫첨자를 덮으면
+      앞엣것이 벗겨진다. 둘을 한 쌍으로 붙여 두는 이유다.
+    -->
+    {#if has('superscript')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleSuperscript().run()}
+      aria-label={t('superscript')}
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        isActive("superscript")
+          ? "hce-active"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <SuperscriptIcon size={iconSize} />
+    </button>
+    {/if}
+    {#if has('subscript')}
+    <button
+      type="button"
+      onclick={() => editor.chain().focus().toggleSubscript().run()}
+      aria-label={t('subscript')}
+      class={cn(
+        "p-1.5 rounded-md transition-colors",
+        isActive("subscript")
+          ? "hce-active"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <SubscriptIcon size={iconSize} />
     </button>
     {/if}
     <!--

@@ -47,6 +47,8 @@ export const es: EditorMessages = {
 	italic: 'Cursiva',
 	underline: 'Subrayado',
 	strike: 'Tachado',
+	superscript: 'Superíndice',
+	subscript: 'Subíndice',
 	alignLeft: 'Alinear a la izquierda',
 	alignCenter: 'Centrar',
 	alignRight: 'Alinear a la derecha',

@@ -43,6 +43,8 @@ export declare const ko: {
     italic: string;
     underline: string;
     strike: string;
+    superscript: string;
+    subscript: string;
     alignLeft: string;
     alignCenter: string;
     alignRight: string;

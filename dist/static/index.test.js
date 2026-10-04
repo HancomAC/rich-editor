@@ -73,6 +73,14 @@ describe('renderStaticHtml — 블록 사이 공백', () => {
     it('짝 잃은 닫는 태그는 원문 그대로 흘려보낸다', () => {
         expect(renderStaticHtml('<p>a</p>\n</div><p>b</p>')).toBe('<p>a</p></div><p>b</p>');
     });
+    /*
+     * 윗첨자·아랫첨자는 **인라인**이라 `BLOCK_TAGS` 에 없다. 혹시 그 목록에 들어가면
+     * 앞뒤 공백이 "블록 사이의 틈"으로 판정돼 `a <sup>1</sup>` 의 칸이 사라진다.
+     */
+    it('<sup>/<sub> 는 인라인이라 앞뒤 공백을 지우지 않는다', () => {
+        const input = '<p>n <sup>2</sup> + H <sub>2</sub> O</p>';
+        expect(renderStaticHtml(input)).toBe(input);
+    });
 });
 describe('renderStaticHtml — 수식', () => {
     it('인라인 수식을 KaTeX로 렌더하고 바깥 태그는 속성째 보존한다', () => {

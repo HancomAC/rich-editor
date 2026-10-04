@@ -858,6 +858,38 @@
   opacity: 0.8;
 }
 
+/*
+ * ── 윗첨자·아랫첨자 ──
+ * ⚠️ **브라우저 기본값에 맡기면 줄이 벌어진다.** UA 기본 `vertical-align: super/sub` 는
+ * 글자를 **줄 상자(line box) 바깥으로 밀어내서** 그 줄만 높아진다. 본문이
+ * `line-height: 1.8` 로 넉넉한 탓에 바로 티가 나지는 않지만, 표 셀·목록처럼 촘촘한
+ * 자리에서는 첨자가 든 줄만 아래로 밀린다. 실측(본문 17px): UA 기본값이면 문단 높이가
+ * 26px → **28px**, 표 셀은 47px → **50px** 로 뛴다. 아래 규칙을 걸면 둘 다 그대로다.
+ *
+ * 그래서 `position: relative` + `line-height: 0` 으로 **줄 높이에 영향을 주지 않는**
+ * 관용 처방을 쓴다 — 올리고 내리는 일은 `top`·`bottom` 이 하고, 줄 상자는 원래 크기로
+ * 남는다. 크기도 UA 의 `smaller`(≈0.83em, 중첩마다 또 줄어든다) 대신 `0.75em` 으로 못
+ * 박아 어디서나 같게 만든다.
+ *
+ * ⚠️ 이 규칙은 **에디터와 정적 렌더(저장본 `{@html}`) 양쪽**에 걸려야 한다. 둘 다
+ * `.tiptap` 을 쓰므로 여기 한 곳이면 된다 — 앱 `layout.css` 에 복제하지 말 것.
+ */
+.tiptap sup,
+.tiptap sub {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.tiptap sup {
+  top: -0.5em;
+}
+
+.tiptap sub {
+  bottom: -0.25em;
+}
+
 /* ── 하이라이트 ── */
 .tiptap mark {
   background-color: #fef08a;

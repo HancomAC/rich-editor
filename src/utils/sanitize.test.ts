@@ -193,6 +193,13 @@ describe('sanitizeHtml', () => {
 		expect(result).toContain('colspan=');
 		expect(result).toContain('rowspan=');
 	});
+
+	// 윗첨자·아랫첨자 버튼이 내놓는 저장 형식. 두 태그가 허용 목록에서 빠지면
+	// 에디터에는 보이는데 정적 렌더(저장본 `{@html}` + 살균)에서만 조용히 평문이 된다.
+	it('preserves <sup>/<sub> from the superscript/subscript marks', () => {
+		const result = sanitizeHtml('<p>10<sup>9</sup> / H<sub>2</sub>O</p>');
+		expect(result).toBe('<p>10<sup>9</sup> / H<sub>2</sub>O</p>');
+	});
 });
 
 describe('stripHtmlToExcerpt', () => {

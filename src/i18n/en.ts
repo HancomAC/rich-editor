@@ -47,6 +47,8 @@ export const en: EditorMessages = {
 	italic: 'Italic',
 	underline: 'Underline',
 	strike: 'Strikethrough',
+	superscript: 'Superscript',
+	subscript: 'Subscript',
 	alignLeft: 'Align left',
 	alignCenter: 'Align center',
 	alignRight: 'Align right',
