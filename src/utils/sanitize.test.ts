@@ -200,6 +200,21 @@ describe('sanitizeHtml', () => {
 		const result = sanitizeHtml('<p>10<sup>9</sup> / H<sub>2</sub>O</p>');
 		expect(result).toBe('<p>10<sup>9</sup> / H<sub>2</sub>O</p>');
 	});
+
+	/*
+	 * 단의 칸 수는 `data-columns` **하나에만** 달려 있다(`editor.css` 의
+	 * `[data-columns="2"|"3"]`). 허용 목록에서 빠져 있던 동안, 편집 화면은 멀쩡한데
+	 * 읽기 화면(살균을 타는 정적 렌더)에서만 3단이 세로로 쌓여 보였다 — 정올 문제 지문.
+	 */
+	it('preserves data-columns so the grid keeps its column count', () => {
+		const input =
+			'<div data-type="columns" data-columns="3">' +
+			'<div data-type="column"><p>A</p></div>' +
+			'<div data-type="column"><p>B</p></div>' +
+			'<div data-type="column"><p>C</p></div>' +
+			'</div>';
+		expect(sanitizeHtml(input)).toBe(input);
+	});
 });
 
 describe('stripHtmlToExcerpt', () => {

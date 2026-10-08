@@ -98,6 +98,14 @@ const ALLOWED_ATTRS = {
         "data-card-height",
         // 탭 블록의 탭 이름. 빠지면 살균 때 제목만 조용히 사라져 전부 `탭 1`·`탭 2` 로 되돌아간다.
         "data-tab-title",
+        /*
+         * 단 개수(`Columns`). **칸 수가 전적으로 이 속성에 달려 있다** — `editor.css` 는
+         * `[data-type="columns"]` 에 `display:grid` 만 주고 `grid-template-columns` 는
+         * `[data-columns="2"|"3"]` 으로만 정한다. 빠지면 격자가 한 칸짜리로 서서 단이
+         * **세로로 쌓인다**(블록이 사라지는 게 아니라 레이아웃만 풀려서 더 늦게 들킨다).
+         * 편집 화면은 살균을 안 타므로 멀쩡해 보여, 읽기 화면에서만 어긋났다.
+         */
+        "data-columns",
         "style",
     ]),
     // 토글은 열린 채 저장될 수 있고(`persist`), 제목 단계는 `data-level` 로 들어간다.

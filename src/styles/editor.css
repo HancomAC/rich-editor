@@ -1554,9 +1554,18 @@
   cursor: grabbing;
 }
 
-/* ── 컬럼 레이아웃 ── */
+/* ── 컬럼 레이아웃 ──
+ * ⚠️ **칸 수를 아는 선택자가 없어도 가로로 서야 한다.** 아래 `data-columns` 규칙만
+ *    두면, 그 속성이 어딘가에서 유실됐을 때 `display:grid` 만 남아 격자가 한 칸이 되고
+ *    단이 **통째로 세로로 쌓인다** — 블록이 사라지는 게 아니라 레이아웃만 풀리는 거라
+ *    눈에 덜 띈다. 실제로 살균기 허용목록에 `data-columns` 가 빠져 있어서 읽기 화면에서만
+ *    그렇게 보였다(정올 문제 지문 — 사용자 지적). 그래서 `grid-auto-flow: column` 으로
+ *    **자식 수만큼 등분하는 기본값**을 깔고, 아래 규칙은 그 위에 덮어쓰는 식으로 둔다.
+ */
 .tiptap div[data-type="columns"] {
   display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 16px;
   margin: 1em 0;
 }
@@ -1587,7 +1596,13 @@
 }
 
 @media (max-width: 640px) {
+  /*
+   * ⚠️ `grid-auto-flow` 를 **반드시 `row` 로 되돌린다.** 위에서 깐 `column` 이 남아 있으면
+   *    `grid-template-columns: 1fr` 이 정의하는 건 **명시 열 한 개**뿐이라, 나머지 자식은
+   *    암시 열로 오른쪽에 계속 붙어 좁은 화면에서도 가로로 선다 — 세로로 쌓이지 않는다.
+   */
   .tiptap div[data-type="columns"] {
+    grid-auto-flow: row !important;
     grid-template-columns: 1fr !important;
   }
 }
