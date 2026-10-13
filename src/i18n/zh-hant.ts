@@ -169,6 +169,7 @@ export const zhHant: EditorMessages = {
 	lectureResizeHeight: '調整課程影片高度',
 	cardResizeHeight: '調整卡片高度',
 	pdfResizeWidth: '調整 PDF 寬度',
+	tabsResizeWidth: '調整頁籤寬度',
 
 	cardTitlePlaceholder: '卡片標題',
 	cardChangeBackground: '變更背景',

@@ -184,6 +184,7 @@ export const ko = {
 	lectureResizeHeight: '강의 영상 높이 조절',
 	cardResizeHeight: '카드 높이 조절',
 	pdfResizeWidth: 'PDF 너비 조절',
+	tabsResizeWidth: '탭 블록 너비 조절',
 
 	// 카드 블록
 	cardTitlePlaceholder: '카드 제목',

@@ -100,6 +100,8 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
     "data-card-height",
     // 탭 블록의 탭 이름. 빠지면 살균 때 제목만 조용히 사라져 전부 `탭 1`·`탭 2` 로 되돌아간다.
     "data-tab-title",
+    // 탭 블록 폭(`TabsBlock`). 정본이라 빠지면 다시 열 때 폭이 사라진다(`style` 은 거울일 뿐).
+    "data-tabs-width",
     /*
      * 단 개수(`Columns`). **칸 수가 전적으로 이 속성에 달려 있다** — `editor.css` 는
      * `[data-type="columns"]` 에 `display:grid` 만 주고 `grid-template-columns` 는

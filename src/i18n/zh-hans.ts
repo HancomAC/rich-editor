@@ -168,6 +168,7 @@ export const zhHans: EditorMessages = {
 	lectureResizeHeight: '调整课程视频高度',
 	cardResizeHeight: '调整卡片高度',
 	pdfResizeWidth: '调整 PDF 宽度',
+	tabsResizeWidth: '调整标签页宽度',
 
 	cardTitlePlaceholder: '卡片标题',
 	cardChangeBackground: '更改背景',

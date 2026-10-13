@@ -1329,8 +1329,8 @@
   position: relative;
 }
 
-.ProseMirror-selectednode:not(img):not([data-type='image']):not([data-type='pdfBlock']):not([data-type='mbusVideo']):not([data-type='videoEmbed'])::before,
-.ProseMirror-selectednoderange:not([data-type='image']):not([data-type='pdfBlock']):not([data-type='mbusVideo']):not([data-type='videoEmbed'])::before {
+.ProseMirror-selectednode:not(img):not([data-type='image']):not([data-type='pdfBlock']):not([data-type='mbusVideo']):not([data-type='videoEmbed']):not([data-type='tabs'])::before,
+.ProseMirror-selectednoderange:not([data-type='image']):not([data-type='pdfBlock']):not([data-type='mbusVideo']):not([data-type='videoEmbed']):not([data-type='tabs'])::before {
   content: "";
   position: absolute;
   inset: -0.25rem;
@@ -1620,10 +1620,43 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  /*
+   * 폭(`data-tabs-width`)은 `style="width: …"` 거울로 먹는다. 저장된 폭이 지금 칼럼보다
+   * 넓어도(넓은 화면에서 저장 → 폰에서 열람) **넘치지 않게** 칼럼 폭에서 멈춘다.
+   * `border-box` — 손잡이가 재는 폭(`getBoundingClientRect`)과 저장 폭의 기준을 맞춘다.
+   */
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-[data-type="tabs"].ProseMirror-selectednode {
-  outline: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+/*
+ * ── 활성 표시 ──────────────────────────────────────────────────────────
+ * 블록을 고르거나(탭바 빈 곳 클릭) 커서가 안에 있으면 `hce-tabs-active` 가 붙는다
+ * (`TabsBlock.ts` 의 `tabsActivePlugin`). 미디어 블록과 같은 1px `outline` 이다 —
+ * 레이아웃을 밀지 않고, `overflow: hidden` 에도 잘리지 않는다(바깥에 그려진다).
+ * ⚠️ 편집 모드 한정. 읽기 화면에서 커서가 들어갔다고 테두리가 뜨면 "눌렸다"는 오해만 준다.
+ */
+.tiptap[contenteditable='true'] [data-type="tabs"].hce-tabs-active {
+  outline: 1px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/*
+ * 폭 손잡이(`utils/resize.ts`)는 활성일 때만 보인다.
+ * ⚠️ 손잡이의 인라인 자리(`right: -12px`)는 이 상자의 `overflow: hidden` 에 잘린다 —
+ *    안쪽 오른쪽 끝(본문 오른쪽 여백 12px 자리)으로 당긴다. 인라인 스타일이라 `!important`.
+ */
+[data-type="tabs"].hce-tabs-live {
+  position: relative;
+}
+
+[data-type="tabs"] > .hce-resize-handle {
+  display: none !important;
+  right: 0 !important;
+}
+
+.tiptap[contenteditable='true'] [data-type="tabs"].hce-tabs-active > .hce-resize-handle {
+  display: flex !important;
 }
 
 .hce-tabs-bar {

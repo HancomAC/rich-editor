@@ -3,6 +3,7 @@ import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { TabsBlock, Tab } from "./TabsBlock";
 import { sanitizeHtml } from "../utils/sanitize";
+import { NodeSelection } from "@tiptap/pm/state";
 
 let editor: Editor | null = null;
 let host: HTMLElement | null = null;
@@ -632,5 +633,173 @@ describe("TabsBlock — 회귀: ProseMirror 와의 줄다리기", () => {
 		// 루프가 돌면 위 대기에서 멈추거나, 여기서 값이 달라진다.
 		expect(activeIndexes(e)).toEqual(first);
 		expect(first).toEqual({ chip: 1, panel: 1 });
+	});
+});
+
+describe("TabsBlock — 폭", () => {
+	const SAVED =
+		'<div data-type="tabs" data-tabs-width="480px" style="width: 480px">' +
+		'<div data-type="tab" data-tab-title="하나"><p>a</p></div>' +
+		'<div data-type="tab" data-tab-title="둘"><p>b</p></div>' +
+		"</div>";
+
+	const tabsDom = (e: Editor) => e.view.dom.querySelector('[data-type="tabs"]') as HTMLElement;
+	const handle = (e: Editor) =>
+		tabsDom(e).querySelector(":scope > .hce-resize-handle") as HTMLElement | null;
+
+	it("data-tabs-width 를 읽고 그대로 다시 쓴다(라운드트립)", () => {
+		const e = make(SAVED);
+		expect(tabsNode(e)?.attrs?.width).toBe("480px");
+		const html = e.getHTML();
+		expect(html).toContain('data-tabs-width="480px"');
+		// `mergeAttributes` 가 style 끝에 `;` 를 붙여 정규화한다.
+		expect(html).toContain('style="width: 480px;"');
+
+		const json = e.getJSON();
+		e.destroy();
+		host?.remove();
+		const again = make(html);
+		expect(again.getJSON()).toEqual(json);
+	});
+
+	it("style 만 있는 저장본도 폭으로 받는다", () => {
+		const e = make(
+			'<div data-type="tabs" style="width: 60%"><div data-type="tab"><p>a</p></div></div>'
+		);
+		expect(tabsNode(e)?.attrs?.width).toBe("60%");
+	});
+
+	it("⚠️ 폭이 없는 기존 문서는 저장본이 바뀌지 않는다(속성·style 없음)", () => {
+		const e = make();
+		e.commands.setTabs(2);
+		expect(tabsNode(e)?.attrs?.width).toBeNull();
+		const html = e.getHTML();
+		expect(html).not.toContain("data-tabs-width");
+		expect(html).not.toMatch(/data-type="tabs"[^>]*style=/);
+	});
+
+	it("⚠️ 이상한 값은 버린다 — style 선언을 열고 닫을 수 없다", () => {
+		const e = make(
+			'<div data-type="tabs" data-tabs-width="1px; background: red"><div data-type="tab"><p>a</p></div></div>'
+		);
+		expect(tabsNode(e)?.attrs?.width).toBeNull();
+		expect(e.getHTML()).not.toContain("background");
+	});
+
+	it("⚠️ 살균이 data-tabs-width 와 style 을 지우지 않는다", () => {
+		const e = make(SAVED);
+		const clean = sanitizeHtml(e.getHTML());
+		expect(clean).toContain('data-tabs-width="480px"');
+		expect(clean).toContain('style="width: 480px;"');
+		// 살균본을 다시 읽어도 폭이 살아 있다.
+		e.destroy();
+		host?.remove();
+		expect(tabsNode(make(clean))?.attrs?.width).toBe("480px");
+	});
+
+	it("NodeView 가 저장된 폭을 상자에 먹이고, 바뀌면 따라간다", () => {
+		const e = make(SAVED);
+		expect(tabsDom(e).style.width).toBe("480px");
+		e.commands.command(({ tr }) => {
+			tr.setNodeMarkup(0, undefined, { ...e.state.doc.child(0).attrs, width: null });
+			return true;
+		});
+		expect(tabsDom(e).style.width).toBe("");
+	});
+
+	it("편집 모드에만 폭 손잡이가 있고, 읽기 모드에는 없다", () => {
+		const e = make(SAVED);
+		expect(handle(e)).not.toBeNull();
+		expect(handle(e)?.getAttribute("aria-label")).toBe("탭 블록 너비 조절");
+		e.destroy();
+		host?.remove();
+		expect(handle(make(SAVED, false))).toBeNull();
+	});
+
+	it("손잡이를 끌면 폭이 px 로 저장된다", async () => {
+		const e = make(SAVED);
+		const dom = tabsDom(e);
+		dom.getBoundingClientRect = () => rect(0, 480);
+		pointer(handle(e)!, "pointerdown", 480);
+		window.dispatchEvent(new PointerEvent("pointermove", { clientX: 380, pointerId: 1 }));
+		window.dispatchEvent(new PointerEvent("pointerup", { clientX: 380, pointerId: 1 }));
+		expect(tabsNode(e)?.attrs?.width).toBe("380px");
+		// 다른 속성(탭 내용·제목)은 그대로다.
+		expect(titles(e)).toEqual(["하나", "둘"]);
+	});
+
+	it("칼럼보다 넓게 끌면 폭을 지운다(= 꽉 찬 폭)", () => {
+		const e = make(SAVED);
+		const dom = tabsDom(e);
+		// `max-width: 100%` 때문에 480 에서 멈춰 보이는 상황을 흉내 낸다.
+		dom.getBoundingClientRect = () => rect(0, 480);
+		pointer(handle(e)!, "pointerdown", 480);
+		window.dispatchEvent(new PointerEvent("pointermove", { clientX: 700, pointerId: 1 }));
+		window.dispatchEvent(new PointerEvent("pointerup", { clientX: 700, pointerId: 1 }));
+		expect(tabsNode(e)?.attrs?.width).toBeNull();
+		expect(e.getHTML()).not.toContain("data-tabs-width");
+	});
+});
+
+describe("TabsBlock — 활성(클릭하면 고른 상태)", () => {
+	/*
+	 * 문단 "앞"(0…3) 뒤에 탭 블록(3…). 첫 탭 본문 글자 자리는 6 이다
+	 * (tabs 3 → tab 4 → p 5 → 글자 6).
+	 */
+	const DOC =
+		"<p>앞</p>" +
+		'<div data-type="tabs">' +
+		'<div data-type="tab" data-tab-title="하나"><p>a</p></div>' +
+		'<div data-type="tab" data-tab-title="둘"><p>b</p></div>' +
+		"</div>";
+	const OUTSIDE = 1;
+	const INSIDE = 6;
+
+	const tabsDom = (e: Editor) => e.view.dom.querySelector('[data-type="tabs"]') as HTMLElement;
+	const isActive = (e: Editor) => tabsDom(e).classList.contains("hce-tabs-active");
+	const mousedown = (el: Element) =>
+		el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+
+	it("탭바 빈 곳을 누르면 블록이 노드 선택되고 활성이 된다", () => {
+		const e = make(DOC);
+		e.commands.setTextSelection(OUTSIDE);
+		expect(isActive(e)).toBe(false);
+		mousedown(bar(e));
+		expect(e.state.selection).toBeInstanceOf(NodeSelection);
+		expect((e.state.selection as NodeSelection).node.type.name).toBe("tabs");
+		expect(isActive(e)).toBe(true);
+		// ⚠️ 장식이 NodeView 의 클래스를 덮지 않는다.
+		expect(tabsDom(e).classList.contains("hce-tabs-live")).toBe(true);
+	});
+
+	it("커서가 탭 안에 있어도 활성이다 — 본문 클릭은 평소대로 캐럿", () => {
+		const e = make(DOC);
+		e.commands.setTextSelection(INSIDE);
+		expect(e.state.selection).not.toBeInstanceOf(NodeSelection);
+		expect(isActive(e)).toBe(true);
+		e.commands.setTextSelection(OUTSIDE);
+		expect(isActive(e)).toBe(false);
+	});
+
+	it("⚠️ 칩·+ 위의 누름은 노드 선택을 걸지 않는다(각자 할 일이 있다)", async () => {
+		const e = make(DOC);
+		e.commands.setTextSelection(OUTSIDE);
+		mousedown(chips(e)[1].querySelector(".hce-tab-chip-label")!);
+		mousedown(bar(e).querySelector(".hce-tabs-add")!);
+		expect(e.state.selection).not.toBeInstanceOf(NodeSelection);
+		// 전환·추가는 그대로 된다.
+		click(chips(e)[1].querySelector(".hce-tab-chip-label")!);
+		await flush();
+		expect(activeIndexes(e).chip).toBe(1);
+		click(bar(e).querySelector(".hce-tabs-add")!);
+		await flush();
+		expect(titles(e)).toHaveLength(3);
+	});
+
+	it("읽기 모드에서는 탭바를 눌러도 선택을 걸지 않는다", () => {
+		const e = make(DOC, false);
+		const before = e.state.selection;
+		mousedown(bar(e));
+		expect(e.state.selection.eq(before)).toBe(true);
 	});
 });
