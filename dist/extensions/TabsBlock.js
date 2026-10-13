@@ -1,6 +1,10 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { getEditorTranslator } from "../i18n";
-import { Selection } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey, Selection } from "@tiptap/pm/state";
+// ⚠️ `MutationRecord` 가 아니다. ProseMirror 는 `{ type: "selection" }` 이라는 가짜 기록도
+//    같은 자리로 흘려보내서, DOM 타입만 받으면 시그니처가 맞지 않는다.
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { attachResize } from "../utils/resize";
 /**
  * 탭 블록 — 한 상자 안의 내용을 **탭으로 나눠** 한 번에 하나만 보여준다(노션의 그것).
  *
@@ -21,7 +25,7 @@ import { Selection } from "@tiptap/pm/state";
  * ## 저장 형식
  *
  * ```html
- * <div data-type="tabs">
+ * <div data-type="tabs" data-tabs-width="480px" style="width: 480px">
  *   <div data-type="tab" data-tab-title="탭 1"><p>…</p></div>
  *   <div data-type="tab" data-tab-title="탭 2"><p>…</p></div>
  * </div>
@@ -29,6 +33,14 @@ import { Selection } from "@tiptap/pm/state";
  *
  * ⚠️ `data-tab-title` 은 `utils/sanitize.ts` 의 `ALLOWED_ATTRS.div` 에 **반드시** 있어야 한다.
  * 빠지면 살균을 거칠 때 제목만 조용히 사라져 탭 이름이 전부 `탭 1`·`탭 2` 로 되돌아간다.
+ * `data-tabs-width` 도 같다 — 빠지면 저장본을 다시 열 때 폭이 사라진다.
+ *
+ * ## 폭
+ *
+ * 폭은 `PdfBlock`·`VideoEmbed` 와 같은 규약이다 — **정본은 `data-tabs-width`**, `style` 의
+ * `width` 는 정적 렌더(살균본을 `{@html}` 로 그리는 자리)가 CSS 없이도 같은 폭으로 서게
+ * 하는 거울이다. 없으면 지금처럼 꽉 찬 폭이고, 있어도 `max-width: 100%` 라 좁은 화면에서
+ * 넘치지 않는다. 손잡이는 블록이 **활성**일 때만 보인다(아래 `tabsActivePlugin`).
  *
  * ⚠️ 정적(살균) 렌더에는 탭바가 없다. 그때는 CSS 가 첫 탭만 남기고 나머지를 감춘다
  * (`editor.css` 의 `:not(.hce-tabs-live)` 규칙). 그래야 에디터가 서기 전후로 높이가 튀지 않는다.
@@ -40,6 +52,71 @@ const defaultTitle = (t, index) => t("tabDefaultTitle", { n: index + 1 });
  * "끌었다"로 본다. 넘지 않고 떼면 평소대로 탭 전환이 되고 두 번 누르면 이름 고치기가 뜬다.
  */
 const DRAG_THRESHOLD = 5;
+/** 폭 손잡이로 줄일 수 있는 하한. 칩 두세 개와 `+` 가 한 줄에 서는 정도. */
+const MIN_WIDTH = 240;
+/**
+ * 저장된 폭을 믿을 수 있는 값으로 거른다. `px`·`%` 숫자만 받고 나머지는 null(= 꽉 찬 폭).
+ *
+ * ⚠️ 이 값은 `style="width: …"` 로도 나간다. 아무 문자열이나 받으면 `;` 로 선언을 닫고
+ *    다른 선언을 열 수 있다(`CardBlock` 의 `safeBackground` 와 같은 방어).
+ */
+export const normalizeTabsWidth = (raw) => {
+    const value = String(raw ?? "").trim();
+    const m = /^(\d+(?:\.\d+)?)(px|%)$/.exec(value);
+    if (!m)
+        return null;
+    const n = Number.parseFloat(m[1]);
+    if (!(n > 0))
+        return null;
+    return `${m[1]}${m[2]}`;
+};
+/** 활성 표시 클래스. 손잡이·테두리는 이 클래스를 보고 CSS 가 켠다. */
+const ACTIVE_CLASS = "hce-tabs-active";
+const tabsActiveKey = new PluginKey("tabsActive");
+/**
+ * 탭 블록이 "활성"인 자리를 찾는다 — ① 블록 자체가 노드 선택됐거나(탭바 빈 곳 클릭)
+ * ② 커서가 그 안에 있을 때. 둘 다 아니면 null.
+ *
+ * ② 를 넣은 이유: 탭 본문은 글을 쓰는 자리라 **클릭하면 캐럿이 들어가야 한다** — 노드 선택만
+ * 활성으로 치면 본문을 누르는 순간 손잡이가 사라져, 폭을 잡으려고 탭바 빈 곳을 따로 찾아
+ * 눌러야 한다. 이미지·PDF 처럼 통째로 고르는 블록과 다른 점이 이것이다.
+ * 중첩된 탭이면 커서에서 **가장 가까운** 탭 블록 하나만 활성이다.
+ */
+const findActiveTabs = (state) => {
+    const { selection } = state;
+    if (selection instanceof NodeSelection && selection.node.type.name === "tabs") {
+        return { from: selection.from, to: selection.to };
+    }
+    const { $from } = selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+        if ($from.node(depth).type.name === "tabs") {
+            const from = $from.before(depth);
+            return { from, to: from + $from.node(depth).nodeSize };
+        }
+    }
+    return null;
+};
+/**
+ * 활성 탭 블록에 `hce-tabs-active` 를 붙이는 장식.
+ *
+ * ⚠️ NodeView 의 `selectNode` 로는 ② (커서가 안에 있음)를 못 잡는다 — 그건 노드 선택일 때만
+ *    불린다. 노드 장식은 선택이 바뀔 때마다 다시 계산되고, ProseMirror 가 클래스를 **하나씩**
+ *    붙였다 떼므로 NodeView 가 단 `hce-tabs hce-tabs-live` 를 건드리지 않는다.
+ * 편집 모드 한정은 CSS 쪽(`.tiptap[contenteditable='true']`)이 맡는다.
+ */
+const tabsActivePlugin = () => new Plugin({
+    key: tabsActiveKey,
+    props: {
+        decorations: (state) => {
+            const hit = findActiveTabs(state);
+            if (!hit)
+                return null;
+            return DecorationSet.create(state.doc, [
+                Decoration.node(hit.from, hit.to, { class: ACTIVE_CLASS })
+            ]);
+        }
+    }
+});
 /**
  * 클래스 값이 이미 원하는 상태면 **손대지 않는다.**
  *
@@ -113,11 +190,29 @@ export const TabsBlock = Node.create({
     content: "tab+",
     defining: true,
     draggable: true,
+    addAttributes() {
+        return {
+            width: {
+                default: null,
+                // 정본은 `data-tabs-width`. 손으로 쓴 HTML 처럼 `style` 만 있는 것도 받는다.
+                parseHTML: (el) => normalizeTabsWidth(el.getAttribute("data-tabs-width")) ??
+                    normalizeTabsWidth(el.style?.width),
+                // 없으면 아무것도 안 쓴다 — 기존 문서의 저장본이 한 글자도 바뀌지 않는다.
+                renderHTML: (attrs) => {
+                    const width = normalizeTabsWidth(attrs.width);
+                    return width ? { "data-tabs-width": width, style: `width: ${width}` } : {};
+                }
+            }
+        };
+    },
     parseHTML() {
         return [{ tag: 'div[data-type="tabs"]' }];
     },
     renderHTML({ HTMLAttributes }) {
         return ["div", mergeAttributes(HTMLAttributes, { "data-type": "tabs" }), 0];
+    },
+    addProseMirrorPlugins() {
+        return [tabsActivePlugin()];
     },
     addNodeView() {
         return ({ node, editor, getPos }) => {
@@ -157,6 +252,84 @@ export const TabsBlock = Node.create({
             const panels = document.createElement("div");
             panels.className = "hce-tabs-panels";
             dom.appendChild(panels);
+            /** 저장된 폭을 상자에 먹인다. 없으면 인라인 폭을 지워 CSS 의 꽉 찬 폭으로 돌아간다. */
+            const applyWidth = (n) => {
+                const width = normalizeTabsWidth(n.attrs.width) ?? "";
+                if (dom.style.width !== width)
+                    dom.style.width = width;
+            };
+            applyWidth(node);
+            /*
+             * ── 폭 손잡이 ──────────────────────────────────────────────────────
+             * 공용 `attachResize` 를 쓴다(`PdfBlock`·`VideoEmbed`·`CardBlock` 과 같은 것).
+             * 보이기·감추기는 CSS 가 `hce-tabs-active` 로 정한다.
+             *
+             * ⚠️ 이 상자는 `overflow: hidden` 이라(둥근 모서리로 탭바 배경을 자른다) 손잡이의
+             *    기본 자리(밖 12px)는 잘린다. CSS 가 상자 **안쪽** 오른쪽 끝으로 당긴다.
+             * ⚠️ 편집↔읽기가 도중에 뒤집힐 수 있어 `update()` 에서도 다시 맞춘다(탭바와 같은 이유).
+             */
+            let detachResize = null;
+            const syncResize = () => {
+                if (editor.isEditable && !detachResize) {
+                    detachResize = attachResize({
+                        dom,
+                        editor,
+                        getPos: () => getPos(),
+                        getNode: () => currentNode,
+                        axis: "x",
+                        min: MIN_WIDTH,
+                        label: t("tabsResizeWidth"),
+                        /*
+                         * 상자는 `max-width: 100%` 라 칼럼보다 넓게 끌어도 칼럼 폭에서 멈춰 보인다.
+                         * 그만큼 끌었다면 "꽉 차게"라는 뜻이다 — 칼럼 폭을 px 로 박아 두면 넓은
+                         * 화면에서 열었을 때 오히려 좁아지므로 **폭을 지운다**(처음 상태로).
+                         */
+                        buildAttrs: (current, value) => {
+                            const shown = dom.getBoundingClientRect().width;
+                            const full = value > shown + 0.5;
+                            return { ...current.attrs, width: full ? null : `${Math.round(value)}px` };
+                        }
+                    });
+                    const handle = dom.querySelector(":scope > .hce-resize-handle");
+                    if (handle) {
+                        // ProseMirror 가 손잡이 위의 누름을 글자 선택·블록 끌기로 읽지 않게 한다.
+                        handle.setAttribute("data-tab-control", "");
+                        /*
+                         * ⚠️ 이 노드는 `draggable` 이라 손잡이를 끄는 순간 블록 통째로 끌기가
+                         *    먼저 잡아챌 수 있다 — 이름 입력칸과 같은 우회로 누르는 동안만 끈다.
+                         */
+                        handle.addEventListener("mousedown", () => {
+                            dom.draggable = false;
+                            window.addEventListener("pointerup", () => {
+                                dom.draggable = true;
+                            }, { once: true });
+                        });
+                    }
+                }
+                else if (!editor.isEditable && detachResize) {
+                    detachResize();
+                    detachResize = null;
+                }
+            };
+            syncResize();
+            /**
+             * 탭바의 **빈 곳**을 누르면 블록 전체를 고른다 — 이미지·PDF 를 누른 것과 같은 상태.
+             *
+             * 칩·`+`·`×` 위는 각자 할 일이 있으므로 건드리지 않는다(`target === bar` 만).
+             * 탭바는 `stopEvent` 로 ProseMirror 에게서 빼 둔 자리라 직접 노드 선택을 건다.
+             * 본문 클릭은 평소대로 캐럿이 들어가고, 그것도 활성으로 친다(`findActiveTabs`).
+             */
+            bar.addEventListener("mousedown", (e) => {
+                if (e.target !== bar || e.button !== 0 || !editor.isEditable)
+                    return;
+                const pos = getPos();
+                if (pos == null)
+                    return;
+                e.preventDefault();
+                const { state } = editor.view;
+                editor.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, pos)));
+                editor.view.focus();
+            });
             /**
              * 탭바를 다시 그려야 하는지 판단하는 값 — 개수·이름·편집 가능 여부가 전부다.
              *
@@ -633,6 +806,8 @@ export const TabsBlock = Node.create({
                     if (updated.type.name !== "tabs")
                         return false;
                     currentNode = updated;
+                    applyWidth(updated);
+                    syncResize();
                     // 탭이 줄었으면 인덱스를 범위 안으로 당긴다.
                     if (active >= updated.childCount) {
                         active = Math.max(0, updated.childCount - 1);
@@ -650,6 +825,7 @@ export const TabsBlock = Node.create({
                 destroy: () => {
                     // 드래그 도중에 노드가 사라질 수 있다 — 문서에 건 리스너를 남기지 않는다.
                     detachDragListeners();
+                    detachResize?.();
                 },
                 // 탭바 위의 이벤트는 ProseMirror 가 가로채면 안 된다.
                 stopEvent: (event) => {

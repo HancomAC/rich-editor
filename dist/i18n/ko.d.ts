@@ -155,6 +155,7 @@ export declare const ko: {
     lectureResizeHeight: string;
     cardResizeHeight: string;
     pdfResizeWidth: string;
+    tabsResizeWidth: string;
     cardTitlePlaceholder: string;
     cardChangeBackground: string;
     cardBackgroundPrompt: string;

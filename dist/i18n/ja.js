@@ -155,6 +155,7 @@ export const ja = {
     lectureResizeHeight: '講義動画の高さを調整',
     cardResizeHeight: 'カードの高さを調整',
     pdfResizeWidth: 'PDFの幅を調整',
+    tabsResizeWidth: 'タブの幅を調整',
     cardTitlePlaceholder: 'カードタイトル',
     cardChangeBackground: '背景を変更',
     cardBackgroundPrompt: 'カード背景（CSS background 値）',

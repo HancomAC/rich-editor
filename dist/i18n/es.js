@@ -155,6 +155,7 @@ export const es = {
     lectureResizeHeight: 'Ajustar altura del video de clase',
     cardResizeHeight: 'Ajustar altura de la tarjeta',
     pdfResizeWidth: 'Ajustar ancho del PDF',
+    tabsResizeWidth: 'Ajustar ancho de las pestañas',
     cardTitlePlaceholder: 'Título de la tarjeta',
     cardChangeBackground: 'Cambiar fondo',
     cardBackgroundPrompt: 'Fondo de la tarjeta (valor CSS background)',

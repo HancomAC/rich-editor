@@ -98,6 +98,8 @@ const ALLOWED_ATTRS = {
         "data-card-height",
         // 탭 블록의 탭 이름. 빠지면 살균 때 제목만 조용히 사라져 전부 `탭 1`·`탭 2` 로 되돌아간다.
         "data-tab-title",
+        // 탭 블록 폭(`TabsBlock`). 정본이라 빠지면 다시 열 때 폭이 사라진다(`style` 은 거울일 뿐).
+        "data-tabs-width",
         /*
          * 단 개수(`Columns`). **칸 수가 전적으로 이 속성에 달려 있다** — `editor.css` 는
          * `[data-type="columns"]` 에 `display:grid` 만 주고 `grid-template-columns` 는
@@ -173,6 +175,26 @@ export function sanitizeHtml(html) {
         return `<${lower}${cleanAttrs}${selfClosing ? " /" : ""}>`;
     });
 }
+const NAMED_ENTITIES = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+};
+/** 속성 값의 HTML 엔티티를 푼다. 모르는 이름은 원문 그대로 둔다. */
+function decodeEntities(value) {
+    return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body) => {
+        if (body[0] === "#") {
+            const code = body[1] === "x" || body[1] === "X"
+                ? parseInt(body.slice(2), 16)
+                : parseInt(body.slice(1), 10);
+            return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+        }
+        return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+    });
+}
 function sanitizeAttributes(tag, attrString) {
     const allowedForTag = ALLOWED_ATTRS[tag] ?? new Set();
     const allowedGlobal = ALLOWED_ATTRS["*"] ?? new Set();
@@ -181,7 +203,13 @@ function sanitizeAttributes(tag, attrString) {
     let m;
     while ((m = attrRegex.exec(attrString)) !== null) {
         const name = m[1].toLowerCase();
-        const value = m[2] ?? m[3] ?? m[4] ?? "";
+        /*
+         * ⚠️ 원문 HTML 의 속성 값은 **이미 엔티티로 인코딩돼 있다**(`data-tab-title="&lt;&gt;"`).
+         * 그대로 `escapeHtml` 에 넣으면 `&` 가 한 번 더 바뀌어 `&amp;lt;&amp;gt;` 가 되고,
+         * 브라우저는 그걸 글자 `&lt;&gt;` 로 읽는다 — 탭 제목에 `<>` 를 넣으면 그대로 보였다.
+         * 먼저 풀고 나서 한 번만 인코딩한다. URL 검사도 풀린 값(브라우저가 보는 값)으로 한다.
+         */
+        const value = decodeEntities(m[2] ?? m[3] ?? m[4] ?? "");
         if (name.startsWith("on"))
             continue;
         if (!allowedForTag.has(name) && !allowedGlobal.has(name))

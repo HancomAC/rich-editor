@@ -155,6 +155,7 @@ export const en = {
     lectureResizeHeight: 'Resize lecture video height',
     cardResizeHeight: 'Resize card height',
     pdfResizeWidth: 'Resize PDF width',
+    tabsResizeWidth: 'Resize tabs width',
     cardTitlePlaceholder: 'Card title',
     cardChangeBackground: 'Change background',
     cardBackgroundPrompt: 'Card background (CSS background value)',
