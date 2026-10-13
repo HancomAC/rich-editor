@@ -177,6 +177,29 @@ export function sanitizeHtml(html: string): string {
     });
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/** 속성 값의 HTML 엔티티를 푼다. 모르는 이름은 원문 그대로 둔다. */
+function decodeEntities(value: string): string {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+    if (body[0] === "#") {
+      const code =
+        body[1] === "x" || body[1] === "X"
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+  });
+}
+
 function sanitizeAttributes(tag: string, attrString: string): string {
   const allowedForTag = ALLOWED_ATTRS[tag] ?? new Set();
   const allowedGlobal = ALLOWED_ATTRS["*"] ?? new Set();
@@ -187,7 +210,13 @@ function sanitizeAttributes(tag: string, attrString: string): string {
 
   while ((m = attrRegex.exec(attrString)) !== null) {
     const name = m[1].toLowerCase();
-    const value = m[2] ?? m[3] ?? m[4] ?? "";
+    /*
+     * ⚠️ 원문 HTML 의 속성 값은 **이미 엔티티로 인코딩돼 있다**(`data-tab-title="&lt;&gt;"`).
+     * 그대로 `escapeHtml` 에 넣으면 `&` 가 한 번 더 바뀌어 `&amp;lt;&amp;gt;` 가 되고,
+     * 브라우저는 그걸 글자 `&lt;&gt;` 로 읽는다 — 탭 제목에 `<>` 를 넣으면 그대로 보였다.
+     * 먼저 풀고 나서 한 번만 인코딩한다. URL 검사도 풀린 값(브라우저가 보는 값)으로 한다.
+     */
+    const value = decodeEntities(m[2] ?? m[3] ?? m[4] ?? "");
 
     if (name.startsWith("on")) continue;
     if (!allowedForTag.has(name) && !allowedGlobal.has(name)) continue;

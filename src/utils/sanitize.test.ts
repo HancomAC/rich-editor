@@ -100,6 +100,24 @@ describe('transformLegacyHtml', () => {
 });
 
 describe('sanitizeHtml', () => {
+	it('does not double-escape already encoded attribute values', () => {
+		const input = '<div data-type="tab" data-tab-title="&lt;&gt; &amp; &quot;a&quot;"></div>';
+		const result = sanitizeHtml(input);
+		expect(result).toContain('data-tab-title="&lt;&gt; &amp; &quot;a&quot;"');
+		const div = new DOMParser().parseFromString(result, 'text/html').querySelector('div');
+		expect(div?.getAttribute('data-tab-title')).toBe('<> & "a"');
+	});
+
+	it('is idempotent on attribute values', () => {
+		const input = '<a href="/x?a=1&amp;b=2" title="&lt;b&gt;">x</a>';
+		expect(sanitizeHtml(sanitizeHtml(input))).toBe(sanitizeHtml(input));
+	});
+
+	it('checks href after decoding entities', () => {
+		const result = sanitizeHtml('<a href="&#106;avascript:alert(1)">x</a>');
+		expect(result).not.toContain('href');
+	});
+
 	it('strips script tags', () => {
 		const input = '<p>Hello</p><script>alert("xss")</script><p>World</p>';
 		const result = sanitizeHtml(input);
