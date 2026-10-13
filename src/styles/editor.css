@@ -1825,7 +1825,7 @@
 }
 
 .hce-tabs-panels {
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 /* 활성 표시는 NodeView 가 붙였다 뗀다(`TabsBlock.ts` 의 `applyActive`). */
@@ -1835,6 +1835,19 @@
 
 .hce-tabs-panels > [data-type="tab"].hce-tab-active {
   display: block;
+}
+
+/*
+ * 탭 안 첫·마지막 블록의 바깥 여백을 없앤다. 안 그러면 패널 여백(10px)에 코드블록 등의
+ * 마진(12.75px)이 더해져 위아래만 23px 로 벌어지고 좌우(12px)와 어긋났다.
+ * 정적 렌더(`:not(.hce-tabs-live)`)도 같은 패널 모양이라 같이 적용된다.
+ */
+[data-type="tab"] > :first-child {
+  margin-top: 0;
+}
+
+[data-type="tab"] > :last-child {
+  margin-bottom: 0;
 }
 
 /*
@@ -1858,7 +1871,7 @@
 
 [data-type="tabs"]:not(.hce-tabs-live) > [data-type="tab"]:first-child {
   display: block;
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 /* 탭바 자리도 비워 둔다 — 없으면 딱 그 줄만큼 높이가 어긋난다. */
