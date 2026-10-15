@@ -184,6 +184,19 @@
 	}
 
 	/*
+	 * 글자색을 판이 직접 정한다 — preflight 가 없어 입력칸·버튼은 브라우저 기본색(검정)을
+	 * 받는다. 다크 판 위에서 안 보였다(`MathModal` 같은 처방). 특이도 0 이라 자기 색을
+	 * 가진 버튼(`.hce-btn-primary`·탭)은 그대로 이긴다.
+	 */
+	.hce-picker-panel {
+		color: var(--foreground);
+	}
+
+	:where(.hce-picker-panel) :where(input, button) {
+		color: inherit;
+	}
+
+	/*
 	 * 고르지 않은 탭은 흐리게, 고른 탭은 본문색 + 밑줄.
 	 * ⚠️ 밑줄은 `border-bottom` 으로 그리고 **꺼진 탭에도 투명한 같은 두께**를 준다.
 	 * 켜질 때만 테두리를 붙이면 그 2px 만큼 글자가 위로 밀려 탭이 덜컥거린다.

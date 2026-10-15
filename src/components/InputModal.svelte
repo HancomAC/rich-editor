@@ -119,4 +119,17 @@
 	.hce-input-panel input {
 		box-sizing: border-box;
 	}
+
+	/*
+	 * 글자색을 판이 직접 정한다 — preflight 가 없어 입력칸·버튼은 브라우저 기본색(검정)을
+	 * 받는다. 다크 판 위에서 안 보였다(`MathModal` 같은 처방). 특이도 0 이라 자기 색을
+	 * 가진 버튼(`.hce-btn-primary`·탭)은 그대로 이긴다.
+	 */
+	.hce-input-panel {
+		color: var(--foreground);
+	}
+
+	:where(.hce-input-panel) :where(input, button) {
+		color: inherit;
+	}
 </style>
