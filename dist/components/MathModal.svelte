@@ -9,27 +9,37 @@
    * 렌더는 편집기 NodeView 와 같은 KaTeX 옵션(`throwOnError:false`)을 쓴다. 그래서
    * 여기서 보이는 모양이 곧 본문에 들어갈 모양이다.
    */
-  import { X } from "lucide-svelte";
+  import { AlignCenter, AlignLeft, AlignRight, X } from "lucide-svelte";
   import katex from "katex";
   import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
+  import type { MathAlign } from "../extensions/Math";
 
   let {
     latex = "",
     displayMode = false,
+    align,
     onConfirm,
     onCancel,
     t = defaultTranslator,
   }: {
     latex?: string;
     displayMode?: boolean;
+    /** 수식 블록 정렬. `undefined` 면 정렬을 고를 수 없는 자리라 버튼을 숨긴다. */
+    align?: MathAlign;
     /** 빈 문자열로 확인하면 호출부가 노드를 지운다(편집 중일 때). */
-    onConfirm: (value: string) => void;
+    onConfirm: (value: string, align?: MathAlign) => void;
     onCancel: () => void;
     /** 에디터 UI 번역 함수. 미주입 시 ko. */
     t?: EditorTranslator;
   } = $props();
 
   let value = $state(latex);
+  let selectedAlign = $state<MathAlign>(align ?? "center");
+  const ALIGNS = [
+    { value: "left", icon: AlignLeft, label: "alignLeft" },
+    { value: "center", icon: AlignCenter, label: "alignCenter" },
+    { value: "right", icon: AlignRight, label: "alignRight" },
+  ] as const satisfies readonly { value: MathAlign; icon: unknown; label: EditorMessageKey }[];
   let inputEl: HTMLTextAreaElement | undefined = $state();
 
   const preview = $derived.by(() => {
@@ -69,7 +79,7 @@
   });
 
   function handleSubmit() {
-    onConfirm(value.trim());
+    onConfirm(value.trim(), align === undefined ? undefined : selectedAlign);
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -208,9 +218,30 @@
       (빌드된 CSS 에 규칙이 아예 없다 — 실제로 확인했다). `.claude/rules/rich-editor.md` 대로
       `color-mix` 를 인라인으로 준다. `editor.css` 의 `.hce-active` 가 같은 이유로 같은 처방을 쓴다.
     -->
+    <!--
+      정렬은 수식 블록에서만. 미리보기도 같은 쪽으로 붙여 고른 결과를 바로 보여 준다.
+    -->
+    {#if align !== undefined}
+      <div class="hce-math-align mt-3" role="group">
+        {#each ALIGNS as item}
+          <button
+            type="button"
+            class="hce-math-align-btn"
+            class:hce-math-align-on={selectedAlign === item.value}
+            title={t(item.label)}
+            aria-label={t(item.label)}
+            aria-pressed={selectedAlign === item.value}
+            onclick={() => (selectedAlign = item.value)}
+          >
+            <item.icon size={14} />
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     <div
-      class="hce-math-preview mt-3 min-h-[52px] flex items-center justify-center rounded-md border border-border px-3 py-2 overflow-x-auto"
-      style="background-color: color-mix(in srgb, var(--muted) 40%, transparent)"
+      class="hce-math-preview mt-3 min-h-[52px] flex items-center rounded-md border border-border px-3 py-2 overflow-x-auto"
+      style="background-color: color-mix(in srgb, var(--muted) 40%, transparent); justify-content: {align === undefined || selectedAlign === 'center' ? 'center' : selectedAlign === 'left' ? 'flex-start' : 'flex-end'}"
     >
       {#if preview.error}
         <span class="text-xs text-destructive break-all">{preview.error}</span>
@@ -310,6 +341,43 @@
 			background-color 0.12s,
 			color 0.12s,
 			border-color 0.12s;
+	}
+
+	/* 정렬 버튼 셋 — 기호 버튼과 같은 판, 고른 것만 강조색. */
+	.hce-math-align {
+		display: inline-flex;
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+	}
+
+	.hce-math-align-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 24px;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--muted-foreground);
+		cursor: pointer;
+	}
+
+	.hce-math-align-btn:hover {
+		background: var(--muted);
+		color: var(--foreground);
+	}
+
+	.hce-math-align-btn.hce-math-align-on {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		color: var(--primary);
+	}
+
+	/* KaTeX 는 `.katex-display` 를 가운데로 못박는다 — 바깥 flex 정렬을 따르게 너비를 내용에 맞춘다. */
+	.hce-math-preview :global(.katex-display) {
+		margin: 0;
 	}
 
 	.hce-math-sym:hover {

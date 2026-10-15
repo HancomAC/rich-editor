@@ -16,7 +16,7 @@ export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
 export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
-export type { MathPrompt, MathOptions } from "./extensions/Math";
+export type { MathPrompt, MathPromptResult, MathAlign, MathOptions } from "./extensions/Math";
 export { UploadSkeleton, insertUploadSkeleton, UPLOAD_SKELETON_NODE } from "./extensions/UploadSkeleton";
 export type { UploadSkeletonHandle, UploadSkeletonKind, InsertUploadSkeletonOptions } from "./extensions/UploadSkeleton";
 export { MediaResizeToolbar, applyMediaToolbarAction } from "./extensions/MediaToolbar";

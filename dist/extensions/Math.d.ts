@@ -31,8 +31,21 @@
  * 호스트가 `promptMath`를 안 주면 `window.prompt`로 떨어진다.
  */
 import { Node } from "@tiptap/core";
-/** 현재 LaTeX 원문을 받아 새 값(취소면 null)을 돌려주는 호스트 훅. */
-export type MathPrompt = (latex: string, displayMode: boolean) => Promise<string | null>;
+/** 수식 블록 정렬. 가운데가 기본이라 저장할 때는 `null` 로 둔다. */
+export type MathAlign = "left" | "center" | "right";
+/** 프롬프트 결과. 정렬을 고를 수 없는 호스트는 문자열만 돌려줘도 된다. */
+export interface MathPromptResult {
+    latex: string;
+    /** `undefined` 면 정렬을 건드리지 않는다. */
+    align?: MathAlign;
+}
+/**
+ * 현재 LaTeX 원문을 받아 새 값(취소면 null)을 돌려주는 호스트 훅.
+ * `align` 은 정렬을 고를 수 있을 때(수식 블록 + `TextAlign` 확장)만 넘어온다 — `undefined`
+ * 면 정렬 UI 를 숨긴다. 수식을 클릭하면 이 프롬프트가 바로 떠서 툴바 정렬 버튼까지 가기
+ * 어려웠다(사용자 지적). 그래서 프롬프트 안에서 고르게 한다.
+ */
+export type MathPrompt = (latex: string, displayMode: boolean, align?: MathAlign) => Promise<string | MathPromptResult | null>;
 export interface MathOptions {
     HTMLAttributes: Record<string, unknown>;
     promptMath: MathPrompt | null;
@@ -47,7 +60,9 @@ declare module "@tiptap/core" {
             promptMathInline: () => ReturnType;
         };
         mathDisplay: {
-            insertMathDisplay: (latex: string) => ReturnType;
+            insertMathDisplay: (latex: string, options?: {
+                align?: MathAlign;
+            }) => ReturnType;
             /** 프롬프트를 띄워 수식 블록을 새로 넣는다. */
             promptMathDisplay: () => ReturnType;
         };

@@ -94,34 +94,51 @@ function getPrompt(editor) {
     const display = storage[DISPLAY_NAME];
     return inline?.promptMath ?? display?.promptMath ?? null;
 }
-async function askMath(editor, current, displayMode) {
+async function askMath(editor, current, displayMode, align) {
     const prompt = getPrompt(editor);
-    if (prompt)
-        return prompt(current, displayMode);
+    if (prompt) {
+        const result = await prompt(current, displayMode, align);
+        if (result == null)
+            return null;
+        return typeof result === "string" ? { latex: result } : result;
+    }
     const t = getEditorTranslator(editor);
-    return window.prompt(t(displayMode ? "mathPromptDisplay" : "mathPromptInline"), current);
+    const latex = window.prompt(t(displayMode ? "mathPromptDisplay" : "mathPromptInline"), current);
+    return latex == null ? null : { latex };
+}
+/** 정렬을 고를 수 있으면 지금 값(없으면 가운데), 없으면 `undefined`. */
+function alignChoice(editor, displayMode, stored) {
+    if (!displayMode)
+        return undefined;
+    if (!editor.schema.nodes[DISPLAY_NAME]?.spec.attrs?.textAlign)
+        return undefined;
+    return stored === "left" || stored === "right" ? stored : "center";
+}
+/** 가운데는 기본값이라 속성으로 남기지 않는다 — 저장 HTML 이 예전과 같게 유지된다. */
+function storedAlign(align) {
+    return align === "center" ? null : align;
 }
 /** 프롬프트를 띄워 새 수식을 넣는다. 취소·빈 입력이면 아무것도 하지 않는다. */
 async function promptInsert(editor, displayMode) {
-    const next = await askMath(editor, "", displayMode);
-    const latex = next?.trim();
+    const next = await askMath(editor, "", displayMode, alignChoice(editor, displayMode));
+    const latex = next?.latex.trim();
     if (!latex) {
         editor.commands.focus();
         return;
     }
     if (displayMode)
-        editor.chain().focus().insertMathDisplay(latex).run();
+        editor.chain().focus().insertMathDisplay(latex, { align: next?.align }).run();
     else
         editor.chain().focus().insertMathInline(latex).run();
 }
 /** 이미 있는 노드의 LaTeX를 고친다. 빈 값으로 확인하면 노드를 지운다. */
-async function promptEdit(editor, getPos, displayMode, currentLatex) {
-    const next = await askMath(editor, currentLatex, displayMode);
+async function promptEdit(editor, getPos, displayMode, currentLatex, currentAlign) {
+    const next = await askMath(editor, currentLatex, displayMode, alignChoice(editor, displayMode, currentAlign));
     if (next == null) {
         editor.commands.focus();
         return;
     }
-    const latex = next.trim();
+    const latex = next.latex.trim();
     const name = displayMode ? DISPLAY_NAME : INLINE_NAME;
     editor
         .chain()
@@ -139,7 +156,11 @@ async function promptEdit(editor, getPos, displayMode, currentLatex) {
             tr.delete(pos, to);
             return true;
         }
-        tr.replaceWith(pos, to, target.type.create(null, state.schema.text(latex)));
+        // ⚠️ 속성을 물려준다 — `create(null, …)` 로 새로 만들면 정렬이 매번 가운데로 돌아갔다.
+        const attrs = next.align === undefined
+            ? target.attrs
+            : { ...target.attrs, textAlign: storedAlign(next.align) };
+        tr.replaceWith(pos, to, target.type.create(attrs, state.schema.text(latex)));
         return true;
     })
         .run();
@@ -175,7 +196,7 @@ function buildNodeView(displayMode) {
             if (!editor.isEditable || editing)
                 return;
             editing = true;
-            void promptEdit(editor, getPos, displayMode, current.textContent).finally(() => {
+            void promptEdit(editor, getPos, displayMode, current.textContent, current.attrs.textAlign).finally(() => {
                 editing = false;
             });
         });
@@ -543,8 +564,9 @@ export const MathDisplay = Node.create({
     },
     addCommands() {
         return {
-            insertMathDisplay: (latex) => ({ commands }) => commands.insertContent({
+            insertMathDisplay: (latex, options) => ({ commands }) => commands.insertContent({
                 type: DISPLAY_NAME,
+                ...(options?.align ? { attrs: { textAlign: storedAlign(options.align) } } : {}),
                 content: [{ type: "text", text: latex }],
             }),
             promptMathDisplay: () => ({ editor }) => {
