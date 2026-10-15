@@ -201,6 +201,20 @@ describe('sanitizeHtml', () => {
             '</div>';
         expect(sanitizeHtml(input)).toBe(input);
     });
+    /*
+     * 문단·제목·수식 블록의 정렬은 `style="text-align: …"` 로 저장된다. 지워지면 읽기 화면에서만
+     * 전부 왼쪽(수식 블록은 가운데)으로 돌아간다.
+     */
+    it('keeps only the text-align declaration on aligned blocks', () => {
+        expect(sanitizeHtml('<p style="text-align: right">a</p>' +
+            '<h2 style="text-align: center">b</h2>' +
+            '<math-display class="math-node" style="text-align: left">x</math-display>')).toBe('<p style="text-align: right">a</p>' +
+            '<h2 style="text-align: center">b</h2>' +
+            '<math-display class="math-node" style="text-align: left">x</math-display>');
+        expect(sanitizeHtml('<p style="color: red; text-align: justify">a</p>')).toBe('<p style="text-align: justify">a</p>');
+        expect(sanitizeHtml('<p style="background: url(javascript:alert(1)); position: fixed">a</p>')).toBe('<p>a</p>');
+        expect(sanitizeHtml('<span style="text-align: right">a</span>')).toBe('<span>a</span>');
+    });
 });
 describe('stripHtmlToExcerpt', () => {
     it('strips all HTML tags', () => {

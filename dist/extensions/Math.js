@@ -185,6 +185,9 @@ function buildNodeView(displayMode) {
             update: (updated) => {
                 if (updated.type.name !== current.type.name)
                     return false;
+                // 속성(정렬 등)이 바뀌면 바깥 태그를 다시 세워야 한다 — 여기선 안만 다시 그린다.
+                if (!sameAttrs(updated.attrs, current.attrs))
+                    return false;
                 current = updated;
                 paint();
                 return true;
@@ -193,6 +196,13 @@ function buildNodeView(displayMode) {
             ignoreMutation: () => true,
         };
     };
+}
+function sameAttrs(a, b) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const key of keys)
+        if (a[key] !== b[key])
+            return false;
+    return true;
 }
 /* -------------------------------------------------------------------------- */
 /* 붙여넣기 변환 — 구세대 `plugin/mathPaste.js` 이식                              */

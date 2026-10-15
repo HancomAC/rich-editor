@@ -270,6 +270,22 @@
 	}
 
 	/*
+	 * ⚠️ 글자색을 패널이 직접 정한다. 이 패키지는 Tailwind preflight 를 끄고 쓰므로
+	 * `textarea`·`button` 은 브라우저 기본색(fieldtext·buttontext — `color-scheme` 이 없으면
+	 * 검정)을 받고, 미리보기(KaTeX)는 모달이 놓인 자리의 색을 물려받는다. 호스트가 그걸
+	 * 전역으로 맞춰 주지 않는 화면에서는 다크 판 위에 검은 글자가 앉아 안 보였다.
+	 * 입력칸·버튼은 특이도 0 인 `:where` 로 상속만 걸어, 확인 버튼(`.hce-btn-primary`)과
+	 * 기호 버튼처럼 자기 색을 가진 쪽은 그대로 이긴다.
+	 */
+	.hce-math-panel {
+		color: var(--foreground);
+	}
+
+	:where(.hce-math-panel) :where(textarea, button) {
+		color: inherit;
+	}
+
+	/*
 	 * 기호 버튼. 스무 개가 두 줄로 앉으므로 **작고 조용해야** 한다 — 입력창보다 눈에 띄면
 	 * 무엇이 본체인지 흐려진다.
 	 *

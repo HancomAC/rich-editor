@@ -748,7 +748,8 @@
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
         }),
         Underline,
-        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        // 수식 블록도 정렬한다 — 선택지처럼 수식 하나뿐인 칸이 가운데에 묶여 있었다.
+        TextAlign.configure({ types: ["heading", "paragraph", "math_display"] }),
         TextStyle,
         Color,
         HighlightExt.configure({ multicolor: true }),

@@ -874,6 +874,15 @@
   }
 
   /*
+   * 툴바가 여는 모달(영상 URL 등 `InputModal`)은 툴바 **안에** 렌더되어 위 리셋을 맞는다.
+   * 리셋(0,2,1)이 `.hce-btn-primary`(0,2,0)를 이겨 확인 버튼이 바탕 없는 글자로 내려앉았다.
+   */
+  .hce-toolbar :global(button.hce-btn-primary) {
+    background-color: var(--primary);
+    color: var(--primary-foreground, #fff);
+  }
+
+  /*
    * ── 활성 표시 ──────────────────────────────────────────────────────────
    * ⚠️ **이 규칙은 반드시 위 리셋보다 구체적이어야 한다.** 바로 위
    * `.hce-toolbar :global(button)` 이 `background: transparent; color: inherit` 을 걸어
