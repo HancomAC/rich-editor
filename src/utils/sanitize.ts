@@ -155,6 +155,15 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
   "*": new Set(["class", "id"]),
 };
 
+/*
+ * 문단 정렬(`TextAlign`)은 `style="text-align: …"` 로 저장된다. 이 태그들에 `style` 을 통째로
+ * 열면 아무 CSS 나 통과하므로 **`text-align` 한 선언만** 골라 다시 쓴다. 예전엔 여기 아무것도
+ * 없어서 정렬이 정적 렌더(읽기 화면)에서만 조용히 지워져 전부 왼쪽으로 돌아갔다.
+ * 수식 블록(`math-display`)도 같은 확장으로 정렬하므로 함께 둔다.
+ */
+const TEXT_ALIGN_TAGS = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "math-display"]);
+const TEXT_ALIGN_PATTERN = /(?:^|;)\s*text-align\s*:\s*(left|center|right|justify)\s*(?:;|$)/i;
+
 const SAFE_URL_PATTERN = /^(?:https?:\/\/|\/[\w])/i;
 
 export function sanitizeHtml(html: string): string {
@@ -221,6 +230,11 @@ function sanitizeAttributes(tag: string, attrString: string): string {
     const value = decodeEntities(m[2] ?? m[3] ?? m[4] ?? "");
 
     if (name.startsWith("on")) continue;
+    if (name === "style" && TEXT_ALIGN_TAGS.has(tag) && !allowedForTag.has(name)) {
+      const align = TEXT_ALIGN_PATTERN.exec(value)?.[1]?.toLowerCase();
+      if (align) result.push(` style="text-align: ${align}"`);
+      continue;
+    }
     if (!allowedForTag.has(name) && !allowedGlobal.has(name)) continue;
     if ((name === "href" || name === "src") && !SAFE_URL_PATTERN.test(value)) {
       continue;
