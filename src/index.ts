@@ -45,7 +45,7 @@ export { Columns } from "./extensions/Columns";
 export { Column } from "./extensions/Column";
 export { TabsBlock, Tab } from "./extensions/TabsBlock";
 export { MathInline, MathDisplay } from "./extensions/Math";
-export type { MathPrompt, MathOptions } from "./extensions/Math";
+export type { MathPrompt, MathPromptResult, MathAlign, MathOptions } from "./extensions/Math";
 /*
  * 업로드 스켈레톤·미디어 툴바. 둘 다 순수 vanilla(DOM + ProseMirror)라 lucide 같은
  * 무거운 그래프를 끌지 않는다 — 위 지연 로딩 경고와 무관하다.

@@ -222,7 +222,7 @@
   import { TiptapMidibus, type MidibusRenderer } from "../extensions/TiptapMidibus";
   import { LegacyBlock, type LegacyBlockRenderer } from "../extensions/LegacyBlock";
   import { CardBlock } from "../extensions/CardBlock";
-  import { MathInline, MathDisplay, type MathPrompt } from "../extensions/Math";
+  import { MathInline, MathDisplay, type MathAlign, type MathPrompt, type MathPromptResult } from "../extensions/Math";
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import { createTranslator, EditorI18n, type EditorLocaleInput } from "../i18n";
@@ -349,17 +349,18 @@
   let mathPrompt = $state<{
     latex: string;
     displayMode: boolean;
-    resolve: (value: string | null) => void;
+    align?: MathAlign;
+    resolve: (value: MathPromptResult | null) => void;
   } | null>(null);
 
-  const promptMath: MathPrompt = (latex, displayMode) => {
-    if (onPromptMath) return onPromptMath(latex, displayMode);
-    return new Promise<string | null>((resolve) => {
-      mathPrompt = { latex, displayMode, resolve };
+  const promptMath: MathPrompt = (latex, displayMode, align) => {
+    if (onPromptMath) return onPromptMath(latex, displayMode, align);
+    return new Promise<MathPromptResult | null>((resolve) => {
+      mathPrompt = { latex, displayMode, align, resolve };
     });
   };
 
-  function closeMathPrompt(value: string | null) {
+  function closeMathPrompt(value: MathPromptResult | null) {
     const pending = mathPrompt;
     mathPrompt = null;
     pending?.resolve(value);
@@ -1158,7 +1159,8 @@
 				latex={mathPrompt.latex}
 				{t}
 				displayMode={mathPrompt.displayMode}
-				onConfirm={(value) => closeMathPrompt(value)}
+				align={mathPrompt.align}
+				onConfirm={(value, align) => closeMathPrompt({ latex: value, align })}
 				onCancel={() => closeMathPrompt(null)}
 			/>
 		{/if}

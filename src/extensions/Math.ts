@@ -36,8 +36,27 @@ import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/s
 import katex from "katex";
 import { getEditorTranslator } from "../i18n";
 
-/** 현재 LaTeX 원문을 받아 새 값(취소면 null)을 돌려주는 호스트 훅. */
-export type MathPrompt = (latex: string, displayMode: boolean) => Promise<string | null>;
+/** 수식 블록 정렬. 가운데가 기본이라 저장할 때는 `null` 로 둔다. */
+export type MathAlign = "left" | "center" | "right";
+
+/** 프롬프트 결과. 정렬을 고를 수 없는 호스트는 문자열만 돌려줘도 된다. */
+export interface MathPromptResult {
+  latex: string;
+  /** `undefined` 면 정렬을 건드리지 않는다. */
+  align?: MathAlign;
+}
+
+/**
+ * 현재 LaTeX 원문을 받아 새 값(취소면 null)을 돌려주는 호스트 훅.
+ * `align` 은 정렬을 고를 수 있을 때(수식 블록 + `TextAlign` 확장)만 넘어온다 — `undefined`
+ * 면 정렬 UI 를 숨긴다. 수식을 클릭하면 이 프롬프트가 바로 떠서 툴바 정렬 버튼까지 가기
+ * 어려웠다(사용자 지적). 그래서 프롬프트 안에서 고르게 한다.
+ */
+export type MathPrompt = (
+  latex: string,
+  displayMode: boolean,
+  align?: MathAlign,
+) => Promise<string | MathPromptResult | null>;
 
 export interface MathOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -54,7 +73,7 @@ declare module "@tiptap/core" {
       promptMathInline: () => ReturnType;
     };
     mathDisplay: {
-      insertMathDisplay: (latex: string) => ReturnType;
+      insertMathDisplay: (latex: string, options?: { align?: MathAlign }) => ReturnType;
       /** 프롬프트를 띄워 수식 블록을 새로 넣는다. */
       promptMathDisplay: () => ReturnType;
     };
@@ -135,22 +154,40 @@ async function askMath(
   editor: Editor,
   current: string,
   displayMode: boolean,
-): Promise<string | null> {
+  align?: MathAlign,
+): Promise<MathPromptResult | null> {
   const prompt = getPrompt(editor);
-  if (prompt) return prompt(current, displayMode);
+  if (prompt) {
+    const result = await prompt(current, displayMode, align);
+    if (result == null) return null;
+    return typeof result === "string" ? { latex: result } : result;
+  }
   const t = getEditorTranslator(editor);
-  return window.prompt(t(displayMode ? "mathPromptDisplay" : "mathPromptInline"), current);
+  const latex = window.prompt(t(displayMode ? "mathPromptDisplay" : "mathPromptInline"), current);
+  return latex == null ? null : { latex };
+}
+
+/** 정렬을 고를 수 있으면 지금 값(없으면 가운데), 없으면 `undefined`. */
+function alignChoice(editor: Editor, displayMode: boolean, stored?: unknown): MathAlign | undefined {
+  if (!displayMode) return undefined;
+  if (!editor.schema.nodes[DISPLAY_NAME]?.spec.attrs?.textAlign) return undefined;
+  return stored === "left" || stored === "right" ? stored : "center";
+}
+
+/** 가운데는 기본값이라 속성으로 남기지 않는다 — 저장 HTML 이 예전과 같게 유지된다. */
+function storedAlign(align: MathAlign): MathAlign | null {
+  return align === "center" ? null : align;
 }
 
 /** 프롬프트를 띄워 새 수식을 넣는다. 취소·빈 입력이면 아무것도 하지 않는다. */
 async function promptInsert(editor: Editor, displayMode: boolean): Promise<void> {
-  const next = await askMath(editor, "", displayMode);
-  const latex = next?.trim();
+  const next = await askMath(editor, "", displayMode, alignChoice(editor, displayMode));
+  const latex = next?.latex.trim();
   if (!latex) {
     editor.commands.focus();
     return;
   }
-  if (displayMode) editor.chain().focus().insertMathDisplay(latex).run();
+  if (displayMode) editor.chain().focus().insertMathDisplay(latex, { align: next?.align }).run();
   else editor.chain().focus().insertMathInline(latex).run();
 }
 
@@ -160,13 +197,19 @@ async function promptEdit(
   getPos: () => number | undefined,
   displayMode: boolean,
   currentLatex: string,
+  currentAlign?: unknown,
 ): Promise<void> {
-  const next = await askMath(editor, currentLatex, displayMode);
+  const next = await askMath(
+    editor,
+    currentLatex,
+    displayMode,
+    alignChoice(editor, displayMode, currentAlign),
+  );
   if (next == null) {
     editor.commands.focus();
     return;
   }
-  const latex = next.trim();
+  const latex = next.latex.trim();
   const name = displayMode ? DISPLAY_NAME : INLINE_NAME;
 
   editor
@@ -183,7 +226,12 @@ async function promptEdit(
         tr.delete(pos, to);
         return true;
       }
-      tr.replaceWith(pos, to, target.type.create(null, state.schema.text(latex)));
+      // ⚠️ 속성을 물려준다 — `create(null, …)` 로 새로 만들면 정렬이 매번 가운데로 돌아갔다.
+      const attrs =
+        next.align === undefined
+          ? target.attrs
+          : { ...target.attrs, textAlign: storedAlign(next.align) };
+      tr.replaceWith(pos, to, target.type.create(attrs, state.schema.text(latex)));
       return true;
     })
     .run();
@@ -231,7 +279,7 @@ function buildNodeView(displayMode: boolean) {
     dom.addEventListener("click", () => {
       if (!editor.isEditable || editing) return;
       editing = true;
-      void promptEdit(editor, getPos, displayMode, current.textContent).finally(() => {
+      void promptEdit(editor, getPos, displayMode, current.textContent, current.attrs.textAlign).finally(() => {
         editing = false;
       });
     });
@@ -644,10 +692,11 @@ export const MathDisplay = Node.create<MathOptions>({
   addCommands() {
     return {
       insertMathDisplay:
-        (latex: string) =>
+        (latex: string, options?: { align?: MathAlign }) =>
         ({ commands }) =>
           commands.insertContent({
             type: DISPLAY_NAME,
+            ...(options?.align ? { attrs: { textAlign: storedAlign(options.align) } } : {}),
             content: [{ type: "text", text: latex }],
           }),
 
