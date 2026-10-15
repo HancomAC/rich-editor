@@ -1953,6 +1953,15 @@ math-display.math-node {
 	text-align: center;
 }
 
+/* 정렬은 바깥 태그(`style="text-align: …"`)가 정한다. KaTeX 기본 CSS 는 `.katex-display`
+   와 그 안의 `.katex` 를 가운데로 못박으므로 바깥 값을 물려받게 푼다. */
+.tiptap math-display .katex-display,
+.tiptap math-display .katex-display > .katex,
+math-display.math-node .katex-display,
+math-display.math-node .katex-display > .katex {
+	text-align: inherit;
+}
+
 /*
  * ⚠️ **크기 보정. 빼면 수식이 본문보다 21% 커진다.**
  *

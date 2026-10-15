@@ -242,6 +242,8 @@ function buildNodeView(displayMode: boolean) {
       dom,
       update: (updated: PMNode) => {
         if (updated.type.name !== current.type.name) return false;
+        // 속성(정렬 등)이 바뀌면 바깥 태그를 다시 세워야 한다 — 여기선 안만 다시 그린다.
+        if (!sameAttrs(updated.attrs, current.attrs)) return false;
         current = updated;
         paint();
         return true;
@@ -250,6 +252,12 @@ function buildNodeView(displayMode: boolean) {
       ignoreMutation: () => true,
     };
   };
+}
+
+function sameAttrs(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) if (a[key] !== b[key]) return false;
+  return true;
 }
 
 /* -------------------------------------------------------------------------- */
