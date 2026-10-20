@@ -10,6 +10,12 @@ on:
       - "**/*.test.ts"
       - "vitest.config.ts"
   workflow_dispatch:
+    inputs:
+      update_downstream:
+        description: "Publish and also update downstream applications"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: publish
@@ -36,8 +42,8 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "teriusu"
+          git config user.email "ilbbke@gmail.com"
           LOCAL=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view @teriusu/rich-editor version 2>/dev/null || echo "0.0.0")
           echo "Local: $LOCAL, Published: $PUBLISHED"
@@ -84,6 +90,7 @@ jobs:
             --generate-notes
 
       - name: Trigger downstream updates
+        if: github.event_name == 'workflow_dispatch' && inputs.update_downstream
         run: |
           dispatch() {
             local REPO="$1"
