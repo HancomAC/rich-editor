@@ -31,6 +31,7 @@
  * 호스트가 `promptMath`를 안 주면 `window.prompt`로 떨어진다.
  */
 import { InputRule, Node, mergeAttributes, type Editor } from "@tiptap/core";
+import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode, type NodeType } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import katex from "katex";
@@ -223,7 +224,8 @@ async function promptEdit(
       if (!target || target.type.name !== name) return false;
       const to = pos + target.nodeSize;
       if (!latex) {
-        tr.delete(pos, to);
+        // 직전 삽입과 삭제가 같은 undo 묶음이 되면 수식이 복구되지 않는다.
+        closeHistory(tr).delete(pos, to);
         return true;
       }
       // ⚠️ 속성을 물려준다 — `create(null, …)` 로 새로 만들면 정렬이 매번 가운데로 돌아갔다.

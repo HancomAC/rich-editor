@@ -9,7 +9,7 @@
    * 렌더는 편집기 NodeView 와 같은 KaTeX 옵션(`throwOnError:false`)을 쓴다. 그래서
    * 여기서 보이는 모양이 곧 본문에 들어갈 모양이다.
    */
-  import { AlignCenter, AlignLeft, AlignRight, X } from "lucide-svelte";
+  import { AlignCenter, AlignLeft, AlignRight, Trash2, X } from "lucide-svelte";
   import katex from "katex";
   import { defaultTranslator, type EditorMessageKey, type EditorTranslator } from "../i18n";
   import type { MathAlign } from "../extensions/Math";
@@ -254,9 +254,19 @@
       {/if}
     </div>
 
-    <div class="hce-math-actions flex items-center justify-between gap-2 mt-4">
-      <span class="text-[11px] text-muted-foreground">{t('mathConfirmHint')}</span>
-      <div class="flex gap-2">
+    <div class="mt-4 text-[11px] text-muted-foreground">{t('mathConfirmHint')}</div>
+    <div class="hce-math-actions flex items-center justify-between gap-2 mt-2">
+      {#if latex.trim()}
+        <button
+          type="button"
+          class="hce-math-delete"
+          onclick={() => onConfirm('')}
+        >
+          <Trash2 size={14} />
+          {t('delete')}
+        </button>
+      {/if}
+      <div class="flex gap-2" style="margin-left: auto">
         <button
           type="button"
           class="px-3.5 py-1.5 text-sm rounded-md border border-border hover:bg-muted transition-colors"
@@ -298,6 +308,24 @@
 
 	.hce-math-panel textarea {
 		max-width: 100%;
+	}
+
+	.hce-math-delete {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 6px 8px;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--error-text, color-mix(in srgb, var(--destructive, #dc2626) 65%, var(--foreground) 35%));
+		font-size: 14px;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.hce-math-delete:hover {
+		background: color-mix(in srgb, var(--destructive, #dc2626) 10%, transparent);
 	}
 
 	/*
