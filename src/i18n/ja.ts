@@ -129,6 +129,9 @@ export const ja: EditorMessages = {
 	imageUrlTitle: '画像URLを入力',
 
 	tableEdit: '表を編集',
+	scrollTable: '表を左右にスクロール',
+	scrollTableLeft: '表を左にスクロール',
+	scrollTableRight: '表を右にスクロール',
 	rowAddAbove: '上に行を追加',
 	rowAddBelow: '下に行を追加',
 	colAddLeft: '左に列を追加',

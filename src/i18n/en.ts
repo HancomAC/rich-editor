@@ -129,6 +129,9 @@ export const en: EditorMessages = {
 	imageUrlTitle: 'Enter image URL',
 
 	tableEdit: 'Edit table',
+	scrollTable: 'Scroll table horizontally',
+	scrollTableLeft: 'Scroll table left',
+	scrollTableRight: 'Scroll table right',
 	rowAddAbove: 'Add row above',
 	rowAddBelow: 'Add row below',
 	colAddLeft: 'Add column left',

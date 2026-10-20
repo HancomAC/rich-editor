@@ -118,6 +118,9 @@ export declare const ko: {
     fileEmbed: string;
     imageUrlTitle: string;
     tableEdit: string;
+    scrollTable: string;
+    scrollTableLeft: string;
+    scrollTableRight: string;
     rowAddAbove: string;
     rowAddBelow: string;
     colAddLeft: string;

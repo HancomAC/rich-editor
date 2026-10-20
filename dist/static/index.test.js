@@ -200,3 +200,44 @@ describe('sanitize 유틸 재수출', () => {
         expect(stripHtmlToExcerpt('<p>hello world</p>')).toBe('hello world');
     });
 });
+describe('renderStaticHtml — 정적 표 스크롤 래퍼', () => {
+    const table = '<table style="width:900px"><tbody><tr><td><p>A</p></td></tr></tbody></table>';
+    const wrapped = `<div class="tableWrapper">${table}</div>`;
+    const options = { wrapTables: true };
+    it('옵트인하지 않은 기존 표 출력은 바꾸지 않는다', () => {
+        expect(renderStaticHtml(table)).toBe(table);
+    });
+    it('표만 있는 문서와 표가 맨 앞·맨 끝인 문서의 경계를 SSR에서 감싼다', () => {
+        expect(renderStaticHtml(table, options)).toBe(wrapped);
+        expect(renderStaticHtml(`${table}<p>after</p>`, options)).toBe(`${wrapped}<p>after</p>`);
+        expect(renderStaticHtml(`<p>before</p>${table}`, options)).toBe(`<p>before</p>${wrapped}`);
+    });
+    it('중첩 표와 기존 래퍼는 중복으로 감싸지 않고 다시 처리해도 같다', () => {
+        const nested = `<table><tbody><tr><td>${table}</td></tr></tbody></table>`;
+        const result = renderStaticHtml(nested, options);
+        expect(result.match(/class="tableWrapper"/g)).toHaveLength(2);
+        expect(renderStaticHtml(result, options)).toBe(result);
+        const existing = `<div class="tableWrapper extra">${table}</div>`;
+        expect(renderStaticHtml(existing, options)).toBe(existing);
+    });
+    it('colwidth만 저장된 병합 셀의 열 너비와 합계를 복원한다', () => {
+        const input = '<table><tbody><tr><th colspan="2" colwidth="110,130">A</th><th colwidth="160">B</th></tr></tbody></table>';
+        const result = renderStaticHtml(input, options);
+        expect(result).toContain('<table style="width:400px">');
+        expect(result).toContain('<colgroup><col style="width:110px"><col style="width:130px"><col style="width:160px"></colgroup>');
+        expect(result).toContain('<th colspan="2" colwidth="110,130">A</th>');
+        expect(renderStaticHtml(result, options)).toBe(result);
+    });
+    it('명시한 총너비를 보존하면서 누락된 열 비율만 복원한다', () => {
+        const input = '<table style="color:red;width:200px"><tbody><tr><td colwidth="100">A</td><td colwidth="300">B</td></tr></tbody></table>';
+        const result = renderStaticHtml(input, options);
+        expect(result).toContain('<table style="color:red;width:200px">');
+        expect(result).toContain('<colgroup><col style="width:25%"><col style="width:75%"></colgroup>');
+    });
+    it('기존 colgroup은 보존하고 불완전한 저장 너비는 추측하지 않는다', () => {
+        const cols = '<table><colgroup><col style="width:120px"></colgroup><tbody><tr><td colwidth="120">A</td></tr></tbody></table>';
+        expect(renderStaticHtml(cols, options)).toBe(`<div class="tableWrapper">${cols}</div>`);
+        const invalid = '<table><tbody><tr><td colspan="2" colwidth="120">A</td></tr></tbody></table>';
+        expect(renderStaticHtml(invalid, options)).toBe(`<div class="tableWrapper">${invalid}</div>`);
+    });
+});

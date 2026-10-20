@@ -129,6 +129,9 @@ export const zhHans: EditorMessages = {
 	imageUrlTitle: '输入图片 URL',
 
 	tableEdit: '编辑表格',
+	scrollTable: '横向滚动表格',
+	scrollTableLeft: '向左滚动表格',
+	scrollTableRight: '向右滚动表格',
 	rowAddAbove: '在上方插入行',
 	rowAddBelow: '在下方插入行',
 	colAddLeft: '在左侧插入列',

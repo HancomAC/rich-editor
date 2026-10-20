@@ -130,6 +130,9 @@ export const zhHant: EditorMessages = {
 	imageUrlTitle: '輸入圖片 URL',
 
 	tableEdit: '編輯表格',
+	scrollTable: '水平捲動表格',
+	scrollTableLeft: '向左捲動表格',
+	scrollTableRight: '向右捲動表格',
 	rowAddAbove: '在上方插入列',
 	rowAddBelow: '在下方插入列',
 	colAddLeft: '在左側插入欄',

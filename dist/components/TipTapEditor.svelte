@@ -226,6 +226,7 @@
   import type { UploadHandler, PromptHandler, ToolbarMode, ToolbarFeature } from "../types";
   import { resolveFeatures } from "../types";
   import { createTranslator, EditorI18n, type EditorLocaleInput } from "../i18n";
+  import { attachTableScrollControls } from "../table-scroll";
   import type { FileResolver } from "../extensions/FileAttachment";
 
   let {
@@ -980,6 +981,17 @@
       | { editorI18n?: { t: typeof translator } }
       | undefined;
     if (storage?.editorI18n) storage.editorI18n.t = translator;
+  });
+
+  $effect(() => {
+    if (!editor) return;
+    return attachTableScrollControls(editor.view.dom, {
+      labels: {
+        scroll: t('scrollTable'),
+        left: t('scrollTableLeft'),
+        right: t('scrollTableRight')
+      }
+    });
   });
 
   // Scroll handler for slash menu position

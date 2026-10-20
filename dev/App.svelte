@@ -1,8 +1,12 @@
 <script lang="ts">
   import TipTapEditor from "../src/components/TipTapEditor.svelte";
+  import TablePreview from "./TablePreview.svelte";
+  import { SvelteSet } from 'svelte/reactivity';
   import { TOOLBAR_PRESETS, type ToolbarFeature, type ToolbarMode } from "../src/types";
   import { configurePdfJs } from "../src/utils/pdf";
   import "../src/styles/editor.css";
+
+  const tablePreview = new URLSearchParams(window.location.search).has('table-preview');
 
   configurePdfJs({
     pdfSrc: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs",
@@ -20,17 +24,15 @@
   let mode = $state<TestMode>('full');
 
   const ALL_FEATURES: ToolbarFeature[] = TOOLBAR_PRESETS.full;
-  let enabledFeatures = $state<Set<ToolbarFeature>>(new Set(ALL_FEATURES));
+  const enabledFeatures = new SvelteSet<ToolbarFeature>(ALL_FEATURES);
 
   function toggleFeature(f: ToolbarFeature) {
-    const next = new Set(enabledFeatures);
-    if (next.has(f)) next.delete(f);
-    else next.add(f);
-    enabledFeatures = next;
+    if (enabledFeatures.has(f)) enabledFeatures.delete(f);
+    else enabledFeatures.add(f);
   }
 
-  function selectAll() { enabledFeatures = new Set(ALL_FEATURES); }
-  function selectNone() { enabledFeatures = new Set(); }
+  function selectAll() { ALL_FEATURES.forEach((feature) => enabledFeatures.add(feature)); }
+  function selectNone() { enabledFeatures.clear(); }
 
   const currentFeatures = $derived<ToolbarFeature[] | undefined>(
     mode === 'custom' ? [...enabledFeatures] : undefined
@@ -51,11 +53,14 @@
   ];
 </script>
 
+{#if tablePreview}
+  <TablePreview />
+{:else}
 <h1>rich-editor features 테스트</h1>
 
 <nav class="tabs">
-  {#each ['full', 'standard', 'minimal', 'custom'] as m}
-    <button class:active={mode === m} onclick={() => (mode = m as TestMode)}>{m}</button>
+  {#each ['full', 'standard', 'minimal', 'custom'] as m (m)}
+    <button class={{ active: mode === m }} onclick={() => (mode = m as TestMode)}>{m}</button>
   {/each}
 </nav>
 
@@ -67,13 +72,12 @@
       <span class="badge">{enabledFeatures.size}/{ALL_FEATURES.length}</span>
     </div>
     <div class="groups">
-      {#each GROUPS as group}
+      {#each GROUPS as group (group.label)}
         <div class="group">
           <span class="group-label">{group.label}</span>
-          {#each group.items as f}
+          {#each group.items as f (f)}
             <button
-              class="chip"
-              class:on={enabledFeatures.has(f)}
+              class={['chip', { on: enabledFeatures.has(f) }]}
               onclick={() => toggleFeature(f)}
             >{f}</button>
           {/each}
@@ -99,6 +103,7 @@
   <summary>HTML 출력</summary>
   <pre>{html}</pre>
 </details>
+{/if}
 
 <style>
   .tabs {

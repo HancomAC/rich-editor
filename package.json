@@ -1,6 +1,6 @@
 {
   "name": "@teriusu/rich-editor",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "description": "TipTap 기반 Notion-style 리치 텍스트 에디터 (Svelte)",
   "type": "module",
   "svelte": "./dist/index.js",
@@ -19,6 +19,10 @@
     "./static": {
       "types": "./dist/static/index.d.ts",
       "default": "./dist/static/index.js"
+    },
+    "./table-scroll": {
+      "types": "./dist/table-scroll.d.ts",
+      "default": "./dist/table-scroll.js"
     },
     "./lowlight": {
       "types": "./dist/utils/lowlight.d.ts",

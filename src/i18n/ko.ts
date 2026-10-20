@@ -143,6 +143,9 @@ export const ko = {
 
 	// 표 버블 메뉴
 	tableEdit: '표 편집',
+	scrollTable: '표 가로 이동',
+	scrollTableLeft: '표 왼쪽으로 이동',
+	scrollTableRight: '표 오른쪽으로 이동',
 	rowAddAbove: '행 위에 추가',
 	rowAddBelow: '행 아래에 추가',
 	colAddLeft: '열 왼쪽에 추가',

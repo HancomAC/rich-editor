@@ -5,6 +5,8 @@ export interface RewriteAssetUrlContext {
     attr: string;
 }
 export interface RenderStaticHtmlOptions {
+    /** 정적 본문의 표를 스크롤 래퍼 안에 출력하고 누락된 저장 열 너비를 복원한다. */
+    wrapTables?: boolean;
     /**
      * 언어를 못 읽은 코드 블록에 쓸 언어. 확장이 보는 `attrs.language || defaultLanguage`와
      * 같은 자리다. **호출부가 정한다** — 어느 코드블록 확장이 실렸느냐로 값이 갈린다.

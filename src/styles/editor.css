@@ -83,9 +83,11 @@
   margin-top: 0;
 }
 
+/* 열 조절 위젯이 마지막에 붙어도 바로 앞 콘텐츠가 원래의 마지막 여백을 유지한다. */
 .tiptap > :last-child,
 .tiptap td > :last-child,
 .tiptap th > :last-child,
+.tiptap :is(td, th) > :has(+ .column-resize-handle:last-child),
 .tiptap li > :last-child,
 .tiptap blockquote > :last-child,
 .tiptap [data-type="detailsContent"] > :last-child,
@@ -102,7 +104,10 @@
   line-height: 1.5;
 }
 .tiptap p:first-child { margin-top: 0 !important; }
-.tiptap p:last-child { margin-bottom: 0 !important; }
+.tiptap p:last-child,
+.tiptap :is(td, th) > p:has(+ .column-resize-handle:last-child) {
+  margin-bottom: 0 !important;
+}
 
 /* 빈 단락 — 한 줄 분량 높이 확보.
    `<p></p>`는 inline 콘텐츠가 없어 브라우저가 0 높이로 collapse. min-height로 한 줄 보장.
@@ -1154,7 +1159,18 @@
 
 .tiptap .tableWrapper {
   overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior-x: contain;
+  margin: 1em 0;
+  padding-right: 4px; /* resize handle이 잘리지 않도록 */
+}
+
+.tiptap .tableWrapper > table {
+  max-width: none;
 }
 
 .tiptap th,
@@ -1222,14 +1238,6 @@
 
 .tiptap.resize-cursor {
   cursor: col-resize;
-}
-
-.tableWrapper {
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin: 1em 0;
-  max-width: 100%;
-  padding-right: 4px; /* resize handle이 잘리지 않도록 */
 }
 
 /* 테이블 셀 내부 prosemirror 기본 컨트롤 숨기기 */
@@ -1414,8 +1422,9 @@
  * 그래서 **폭과 배치를 CSS 로 못 박는다** — 언제 재든 항상 실제 판 크기로 재게. 인라인
  * 스타일이 같은 값을 다시 써도 무해하다.
  *
- * 표 메뉴(`.hce-table-bubble`)는 해당 없다 — 그쪽은 floating-ui 가 아니라 자기가 표 폭을
- * 재서 `width: <표폭>px` 를 인라인으로 박고 안쪽 판을 `mx-auto` 로 가운데 둔다.
+ * 표 메뉴(`.hce-table-bubble`)는 별도로 배치한다. 표·편집창·조상 스크롤 영역이 겹치는
+ * 실제 보이는 범위를 재고, 고정 상단 영역 아래의 뷰포트 좌표에 `position: fixed`로 놓는다.
+ * 메뉴 폭도 그 범위로 제한하므로 가로로 긴 표가 페이지 전체를 넓히지 않는다.
  */
 .bubble-toolbar-container {
   position: absolute;

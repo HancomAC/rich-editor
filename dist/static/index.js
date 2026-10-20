@@ -42,9 +42,10 @@ export function renderStaticHtml(html, options = {}) {
     const hasMath = /<math-(?:inline|display)[\s>]/i.test(html);
     // `\stype` — 공백 뒤의 진짜 `type` 속성만. `data-type=`(하이픈 뒤)은 `\s`에 안 걸린다.
     const hasTypedOl = /<ol[^>]*\stype\s*=/i.test(html);
+    const hasTable = !!options.wrapTables && /<table[\s>]/i.test(html);
     const rewrite = options.rewriteAssetUrl;
     const hasAssetAttr = !!rewrite && /\b(?:src|srcset|href|style|background)\s*=/i.test(html);
-    if (!hasCodeBlock && !hasTagGapNewline && !hasMath && !hasTypedOl && !hasAssetAttr)
+    if (!hasCodeBlock && !hasTagGapNewline && !hasMath && !hasTypedOl && !hasAssetAttr && !hasTable)
         return html;
     const root = parseHtml(html);
     let touched = false;
@@ -58,7 +59,83 @@ export function renderStaticHtml(html, options = {}) {
         touched = annotateOrderedListMarkers(root) || touched;
     if (rewrite && hasAssetAttr)
         touched = rewriteAssetUrls(root, rewrite) || touched;
+    if (hasTable)
+        touched = wrapStaticTables(root) || touched;
     return touched ? serializeHtml(root) : html;
+}
+/**
+ * 래퍼를 SSR HTML에 넣어 `{@html}`의 첫/끝 노드를 클라이언트에서 옮기지 않는다.
+ * 기존 래퍼와 표의 명시 너비는 보존하고, colwidth만 남은 저장본만 복원한다.
+ */
+function wrapStaticTables(parent) {
+    let touched = false;
+    const wrapped = 'name' in parent && (getAttribute(parent, 'class') ?? '')
+        .split(/\s+/).includes('tableWrapper');
+    parent.children = parent.children.map((node) => {
+        if (node.type !== 'element')
+            return node;
+        touched = wrapStaticTables(node) || touched;
+        if (node.name !== 'table')
+            return node;
+        touched = restoreStaticTableColumns(node) || touched;
+        if (wrapped)
+            return node;
+        touched = true;
+        return staticElement('div', { class: 'tableWrapper' }, [node]);
+    });
+    return touched;
+}
+function restoreStaticTableColumns(table) {
+    const style = getAttribute(table, 'style') ?? '';
+    const width = /(?:^|;)\s*width\s*:\s*([^;]+)/i.exec(style)?.[1]?.trim();
+    const hasWidth = !!width && !/^(?:auto|initial|inherit|unset)$/i.test(width);
+    if (table.children.some((node) => node.type === 'element' && node.name === 'colgroup'))
+        return false;
+    let row;
+    for (const child of table.children) {
+        if (child.type !== 'element')
+            continue;
+        if (child.name === 'tr')
+            row = child;
+        else if (['thead', 'tbody', 'tfoot'].includes(child.name)) {
+            row = child.children.find((node) => node.type === 'element' && node.name === 'tr');
+        }
+        if (row)
+            break;
+    }
+    if (!row)
+        return false;
+    const widths = [];
+    for (const cell of row.children) {
+        if (cell.type !== 'element' || !['th', 'td'].includes(cell.name))
+            continue;
+        const span = Number(getAttribute(cell, 'colspan') ?? '1');
+        const saved = (getAttribute(cell, 'colwidth') ?? '').split(',').map((value) => value.trim());
+        if (!Number.isInteger(span) || span < 1 || saved.length !== span ||
+            saved.some((value) => !/^\d+(?:\.\d+)?$/.test(value) || !Number.isFinite(Number(value)) || Number(value) <= 0)) {
+            return false;
+        }
+        widths.push(...saved.map(Number));
+    }
+    if (!widths.length)
+        return false;
+    const total = widths.reduce((sum, value) => sum + value, 0);
+    if (!Number.isFinite(total))
+        return false;
+    if (!hasWidth) {
+        const remainingStyle = style.replace(/(?:^|;)\s*width\s*:\s*[^;]+/gi, '').trim();
+        setAttribute(table, 'style', `${remainingStyle}${remainingStyle && !remainingStyle.endsWith(';') ? ';' : ''}width:${total}px`);
+    }
+    table.children.unshift(staticElement('colgroup', {}, widths.map((value) => staticElement('col', { style: `width:${hasWidth ? `${value / total * 100}%` : `${value}px`}` }, []))));
+    return true;
+}
+function staticElement(name, attrs, children) {
+    return {
+        type: 'element', name, rawName: name,
+        attrs: Object.entries(attrs).map(([key, value]) => ({ name: key, rawName: key, value })),
+        rawTag: `<${name}>`, endTag: name === 'col' ? '' : `</${name}>`,
+        selfClosing: false, dirty: true, children
+    };
 }
 /** 모든 요소를 문서 순서로 방문한다. 방문 중 바꾼 자식(`raw` 주입)은 더 내려가지 않는다. */
 function walkElements(root, visit) {

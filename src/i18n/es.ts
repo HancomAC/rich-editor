@@ -129,6 +129,9 @@ export const es: EditorMessages = {
 	imageUrlTitle: 'Introduce la URL de la imagen',
 
 	tableEdit: 'Editar tabla',
+	scrollTable: 'Desplazar tabla horizontalmente',
+	scrollTableLeft: 'Desplazar tabla a la izquierda',
+	scrollTableRight: 'Desplazar tabla a la derecha',
 	rowAddAbove: 'Añadir fila arriba',
 	rowAddBelow: 'Añadir fila abajo',
 	colAddLeft: 'Añadir columna a la izquierda',

@@ -260,4 +260,37 @@ describe('Math extension', () => {
             expect(editor.getHTML()).toBe('<p></p>');
         });
     });
+    describe('기존 수식 삭제', () => {
+        it.each(['math-inline', 'math-display'])('%s 편집에서 빈 값으로 확인하면 해당 수식만 지우고 실행 취소로 복구한다', async (tag) => {
+            const target = `<${tag} class="math-node">a^2</${tag}>`;
+            const other = `<${tag} class="math-node">b^2</${tag}>`;
+            const content = tag === 'math-inline'
+                ? `<p>before ${target} between ${other} after</p>`
+                : `<p>before</p>${target}${other}<p>after</p>`;
+            createEditor(content, async () => ({ latex: '' }));
+            const original = editor.getHTML();
+            editor.view.dom.querySelector(tag)?.dispatchEvent(new MouseEvent('click'));
+            await flush();
+            expect(editor.getHTML()).toBe(original.replace(target, ''));
+            expect(editor.commands.undo()).toBe(true);
+            expect(editor.getHTML()).toBe(original);
+        });
+        it('편집을 취소하면 수식과 주변 내용을 보존한다', async () => {
+            createEditor('<p>before</p><math-display class="math-node">a^2</math-display><p>after</p>', async () => null);
+            const original = editor.getHTML();
+            editor.view.dom.querySelector('math-display')?.dispatchEvent(new MouseEvent('click'));
+            await flush();
+            expect(editor.getHTML()).toBe(original);
+        });
+        it('방금 삽입한 수식을 삭제해도 한 번의 실행 취소로 삭제 직전 내용을 복구한다', async () => {
+            createEditor('<p></p>', async () => ({ latex: '' }));
+            editor.commands.insertContent('<math-display class="math-node">a^2</math-display><p>after</p>');
+            const beforeDelete = editor.getHTML();
+            editor.view.dom.querySelector('math-display')?.dispatchEvent(new MouseEvent('click'));
+            await flush();
+            expect(editor.getHTML()).not.toContain('<math-display');
+            expect(editor.commands.undo()).toBe(true);
+            expect(editor.getHTML()).toBe(beforeDelete);
+        });
+    });
 });
