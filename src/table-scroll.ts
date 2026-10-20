@@ -34,7 +34,7 @@ const css = `
 .hce-table-scroll-dock {
 	position: fixed; display: flex; align-items: center; box-sizing: border-box;
 	height: 32px; padding: 1px 3px; gap: 4px; border: 1px solid var(--border, var(--color-line, #dce1e7));
-	border-radius: 7px; background: var(--hce-menu-surface, var(--background, var(--wh-100, #fff)));
+	border-radius: 7px; background: var(--background, var(--wh-100, #fff));
 	color: var(--muted-foreground, var(--gray-500, #64748b)); box-shadow: 0 1px 4px #00000014;
 	font: inherit; pointer-events: auto; direction: ltr;
 }
@@ -51,8 +51,34 @@ const css = `
 .hce-table-scroll-dock button:disabled { opacity: .3; cursor: default; }
 .hce-table-scroll-dock input {
 	flex: 1 1 auto; width: 0; min-width: 0; height: 28px; padding: 0; margin: 0;
-	accent-color: var(--primary, var(--primary-500, #6366f1)); cursor: ew-resize;
+	-webkit-appearance: none; appearance: none; border: 0; background: transparent;
+	box-shadow: none; cursor: ew-resize;
 }
+.hce-table-scroll-dock input::-webkit-slider-runnable-track {
+	height: 4px; border: 0; border-radius: 999px; box-shadow: none;
+	background: var(--muted, var(--border, var(--color-line, #dce1e7)));
+}
+.hce-table-scroll-dock input::-webkit-slider-thumb {
+	-webkit-appearance: none; appearance: none; width: 28px; height: 8px; margin-top: -2px;
+	border: 0; border-radius: 999px; box-shadow: none;
+	background: var(--muted-foreground, var(--gray-500, #64748b));
+}
+.hce-table-scroll-dock input::-moz-range-track,
+.hce-table-scroll-dock input::-moz-range-progress {
+	height: 4px; border: 0; border-radius: 999px; box-shadow: none;
+	background: var(--muted, var(--border, var(--color-line, #dce1e7)));
+}
+.hce-table-scroll-dock input::-moz-range-thumb {
+	width: 28px; height: 8px; border: 0; border-radius: 999px; box-shadow: none;
+	background: var(--muted-foreground, var(--gray-500, #64748b));
+}
+.hce-table-scroll-dock input:hover:not(:disabled)::-webkit-slider-thumb {
+	background: var(--foreground, var(--gray-900, #1e293b));
+}
+.hce-table-scroll-dock input:hover:not(:disabled)::-moz-range-thumb {
+	background: var(--foreground, var(--gray-900, #1e293b));
+}
+.hce-table-scroll-dock input:disabled { opacity: .3; cursor: default; }
 .hce-table-scroll-dock :is(button, input):focus-visible {
 	outline: 2px solid var(--primary, var(--primary-500, #6366f1)); outline-offset: 1px;
 }
