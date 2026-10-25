@@ -110,6 +110,10 @@ export function attachTableScrollControls(root, options = {}) {
     headerProbe.setAttribute('aria-hidden', 'true');
     headerProbe.style.cssText = 'position:fixed;top:var(--header-height,0px);left:0;width:0;height:0;visibility:hidden;pointer-events:none';
     document.body.appendChild(headerProbe);
+    // A transformed portal (a centered dialog) is the containing block of fixed descendants.
+    const originProbe = document.createElement('span');
+    originProbe.setAttribute('aria-hidden', 'true');
+    originProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none';
     const controls = new Map();
     let disposed = false;
     let frame = 0;
@@ -315,6 +319,7 @@ export function attachTableScrollControls(root, options = {}) {
             if (Number.isFinite(zIndex))
                 layer = Math.max(layer, zIndex + 1);
         }
+        let origin;
         for (const control of controls.values()) {
             const { bar, wrapper, table } = control;
             const overflow = wrapper.scrollWidth - wrapper.clientWidth > 1;
@@ -327,6 +332,11 @@ export function attachTableScrollControls(root, options = {}) {
                 continue;
             if (bar.parentElement !== portal)
                 portal.appendChild(bar);
+            if (!origin) {
+                if (originProbe.parentElement !== portal)
+                    portal.appendChild(originProbe);
+                origin = originProbe.getBoundingClientRect();
+            }
             for (const token of themeTokens) {
                 const value = hostStyle.getPropertyValue(token);
                 if (value)
@@ -335,8 +345,8 @@ export function attachTableScrollControls(root, options = {}) {
                     bar.style.removeProperty(token);
             }
             bar.style.zIndex = String(layer);
-            bar.style.top = `${position.top}px`;
-            bar.style.left = `${position.left}px`;
+            bar.style.top = `${position.top - origin.top}px`;
+            bar.style.left = `${position.left - origin.left}px`;
             bar.style.width = `${position.width}px`;
             syncRange(control);
         }
@@ -369,6 +379,7 @@ export function attachTableScrollControls(root, options = {}) {
             removeControl(control);
         controls.clear();
         headerProbe.remove();
+        originProbe.remove();
         releaseStyle();
     };
 }

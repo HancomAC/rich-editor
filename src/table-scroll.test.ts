@@ -238,6 +238,27 @@ describe('persistent table scroll controls', () => {
 		expect(bar.querySelector('input')?.getAttribute('aria-label')).toBe('Scroll table');
 	});
 
+	it('offsets the dock by a transformed dialog that contains fixed descendants', () => {
+		const { root } = fixture();
+		const dialog = document.createElement('div');
+		dialog.setAttribute('role', 'dialog');
+		dialog.style.transform = 'translate(-50%, -50%)';
+		document.body.appendChild(dialog);
+		dialog.appendChild(root);
+		const rect = Element.prototype.getBoundingClientRect;
+		vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+			// The browser places a fixed probe at the transformed dialog's origin.
+			if (this.parentElement === dialog && this.tagName === 'SPAN') {
+				return { top: 60, left: 30, right: 30, bottom: 60, width: 0, height: 0, x: 30, y: 60, toJSON: () => ({}) };
+			}
+			return rect.call(this);
+		});
+		attach(root);
+		const bar = dialog.querySelector<HTMLElement>('.hce-table-scroll-dock')!;
+		expect(bar.style.left).toBe('10px');
+		expect(bar.style.width).toBe('300px');
+	});
+
 	it('hides the remaining table fragment when it is completely behind the host fixed header', () => {
 		const { root, table } = fixture();
 		root.style.setProperty('--header-height', '80px');
