@@ -60,6 +60,45 @@ describe('persistent table scroll controls', () => {
         flush();
         return cleanup;
     }
+    it('keeps roots without tables dormant on document scroll and window resize', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<p>A reader without tables</p>';
+        document.body.appendChild(root);
+        const addDocument = vi.spyOn(document, 'addEventListener');
+        const addWindow = vi.spyOn(window, 'addEventListener');
+        const computed = vi.spyOn(window, 'getComputedStyle');
+        attach(root);
+        expect(addDocument.mock.calls.filter(([type]) => type === 'scroll')).toHaveLength(0);
+        expect(addWindow.mock.calls.filter(([type]) => type === 'resize')).toHaveLength(0);
+        expect(document.querySelector('[data-hce-table-scroll-style]')).toBeNull();
+        expect(computed).not.toHaveBeenCalled();
+        document.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+        expect(frames.size).toBe(0);
+    });
+    it('activates for a later table and returns to dormancy when its last table is removed', async () => {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        attach(root);
+        const other = fixture();
+        root.appendChild(other.wrapper);
+        dimensions(root, 100, 40, 300, 1100);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).not.toBeNull();
+        root.replaceChildren();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).toBeNull();
+        expect(document.querySelector('[data-hce-table-scroll-style]')).toBeNull();
+        document.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+        expect(frames.size).toBe(0);
+        root.appendChild(other.wrapper);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).not.toBeNull();
+    });
     it.each([false, true])('shows without selection in editable=%s and leaves source table HTML intact', (editable) => {
         const { root, table } = fixture(editable);
         const original = table.outerHTML;

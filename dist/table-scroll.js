@@ -104,12 +104,11 @@ export function attachTableScrollControls(root, options = {}) {
     if (!window)
         return () => { };
     const labels = options.labels ?? defaultLabels;
-    const releaseStyle = retainStyle(document);
+    let releaseStyle;
     // Resolve host lengths (including rem/calc) outside the contenteditable DOM.
     const headerProbe = document.createElement('span');
     headerProbe.setAttribute('aria-hidden', 'true');
     headerProbe.style.cssText = 'position:fixed;top:var(--header-height,0px);left:0;width:0;height:0;visibility:hidden;pointer-events:none';
-    document.body.appendChild(headerProbe);
     // A transformed portal (a centered dialog) is the containing block of fixed descendants.
     const originProbe = document.createElement('span');
     originProbe.setAttribute('aria-hidden', 'true');
@@ -118,6 +117,7 @@ export function attachTableScrollControls(root, options = {}) {
     let disposed = false;
     let frame = 0;
     let needsScan = true;
+    let active = false;
     const viewport = window.visualViewport;
     const ancestors = [];
     for (let ancestor = root.parentElement; ancestor; ancestor = ancestor.parentElement) {
@@ -129,9 +129,47 @@ export function attachTableScrollControls(root, options = {}) {
         frame = window.requestAnimationFrame(update);
     }
     const resizeObserver = new window.ResizeObserver(schedule);
-    resizeObserver.observe(root);
-    for (const ancestor of ancestors)
-        resizeObserver.observe(ancestor);
+    function observeContent() {
+        mutationObserver.observe(root, {
+            childList: true, subtree: true, attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'colspan', 'rowspan', 'width', 'contenteditable']
+        });
+    }
+    function setActive(next) {
+        if (active === next)
+            return;
+        active = next;
+        if (active) {
+            releaseStyle = retainStyle(document);
+            document.body.appendChild(headerProbe);
+            resizeObserver.observe(root);
+            for (const ancestor of ancestors) {
+                resizeObserver.observe(ancestor);
+                mutationObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
+            }
+            for (const control of controls.values()) {
+                resizeObserver.observe(control.table);
+                resizeObserver.observe(control.wrapper);
+            }
+            document.addEventListener('scroll', schedule, true);
+            window.addEventListener('resize', schedule);
+            viewport?.addEventListener('resize', schedule);
+            viewport?.addEventListener('scroll', schedule);
+        }
+        else {
+            resizeObserver.disconnect();
+            mutationObserver.disconnect();
+            observeContent();
+            document.removeEventListener('scroll', schedule, true);
+            window.removeEventListener('resize', schedule);
+            viewport?.removeEventListener('resize', schedule);
+            viewport?.removeEventListener('scroll', schedule);
+            headerProbe.remove();
+            originProbe.remove();
+            releaseStyle?.();
+            releaseStyle = undefined;
+        }
+    }
     function setScroll(control, value) {
         const maximum = Math.max(0, control.wrapper.scrollWidth - control.wrapper.clientWidth);
         control.wrapper.scrollLeft = clampTableScroll(value, maximum);
@@ -231,8 +269,10 @@ export function attachTableScrollControls(root, options = {}) {
                 event.preventDefault();
         });
         owners.set(bar, root);
-        resizeObserver.observe(table);
-        resizeObserver.observe(wrapper);
+        if (active) {
+            resizeObserver.observe(table);
+            resizeObserver.observe(wrapper);
+        }
         return control;
     }
     function removeControl(control) {
@@ -277,6 +317,7 @@ export function attachTableScrollControls(root, options = {}) {
             }
             controls.set(table, makeControl(table, wrapper, ownWrapper));
         }
+        setActive(controls.size > 0);
     }
     function visibleFrame(wrapper, headerHeight) {
         const viewportTop = viewport?.offsetTop ?? 0;
@@ -305,6 +346,8 @@ export function attachTableScrollControls(root, options = {}) {
             return;
         if (needsScan)
             scan();
+        if (!controls.size)
+            return;
         const portal = root.closest('dialog[open], [role="dialog"]') ?? document.body;
         const hostStyle = window.getComputedStyle(root);
         const headerToken = hostStyle.getPropertyValue('--header-height');
@@ -352,17 +395,7 @@ export function attachTableScrollControls(root, options = {}) {
         }
     }
     const mutationObserver = new window.MutationObserver(() => { needsScan = true; schedule(); });
-    mutationObserver.observe(root, {
-        childList: true, subtree: true, attributes: true,
-        attributeFilter: ['class', 'style', 'hidden', 'colspan', 'rowspan', 'width', 'contenteditable']
-    });
-    for (const ancestor of ancestors) {
-        mutationObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
-    }
-    document.addEventListener('scroll', schedule, true);
-    window.addEventListener('resize', schedule);
-    viewport?.addEventListener('resize', schedule);
-    viewport?.addEventListener('scroll', schedule);
+    observeContent();
     schedule();
     return () => {
         if (disposed)
@@ -380,6 +413,6 @@ export function attachTableScrollControls(root, options = {}) {
         controls.clear();
         headerProbe.remove();
         originProbe.remove();
-        releaseStyle();
+        releaseStyle?.();
     };
 }
