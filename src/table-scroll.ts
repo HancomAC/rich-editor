@@ -26,6 +26,77 @@ const themeTokens = [
 	'--primary-500', '--color-line'
 ];
 
+type ScrollSubscriber = {
+	update: () => void;
+	invalidate: () => void;
+	affectsScroll: (target: EventTarget | null) => boolean;
+};
+
+// A document can contain many independent static readers. They share one set
+// of viewport listeners and one frame, while each root retains its own theme.
+const schedulers = new WeakMap<Window, ReturnType<typeof createScheduler>>();
+function createScheduler(window: Window) {
+	const subscribers = new Set<ScrollSubscriber>();
+	const pending = new Set<() => void>();
+	const viewport = window.visualViewport;
+	let frame = 0;
+	const schedule = (update: () => void) => {
+		pending.add(update);
+		if (frame) return;
+		frame = window.requestAnimationFrame(() => {
+			frame = 0;
+			const jobs = [...pending];
+			pending.clear();
+			for (const job of jobs) job();
+		});
+	};
+	const cancel = (update: () => void) => {
+		pending.delete(update);
+		if (!pending.size && frame) {
+			window.cancelAnimationFrame(frame);
+			frame = 0;
+		}
+	};
+	const scroll = (event: Event) => {
+		for (const subscriber of subscribers) {
+			if (subscriber.affectsScroll(event.target)) schedule(subscriber.update);
+		}
+	};
+	const resize = () => {
+		for (const subscriber of subscribers) {
+			subscriber.invalidate();
+		}
+	};
+	return {
+		schedule, cancel,
+		subscribe(subscriber: ScrollSubscriber) {
+			if (!subscribers.size) {
+				window.document.addEventListener('scroll', scroll, true);
+				window.addEventListener('resize', resize);
+				viewport?.addEventListener('resize', resize);
+				viewport?.addEventListener('scroll', scroll);
+			}
+			subscribers.add(subscriber);
+			return () => {
+				subscribers.delete(subscriber);
+				cancel(subscriber.update);
+				if (subscribers.size) return;
+				window.document.removeEventListener('scroll', scroll, true);
+				window.removeEventListener('resize', resize);
+				viewport?.removeEventListener('resize', resize);
+				viewport?.removeEventListener('scroll', scroll);
+			};
+		}
+	};
+}
+
+function parentElement(element: HTMLElement): HTMLElement | null {
+	if (element.parentElement) return element.parentElement;
+	// CSS inheritance and clipping continue through shadow-host boundaries.
+	const root = element.getRootNode();
+	return 'host' in root ? (root as ShadowRoot).host as HTMLElement : null;
+}
+
 const css = `
 .tableWrapper[${nativeScrollbarAttribute}] { scrollbar-width: none !important; }
 .tableWrapper[${nativeScrollbarAttribute}]::-webkit-scrollbar {
@@ -119,6 +190,10 @@ interface TableControl {
 	range: HTMLInputElement;
 	gutter?: { value: string; priority: string; applied: string };
 	nativeScrollbar?: { value: string | null };
+	clips?: { element: HTMLElement; x: boolean; y: boolean }[];
+	visible?: boolean;
+	themeRevision?: number;
+	position?: string;
 }
 
 /**
@@ -132,35 +207,88 @@ export function attachTableScrollControls(
 	const document = root.ownerDocument;
 	const window = document.defaultView;
 	if (!window) return () => {};
+	let scheduler = schedulers.get(window);
+	if (!scheduler) schedulers.set(window, scheduler = createScheduler(window));
 	const labels = options.labels ?? defaultLabels;
-	const releaseStyle = retainStyle(document);
+	let releaseStyle: (() => void) | undefined;
 	// Resolve host lengths (including rem/calc) outside the contenteditable DOM.
 	const headerProbe = document.createElement('span');
 	headerProbe.setAttribute('aria-hidden', 'true');
 	headerProbe.style.cssText = 'position:fixed;top:var(--header-height,0px);left:0;width:0;height:0;visibility:hidden;pointer-events:none';
-	document.body.appendChild(headerProbe);
 	// A transformed portal (a centered dialog) is the containing block of fixed descendants.
 	const originProbe = document.createElement('span');
 	originProbe.setAttribute('aria-hidden', 'true');
 	originProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none';
 	const controls = new Map<HTMLTableElement, TableControl>();
 	let disposed = false;
-	let frame = 0;
 	let needsScan = true;
+	let active = false;
+	let unsubscribe: (() => void) | undefined;
+	let layoutDirty = true;
+	let layoutRevision = 0;
+	let portal: HTMLElement = document.body;
+	let headerHeight = 0;
+	let headerToken = '';
+	let layer = 100;
+	let themeValues: string[] = [];
 	const viewport = window.visualViewport;
-	const ancestors: HTMLElement[] = [];
-	for (let ancestor = root.parentElement; ancestor; ancestor = ancestor.parentElement) {
-		ancestors.push(ancestor);
+	let ancestors = getAncestors();
+	function getAncestors() {
+		const result: HTMLElement[] = [];
+		for (let ancestor = parentElement(root); ancestor; ancestor = parentElement(ancestor)) result.push(ancestor);
+		return result;
 	}
 
 	function schedule() {
-		if (disposed || frame) return;
-		frame = window!.requestAnimationFrame(update);
+		if (!disposed) scheduler!.schedule(update);
+	}
+	function invalidate() {
+		layoutDirty = true;
+		schedule();
 	}
 
-	const resizeObserver = new window.ResizeObserver(schedule);
-	resizeObserver.observe(root);
-	for (const ancestor of ancestors) resizeObserver.observe(ancestor);
+	const resizeObserver = new window.ResizeObserver(invalidate);
+	function observeContent() {
+		mutationObserver.observe(root, {
+			childList: true, subtree: true, attributes: true,
+		});
+	}
+	function observeLayout() {
+		resizeObserver.observe(root);
+		for (const ancestor of ancestors) {
+			resizeObserver.observe(ancestor);
+			mutationObserver.observe(ancestor, { attributes: true });
+		}
+		for (const control of controls.values()) {
+			resizeObserver.observe(control.table);
+			resizeObserver.observe(control.wrapper);
+		}
+	}
+
+	function setActive(next: boolean) {
+		if (active === next) return;
+		active = next;
+		layoutDirty = true;
+		if (active) {
+			releaseStyle = retainStyle(document);
+			document.body.appendChild(headerProbe);
+			observeLayout();
+			unsubscribe = scheduler!.subscribe({
+				update, invalidate,
+				affectsScroll: (target) => !(target instanceof window!.Element) || root.contains(target) || ancestors.includes(target as HTMLElement)
+			});
+		} else {
+			resizeObserver.disconnect();
+			mutationObserver.disconnect();
+			observeContent();
+			unsubscribe?.();
+			unsubscribe = undefined;
+			headerProbe.remove();
+			originProbe.remove();
+			releaseStyle?.();
+			releaseStyle = undefined;
+		}
+	}
 
 	function setScroll(control: TableControl, value: number) {
 		const maximum = Math.max(0, control.wrapper.scrollWidth - control.wrapper.clientWidth);
@@ -172,11 +300,12 @@ export function attachTableScrollControls(
 	function syncRange(control: TableControl) {
 		const maximum = Math.max(0, control.wrapper.scrollWidth - control.wrapper.clientWidth);
 		const value = clampTableScroll(control.wrapper.scrollLeft, maximum);
-		control.range.max = String(maximum);
-		control.range.value = String(value);
-		control.range.setAttribute('aria-valuetext', `${Math.round(maximum ? value / maximum * 100 : 0)}%`);
-		control.left.disabled = value <= 1;
-		control.right.disabled = value >= maximum - 1;
+		if (control.range.max !== String(maximum)) control.range.max = String(maximum);
+		if (control.range.value !== String(value)) control.range.value = String(value);
+		const text = `${Math.round(maximum ? value / maximum * 100 : 0)}%`;
+		if (control.range.getAttribute('aria-valuetext') !== text) control.range.setAttribute('aria-valuetext', text);
+		if (control.left.disabled !== (value <= 1)) control.left.disabled = value <= 1;
+		if (control.right.disabled !== (value >= maximum - 1)) control.right.disabled = value >= maximum - 1;
 	}
 
 	function restoreGutter(control: TableControl) {
@@ -259,8 +388,10 @@ export function attachTableScrollControls(
 			if ((event.target as Element).closest('button')) event.preventDefault();
 		});
 		owners.set(bar, root);
-		resizeObserver.observe(table);
-		resizeObserver.observe(wrapper);
+		if (active) {
+			resizeObserver.observe(table);
+			resizeObserver.observe(wrapper);
+		}
 		return control;
 	}
 
@@ -281,6 +412,7 @@ export function attachTableScrollControls(
 
 	function scan() {
 		needsScan = false;
+		layoutDirty = true;
 		for (const [table, control] of controls) {
 			if (!root.contains(table) || table.parentElement !== control.wrapper) {
 				removeControl(control);
@@ -304,9 +436,48 @@ export function attachTableScrollControls(
 			}
 			controls.set(table, makeControl(table, wrapper, ownWrapper));
 		}
+		setActive(controls.size > 0);
 	}
 
-	function visibleFrame(wrapper: HTMLElement, headerHeight: number): TableMenuRect {
+	function refreshLayout() {
+		// Keep only primitive CSS values between frames. A CSSStyleDeclaration is
+		// live: retaining it would still force style resolution during every scroll.
+		const styles = new Map<HTMLElement, CSSStyleDeclaration>();
+		const styleOf = (element: HTMLElement) => {
+			let value = styles.get(element);
+			if (!value) styles.set(element, value = window!.getComputedStyle(element));
+			return value;
+		};
+		const hostStyle = styleOf(root);
+		const nextHeaderToken = hostStyle.getPropertyValue('--header-height');
+		if (nextHeaderToken !== headerToken) {
+			headerToken = nextHeaderToken;
+			if (headerToken) headerProbe.style.setProperty('--header-height', headerToken);
+			else headerProbe.style.removeProperty('--header-height');
+		}
+		headerHeight = parseFloat(window!.getComputedStyle(headerProbe).top) || 0;
+		layer = parseFloat(hostStyle.getPropertyValue('--hce-menu-z')) || 100;
+		for (const ancestor of ancestors) {
+			const zIndex = parseFloat(styleOf(ancestor).zIndex);
+			if (Number.isFinite(zIndex)) layer = Math.max(layer, zIndex + 1);
+		}
+		themeValues = themeTokens.map((token) => hostStyle.getPropertyValue(token));
+		portal = [root, ...ancestors].find((element) => element.matches('dialog[open], [role="dialog"]')) ?? document.body;
+		for (const control of controls.values()) {
+			control.visible = styleOf(control.table).visibility !== 'hidden';
+			control.clips = [];
+			for (let ancestor = parentElement(control.wrapper); ancestor && ancestor !== document.body; ancestor = parentElement(ancestor)) {
+				const style = styleOf(ancestor);
+				const x = /auto|scroll|hidden|clip/.test(style.overflowX);
+				const y = /auto|scroll|hidden|clip/.test(style.overflowY);
+				if (x || y) control.clips.push({ element: ancestor, x, y });
+			}
+		}
+		layoutRevision++;
+		layoutDirty = false;
+	}
+
+	function visibleFrame(control: TableControl, rectOf: (element: HTMLElement) => DOMRect): TableMenuRect {
 		const viewportTop = viewport?.offsetTop ?? 0;
 		const viewportLeft = viewport?.offsetLeft ?? 0;
 		let bounds: TableMenuRect = {
@@ -315,90 +486,102 @@ export function attachTableScrollControls(
 			right: viewportLeft + (viewport?.width ?? window!.innerWidth) - 4,
 			bottom: viewportTop + (viewport?.height ?? window!.innerHeight) - 4
 		};
-		bounds = intersectTableMenuRect(bounds, wrapper.getBoundingClientRect());
-		bounds = intersectTableMenuRect(bounds, root.getBoundingClientRect(), { x: true, y: false });
-		for (let ancestor = wrapper.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
-			const style = window!.getComputedStyle(ancestor);
-			bounds = intersectTableMenuRect(bounds, ancestor.getBoundingClientRect(), {
-				x: /auto|scroll|hidden|clip/.test(style.overflowX),
-				y: /auto|scroll|hidden|clip/.test(style.overflowY)
-			});
-		}
+		bounds = intersectTableMenuRect(bounds, rectOf(control.wrapper));
+		bounds = intersectTableMenuRect(bounds, rectOf(root), { x: true, y: false });
+		for (const clip of control.clips ?? []) bounds = intersectTableMenuRect(bounds, rectOf(clip.element), clip);
 		bounds.top = Math.max(bounds.top, headerHeight + 4);
 		return bounds;
 	}
 
 	function update() {
-		frame = 0;
 		if (disposed) return;
 		if (needsScan) scan();
-		const portal = root.closest('dialog[open], [role="dialog"]') ?? document.body;
-		const hostStyle = window!.getComputedStyle(root);
-		const headerToken = hostStyle.getPropertyValue('--header-height');
-		if (headerToken) headerProbe.style.setProperty('--header-height', headerToken);
-		else headerProbe.style.removeProperty('--header-height');
-		const headerHeight = parseFloat(window!.getComputedStyle(headerProbe).top) || 0;
-		let layer = parseFloat(hostStyle.getPropertyValue('--hce-menu-z')) || 100;
-		for (const ancestor of ancestors) {
-			const zIndex = parseFloat(window!.getComputedStyle(ancestor).zIndex);
-			if (Number.isFinite(zIndex)) layer = Math.max(layer, zIndex + 1);
+		if (!controls.size) return;
+		const nextAncestors = getAncestors();
+		if (nextAncestors.length !== ancestors.length || nextAncestors.some((node, index) => node !== ancestors[index])) {
+			ancestors = nextAncestors;
+			resizeObserver.disconnect();
+			mutationObserver.disconnect();
+			observeContent();
+			observeLayout();
+			layoutDirty = true;
 		}
-		let origin: { top: number; left: number } | undefined;
+		const overflowing: TableControl[] = [];
 		for (const control of controls.values()) {
-			const { bar, wrapper, table } = control;
-			const overflow = wrapper.scrollWidth - wrapper.clientWidth > 1;
+			const overflow = control.wrapper.scrollWidth - control.wrapper.clientWidth > 1;
 			updateGutter(control, overflow);
-			const position = overflow && root.isConnected && window!.getComputedStyle(table).visibility !== 'hidden'
-				? positionTableScrollControl(table.getBoundingClientRect(), visibleFrame(wrapper, headerHeight)) : null;
-			bar.hidden = !position;
+			if (overflow) overflowing.push(control);
+			else {
+				if (!control.bar.hidden) control.bar.hidden = true;
+				setNativeScrollbarHidden(control, false);
+			}
+		}
+		if (!overflowing.length) return;
+		if (layoutDirty) refreshLayout();
+		const rects = new Map<HTMLElement, DOMRect>();
+		const rectOf = (element: HTMLElement) => {
+			let value = rects.get(element);
+			if (!value) rects.set(element, value = element.getBoundingClientRect());
+			return value;
+		};
+		let origin: { top: number; left: number } | undefined;
+		for (const control of overflowing) {
+			const { bar, table } = control;
+			const position = root.isConnected && control.visible
+				? positionTableScrollControl(rectOf(table), visibleFrame(control, rectOf)) : null;
+			if (bar.hidden !== !position) bar.hidden = !position;
 			setNativeScrollbarHidden(control, !!position);
 			if (!position) continue;
 			if (bar.parentElement !== portal) portal.appendChild(bar);
 			if (!origin) {
 				if (originProbe.parentElement !== portal) portal.appendChild(originProbe);
-				origin = originProbe.getBoundingClientRect();
+				origin = rectOf(originProbe);
 			}
-			for (const token of themeTokens) {
-				const value = hostStyle.getPropertyValue(token);
-				if (value) bar.style.setProperty(token, value);
-				else bar.style.removeProperty(token);
+			if (control.themeRevision !== layoutRevision) {
+				for (const [index, token] of themeTokens.entries()) {
+					const value = themeValues[index];
+					if (value) bar.style.setProperty(token, value);
+					else bar.style.removeProperty(token);
+				}
+				bar.style.zIndex = String(layer);
+				control.themeRevision = layoutRevision;
 			}
-			bar.style.zIndex = String(layer);
-			bar.style.top = `${position.top - origin.top}px`;
-			bar.style.left = `${position.left - origin.left}px`;
-			bar.style.width = `${position.width}px`;
+			const top = position.top - origin.top;
+			const left = position.left - origin.left;
+			const key = `${top}|${left}|${position.width}`;
+			if (key !== control.position) {
+				bar.style.top = `${top}px`;
+				bar.style.left = `${left}px`;
+				bar.style.width = `${position.width}px`;
+				control.position = key;
+			}
 			syncRange(control);
 		}
 	}
 
-	const mutationObserver = new window.MutationObserver(() => { needsScan = true; schedule(); });
-	mutationObserver.observe(root, {
-		childList: true, subtree: true, attributes: true,
-		attributeFilter: ['class', 'style', 'hidden', 'colspan', 'rowspan', 'width', 'contenteditable']
+	const mutationObserver = new window.MutationObserver((records) => {
+		const relevant = records.filter(({ target }) => {
+			const element = target instanceof window.Element ? target : target.parentElement;
+			return element !== headerProbe && element !== originProbe && !isTableScrollControlTarget(root, element);
+		});
+		if (!relevant.length) return;
+		if (relevant.some((record) => record.type === 'childList' || (record.type === 'attributes' && ['class', 'contenteditable'].includes(record.attributeName ?? '')))) needsScan = true;
+		invalidate();
 	});
-	for (const ancestor of ancestors) {
-		mutationObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
-	}
-	document.addEventListener('scroll', schedule, true);
-	window.addEventListener('resize', schedule);
-	viewport?.addEventListener('resize', schedule);
-	viewport?.addEventListener('scroll', schedule);
+	observeContent();
 	schedule();
 
 	return () => {
 		if (disposed) return;
 		disposed = true;
-		window.cancelAnimationFrame(frame);
+		scheduler!.cancel(update);
 		mutationObserver.disconnect();
 		resizeObserver.disconnect();
-		document.removeEventListener('scroll', schedule, true);
-		window.removeEventListener('resize', schedule);
-		viewport?.removeEventListener('resize', schedule);
-		viewport?.removeEventListener('scroll', schedule);
+		unsubscribe?.();
 		for (const control of controls.values()) removeControl(control);
 		controls.clear();
 		headerProbe.remove();
 		originProbe.remove();
-		releaseStyle();
+		releaseStyle?.();
 	};
 }

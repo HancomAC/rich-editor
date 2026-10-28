@@ -60,6 +60,148 @@ describe('persistent table scroll controls', () => {
         flush();
         return cleanup;
     }
+    it('keeps roots without tables dormant on document scroll and window resize', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<p>A reader without tables</p>';
+        document.body.appendChild(root);
+        const addDocument = vi.spyOn(document, 'addEventListener');
+        const addWindow = vi.spyOn(window, 'addEventListener');
+        const computed = vi.spyOn(window, 'getComputedStyle');
+        attach(root);
+        expect(addDocument.mock.calls.filter(([type]) => type === 'scroll')).toHaveLength(0);
+        expect(addWindow.mock.calls.filter(([type]) => type === 'resize')).toHaveLength(0);
+        expect(document.querySelector('[data-hce-table-scroll-style]')).toBeNull();
+        expect(computed).not.toHaveBeenCalled();
+        document.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+        expect(frames.size).toBe(0);
+    });
+    it('activates for a later table and returns to dormancy when its last table is removed', async () => {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        attach(root);
+        const other = fixture();
+        root.appendChild(other.wrapper);
+        dimensions(root, 100, 40, 300, 1100);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).not.toBeNull();
+        root.replaceChildren();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).toBeNull();
+        expect(document.querySelector('[data-hce-table-scroll-style]')).toBeNull();
+        document.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+        expect(frames.size).toBe(0);
+        root.appendChild(other.wrapper);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        flush();
+        expect(document.querySelector('.hce-table-scroll-dock')).not.toBeNull();
+    });
+    async function settle() {
+        for (let index = 0; index < 3; index++) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            flush();
+        }
+    }
+    it('shares one document listener and one animation frame across active readers', () => {
+        const first = fixture();
+        const second = fixture();
+        const add = vi.spyOn(document, 'addEventListener');
+        const remove = vi.spyOn(document, 'removeEventListener');
+        const cleanupFirst = attach(first.root);
+        const cleanupSecond = attach(second.root);
+        expect(add.mock.calls.filter(([type]) => type === 'scroll')).toHaveLength(1);
+        for (let index = 0; index < 8; index++)
+            document.dispatchEvent(new Event('scroll'));
+        expect(frames.size).toBe(1);
+        cleanupFirst();
+        expect(remove.mock.calls.filter(([type]) => type === 'scroll')).toHaveLength(0);
+        cleanupSecond();
+        expect(remove.mock.calls.filter(([type]) => type === 'scroll')).toHaveLength(1);
+        expect(frames.size).toBe(0);
+    });
+    it('updates live geometry on scroll without recomputing styles or rewriting theme tokens', async () => {
+        const { root, table } = fixture();
+        root.style.setProperty('--background', 'rgb(1, 2, 3)');
+        attach(root);
+        await settle();
+        const computed = vi.spyOn(window, 'getComputedStyle');
+        const bar = document.querySelector('.hce-table-scroll-dock');
+        const write = vi.spyOn(bar.style, 'setProperty');
+        dimensions(table, -500, 40, 1200, 1100);
+        for (let index = 0; index < 8; index++)
+            document.dispatchEvent(new Event('scroll'));
+        flush();
+        expect(bar.style.top).toBe('604px');
+        expect(bar.hidden).toBe(false);
+        expect(bar.style.getPropertyValue('--background')).toBe('rgb(1, 2, 3)');
+        expect(computed).not.toHaveBeenCalled();
+        expect(write.mock.calls.filter(([name]) => name.startsWith('--'))).toHaveLength(0);
+    });
+    it('ignores scrolling in unrelated sibling panes', async () => {
+        const { root } = fixture();
+        attach(root);
+        await settle();
+        const sibling = document.createElement('div');
+        document.body.appendChild(sibling);
+        sibling.dispatchEvent(new Event('scroll', { bubbles: true }));
+        expect(frames.size).toBe(0);
+    });
+    it('refreshes inherited themes, clipping and header height after host attributes change', async () => {
+        const { root, table } = fixture();
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        host.appendChild(root);
+        root.className = 'reader';
+        const stylesheet = document.createElement('style');
+        stylesheet.textContent = '.night .reader { --background: rgb(4, 5, 6); --header-height: 140px; }';
+        document.head.appendChild(stylesheet);
+        cleanups.push(() => stylesheet.remove());
+        attach(root);
+        await settle();
+        host.className = 'night';
+        host.style.overflowX = 'hidden';
+        host.style.zIndex = '300';
+        dimensions(host, 0, 60, 220, 1200);
+        await settle();
+        const bar = document.querySelector('.hce-table-scroll-dock');
+        expect(bar.style.getPropertyValue('--background')).toBe('rgb(4, 5, 6)');
+        expect(bar.style.zIndex).toBe('301');
+        expect(bar.style.left).toBe('60px');
+        expect(bar.style.width).toBe('220px');
+        dimensions(table, -1000, 40, 1200, 1140);
+        document.dispatchEvent(new Event('scroll'));
+        flush();
+        expect(bar.hidden).toBe(true);
+    });
+    it('invalidates stylesheet-dependent layout on viewport resize', async () => {
+        const { root } = fixture();
+        attach(root);
+        await settle();
+        const computed = vi.spyOn(window, 'getComputedStyle');
+        window.dispatchEvent(new Event('resize'));
+        flush();
+        expect(computed).toHaveBeenCalledWith(root);
+    });
+    it('includes shadow-host clipping and invalidation', async () => {
+        const { root } = fixture();
+        const host = document.createElement('section');
+        host.style.overflowX = 'hidden';
+        dimensions(host, 0, 70, 200, 1200);
+        document.body.appendChild(host);
+        host.attachShadow({ mode: 'open' }).appendChild(root);
+        attach(root);
+        await settle();
+        const bar = document.querySelector('.hce-table-scroll-dock');
+        expect(bar.style.left).toBe('70px');
+        expect(bar.style.width).toBe('200px');
+        host.style.overflowX = 'visible';
+        await settle();
+        expect(bar.style.left).toBe('40px');
+        expect(bar.style.width).toBe('300px');
+    });
     it.each([false, true])('shows without selection in editable=%s and leaves source table HTML intact', (editable) => {
         const { root, table } = fixture(editable);
         const original = table.outerHTML;
